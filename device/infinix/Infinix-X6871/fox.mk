@@ -18,51 +18,45 @@
 # Please maintain this if you use this script or any part of it
 #
 
-# screen settings
-OF_SCREEN_H := 2400
-OF_STATUS_H := 95
+# screen settings (Infinix GT 20 Pro 1080x2436 AMOLED)
+OF_SCREEN_H := 2436
+OF_STATUS_H := 120
 OF_STATUS_INDENT_LEFT := 48
 OF_STATUS_INDENT_RIGHT := 48
 OF_ALLOW_DISABLE_NAVBAR := 0
 OF_CLOCK_POS := 1
 
-# other stuff
-OF_QUICK_BACKUP_LIST := /boot:/data
+# Flashlight (MediaTek OCP81375 torch driver)
+OF_FLASHLIGHT_ENABLE := 1
+OF_FL_PATH1 := "/flashlight"
+OF_USE_GREEN_LED := 0
+
+# Backup & Storage
+OF_QUICK_BACKUP_LIST := /boot;/data;
 OF_ENABLE_LPTOOLS := 1
+OF_ENABLE_ALL_PARTITION_TOOLS := 1
 OF_NO_TREBLE_COMPATIBILITY_CHECK := 1
 OF_DEFAULT_KEYMASTER_VERSION := 4.1
-
-# number of list options before scrollbar creation
 OF_OPTIONS_LIST_NUM := 9
-
-# ----- data format stuff -----
-# ensure that /sdcard is bind-unmounted before f2fs data repair or format
 OF_UNBIND_SDCARD_F2FS := 1
-
-# automatically wipe /metadata after data format
 OF_WIPE_METADATA_AFTER_DATAFORMAT := 1
-
-# avoid MTP issues after data format
 OF_BIND_MOUNT_SDCARD_ON_FORMAT := 1
-
-# don't spam the console with loop errors
 OF_LOOP_DEVICE_ERRORS_TO_LOG := 1
-
-# lz4 compression
 OF_USE_LZ4_COMPRESSION := 1
-
-# build all the partition tools
-OF_ENABLE_ALL_PARTITION_TOOLS := 1
-
-# variant
 OF_MAINTAINER := withmehraan
 
-# Flashlight
-OF_FLASHLIGHT_ENABLE := 1
-OF_FLASHLIGHT_PATH := "/sys/class/torch/torch/torch_level"
-
-# LED & Patches
-OF_USE_GREEN_LED := 0
+# Magisk & AVB
 OF_USE_MAGISKBOOT := 1
 OF_USE_MAGISKBOOT_FOR_ALL_PATCHES := 1
 OF_PATCH_AVB20 := 1
+OF_SUPPORT_ALL_BLOCK_OTA_UPDATES := 1
+OF_FIX_OTA_UPDATE_MANUAL_FLASHING := 1
+
+# Advanced Security & Decryption
+OF_ADVANCED_SECURITY := 1
+OF_USE_TWRP_SAR_DETECT := 1
+OF_SUPPORT_OZIP_DECRYPTION := 1
+OF_FBE_METADATA_MOUNT_IGNORE := 1
+OF_SKIP_DECRYPTED_ADOPTED_STORAGE := 1
+OF_SPLASH_MAX_SIZE := 8388608
+

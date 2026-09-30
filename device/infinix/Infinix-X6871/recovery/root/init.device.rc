@@ -1,5 +1,25 @@
+on init
+    # Flashlight hardware bridge for OrangeFox GUI
+    mkdir /flashlight 0777 root root
+    symlink /sys/class/torch/torch/torch_level /flashlight/brightness
+    chmod 0666 /sys/class/torch/torch/torch_level
+    chmod 0666 /sys/class/sub_torch/sub_torch/sub_torch_level
+    chmod 0666 /sys/devices/virtual/torch/torch/torch_level
+    chmod 0666 /sys/devices/virtual/flashlight_core/flashlight/flashlight_torch
+
 on boot
     # Infinix GT 20 Pro (X6871) Specific Hardware Controls
     chmod 0666 /sys/class/leds/vibrator_single/activate
     chmod 0666 /sys/class/leds/vibrator_single/duration
     chmod 0666 /sys/class/leds/vibrator_single/state
+    chmod 0666 /sys/class/leds/vibrator_single/vibr_level
+    chmod 0666 /sys/class/leds/vibrator_single/brightness
+    chmod 0666 /sys/class/leds/vibrator_single/gain
+    chmod 0666 /sys/class/leds/vibrator_single/index
+    chmod 0666 /sys/class/leds/vibrator_single/vmax
+
+    # Thermal zone node permissions
+    chmod 0444 /sys/class/thermal/thermal_zone0/temp
+    chmod 0444 /sys/class/thermal/thermal_zone1/temp
+    chmod 0444 /sys/class/thermal/thermal_zone46/temp
+

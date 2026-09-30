@@ -159,8 +159,20 @@ TW_CUSTOM_CPU_POS := 300
 TW_CUSTOM_CLOCK_POS := 70
 TW_CUSTOM_BATTERY_POS := 790
 
+# Thermals / CPU Temperature (MT6895 soc_max)
+TW_CUSTOM_CPU_TEMP_PATH := "/sys/class/thermal/thermal_zone0/temp"
+TW_CPU_TEMP_PATH := "/sys/class/thermal/thermal_zone0/temp"
+
+# Haptics & Vibration
+TW_SUPPORT_INPUT_1_2_HAPTICS := true
+TW_USE_LEDS_HAPTICS := true
+
+# Display & Screen Offsets (1080x2436 AMOLED)
+TW_Y_OFFSET := 120
+TW_H_OFFSET := -120
+
 # Hack depends
 ALLOW_MISSING_DEPENDENCIES := true
 
-
 WITH_DEXPREOPT := false
+
