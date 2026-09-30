@@ -28,8 +28,9 @@ OF_CLOCK_POS := 1
 
 # Flashlight (MediaTek OCP81375 torch driver)
 OF_FLASHLIGHT_ENABLE := 1
-OF_FL_PATH1 := "/flashlight"
+OF_FL_PATH1 := /flashlight
 OF_USE_GREEN_LED := 0
+
 
 # Backup & Storage
 OF_QUICK_BACKUP_LIST := /boot;/data;
