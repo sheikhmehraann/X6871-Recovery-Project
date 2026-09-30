@@ -63,7 +63,6 @@ jobs:
           mkdir -p device/infinix device/transsion
           cp -r $GITHUB_WORKSPACE/device/infinix/Infinix-X6871 device/infinix/
           cp -r $GITHUB_WORKSPACE/device/transsion/mt6895-common device/transsion/
-          ln -sf Infinix-X6871 device/infinix/X6871
 
           if [ ! -d "external/gflags" ]; then
             echo "Cloning external/gflags..."
@@ -122,8 +121,16 @@ jobs:
           export CCACHE_EXEC=/usr/bin/ccache
           ccache -M 20G
 
+          set +e
           source build/envsetup.sh
           lunch twrp_X6871-eng
+          LUNCH_STATUS=$?
+          set -e
+          if [ $LUNCH_STATUS -ne 0 ]; then
+            echo "ERROR: lunch twrp_X6871-eng failed with exit code $LUNCH_STATUS"
+            exit 1
+          fi
+
           mka -j$(nproc) adbd vendorbootimage
 
       - name: Prepare Artifacts

@@ -76,3 +76,5 @@ if [ "$1" = "$FDEVICE" -o "$FOX_BUILD_DEVICE" = "$FDEVICE" ]; then
 	fi
 fi
 
+# Ensure clean return
+true
