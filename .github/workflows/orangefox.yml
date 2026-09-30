@@ -63,13 +63,18 @@ jobs:
           mkdir -p device/infinix device/transsion
           cp -r $GITHUB_WORKSPACE/device/infinix/Infinix-X6871 device/infinix/
           cp -r $GITHUB_WORKSPACE/device/transsion/mt6895-common device/transsion/
+          ln -sf Infinix-X6871 device/infinix/X6871
 
-          echo "Cloning external/gflags..."
-          git clone --depth=1 https://android.googlesource.com/platform/external/gflags/ -b android-12.1.0_r4 external/gflags
+          if [ ! -d "external/gflags" ]; then
+            echo "Cloning external/gflags..."
+            git clone --depth=1 https://android.googlesource.com/platform/external/gflags/ -b android-12.1.0_r4 external/gflags
+          fi
 
           echo "Applying Dexpreopt fix for minimal tree..."
           echo "WITH_DEXPREOPT := false" >> device/transsion/mt6895-common/BoardConfigCommon.mk
-          sed -i '/func shouldBuildBootImages(/a \\tif global.DisablePreoptBootImages { return false }' build/soong/java/dexpreopt_bootjars.go
+          if grep -q "func shouldBuildBootImages" build/soong/java/dexpreopt_bootjars.go 2>/dev/null; then
+            sed -i '/func shouldBuildBootImages(/a \\tif global.DisablePreoptBootImages { return false }' build/soong/java/dexpreopt_bootjars.go
+          fi
 
           echo "Applying Go Unit Test Runner Bypass..."
           if [ -f build/blueprint/gotestrunner/gotestrunner.go ]; then
@@ -125,12 +130,16 @@ jobs:
         run: |
           mkdir -p $GITHUB_WORKSPACE/output
           TARGET_DIR="$HOME/fox_12.1/out/target/product/Infinix-X6871"
+          if [ ! -d "$TARGET_DIR" ]; then
+            TARGET_DIR="$HOME/fox_12.1/out/target/product/X6871"
+          fi
+
           if [ -d "$TARGET_DIR" ]; then
-            cp -vf "$TARGET_DIR"/OrangeFox* $GITHUB_WORKSPACE/output/ || true
-            cp -vf "$TARGET_DIR"/vendor_boot.img $GITHUB_WORKSPACE/output/ || true
+            cp -vf "$TARGET_DIR"/OrangeFox* $GITHUB_WORKSPACE/output/ 2>/dev/null || true
+            cp -vf "$TARGET_DIR"/vendor_boot.img $GITHUB_WORKSPACE/output/ 2>/dev/null || true
             cd $GITHUB_WORKSPACE/output
-            sha256sum * > SHA256SUMS.txt
-            md5sum * > MD5SUMS.txt
+            sha256sum * > SHA256SUMS.txt 2>/dev/null || true
+            md5sum * > MD5SUMS.txt 2>/dev/null || true
           fi
           echo "Generated artifacts:"
           ls -lh $GITHUB_WORKSPACE/output/
