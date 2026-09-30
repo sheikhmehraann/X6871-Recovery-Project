@@ -77,15 +77,7 @@ jobs:
 
           echo "Applying Go Unit Test Runner Bypass..."
           if [ -f build/blueprint/gotestrunner/gotestrunner.go ]; then
-            cat << 'EOF' > build/blueprint/gotestrunner/gotestrunner.go
-          package main
-          import ("flag"; "os")
-          func main() {
-            out := flag.String("o", "", "")
-            flag.Parse()
-            if *out != "" { os.WriteFile(*out, []byte("ok"), 0644) }
-          }
-          EOF
+            cp -f $GITHUB_WORKSPACE/scripts/gotestrunner.go build/blueprint/gotestrunner/gotestrunner.go
           fi
 
           if [ -f build/blueprint/bootstrap/bootstrap.go ]; then
