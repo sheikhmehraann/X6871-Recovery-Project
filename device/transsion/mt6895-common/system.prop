@@ -8,12 +8,8 @@ ro.product.marketname=Infinix GT 20 Pro
 ro.board.platform=mt6895
 ro.hardware=mt6895
 ro.build.product=Infinix-X6871
-ro.build.flavor=X6871-user
 
 # OS & Platform
-ro.product.first_api_level=34
-ro.build.version.release=15
-ro.build.version.sdk=35
 ro.treble.enabled=true
 
 # Display & UI
