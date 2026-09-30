@@ -1,0 +1,5 @@
+on boot
+    # Infinix GT 20 Pro (X6871) Specific Hardware Controls
+    chmod 0666 /sys/class/leds/vibrator_single/activate
+    chmod 0666 /sys/class/leds/vibrator_single/duration
+    chmod 0666 /sys/class/leds/vibrator_single/state

@@ -1,0 +1,9 @@
+# Temporary and build artifacts
+*.pyc
+__pycache__/
+*.cpio
+*.tar
+*.bak
+*.tmp
+.DS_Store
+Thumbs.db

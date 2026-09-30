@@ -1,0 +1,60 @@
+# Android fstab file.
+# The filesystem that contains the filesystem checker binary (typically /system) cannot
+# specify MF_CHECK, and must come before any filesystems that do specify MF_CHECK
+
+# mount point		fs			device						device2			 device3			flags
+# User writeable partitions
+/boot				emmc		/dev/block/by-name/boot											flags=display=boot;slotselect;backup;flashimg
+/vendor_boot		emmc		/dev/block/by-name/vendor_boot									flags=display=vendor_boot;slotselect;backup;flashimg
+/vbmeta				emmc		/dev/block/by-name/vbmeta										flags=display=vbmeta;slotselect;backup;flashimg
+/vbmeta_system		emmc		/dev/block/by-name/vbmeta_system								flags=display=vbmeta_system;slotselect;backup;flashimg
+/vbmeta_vendor		emmc		/dev/block/by-name/vbmeta_vendor								flags=display=vbmeta_vendor;slotselect;backup;flashimg
+
+# Firmware
+/dtbo				emmc		/dev/block/by-name/dtbo											flags=display=dtbo;slotselect;backup
+/metadata			ext4		/dev/block/by-name/metadata										flags=display=metadata;backup
+/misc				emmc		/dev/block/by-name/misc											flags=display=misc;backup
+
+# Sensitive Data
+/nvcfg				ext4		/dev/block/by-name/nvcfg										flags=display=nvcfg;backup
+/persist_image		emmc		/dev/block/by-name/persist										flags=display=persist;backup
+/persistent			emmc		/dev/block/by-name/frp											flags=display=persistent;backup
+
+# IMEI and modem related
+/nvdata				ext4		/dev/block/by-name/nvdata										flags=display=nvdata;backup
+/protect_f			ext4		/dev/block/by-name/protect1										flags=display=protect_f;backup
+/protect_s			ext4		/dev/block/by-name/protect2										flags=display=protect_s;backup
+/nvram				emmc		/dev/block/by-name/nvram										flags=display=nvram;backup
+
+# Standard MediaTeks's partitions
+/expdb				emmc		/dev/block/by-name/expdb										flags=display=expdb
+/logo				emmc		/dev/block/by-name/logo											flags=display=logo;slotselect;backup
+/otp				emmc		/dev/block/by-name/otp											flags=display=otp
+/seccfg				emmc		/dev/block/by-name/seccfg										flags=display=seccfg
+/spmfw				emmc		/dev/block/by-name/spmfw										flags=display=spmfw;slotselect
+/tee1				emmc		/dev/block/by-name/tee1											flags=display=tee1
+/tee2				emmc		/dev/block/by-name/tee2											flags=display=tee2
+
+# Removable Storage
+/usb_otg			auto		/dev/block/sdd1				/dev/block/sdd			/dev/block/sda1		flags=display="USB-OTG";storage;wipeingui;removable;backup=0
+
+# Hardware & Firmware Partitions
+/super				emmc		/dev/block/by-name/super										flags=display="Super Image";backup;flashimg
+/md1img				emmc		/dev/block/by-name/md1img										flags=display="Modem (md1img)";backup;flashimg
+/proinfo			emmc		/dev/block/by-name/proinfo										flags=display=proinfo;backup
+/scp1				emmc		/dev/block/by-name/scp1											flags=display=scp;backup
+/sspm1				emmc		/dev/block/by-name/sspm1										flags=display=sspm;backup
+/dpm1				emmc		/dev/block/by-name/dpm1											flags=display=dpm;backup
+/mcupm1				emmc		/dev/block/by-name/mcupm1										flags=display=mcupm;backup
+/gz1				emmc		/dev/block/by-name/gz1											flags=display=gz;backup
+/vcp				emmc		/dev/block/by-name/vcp											flags=display=vcp;backup
+/gpueb				emmc		/dev/block/by-name/gpueb										flags=display=gpueb;backup
+/apusys1			emmc		/dev/block/by-name/apusys1										flags=display=apusys;backup
+/tranfs				ext4		/dev/block/by-name/tranfs										flags=display="TranFS";backup
+
+# Flashable logical partitions
+/system_image		emmc		/dev/block/bootdevice/by-name/system							flags=backup;flashimg
+/vendor_image		emmc		/dev/block/bootdevice/by-name/vendor							flags=backup;flashimg
+/system_ext_image	emmc		/dev/block/bootdevice/by-name/system_ext						flags=display="System_EXT Image";backup;flashimg
+/product_image		emmc		/dev/block/bootdevice/by-name/product							flags=display="Product Image";backup;flashimg
+/vendor_dlkm_image	emmc		/dev/block/bootdevice/by-name/vendor_dlkm						flags=display="VendorDLKM Image";backup;flashimg
