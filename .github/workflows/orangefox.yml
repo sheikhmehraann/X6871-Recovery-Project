@@ -1,0 +1,120 @@
+name: OrangeFox Recovery Build - Infinix X6871
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build OrangeFox Recovery (X6871)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Free Disk Space
+        run: |
+          echo "Freeing up runner disk space..."
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune -a -f || true
+          df -h
+
+      - name: Setup Swap Space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 12
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git-core gnupg flex bison build-essential zip curl zlib1g-dev \
+            libc6-dev-i386 libncurses5 x11proto-core-dev libx11-dev lib32z1-dev \
+            libgl1-mesa-dev libxml2 libxml2-utils xsltproc unzip fontconfig \
+            python3 python-is-python3 libssl-dev rsync bc liblz4-tool libncurses5-dev \
+            squashfs-tools libtinfo5 openjdk-11-jdk-headless
+
+      - name: Install Repo Tool
+        run: |
+          mkdir -p ~/.bin
+          curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/.bin/repo
+          chmod a+x ~/.bin/repo
+          sudo ln -sf ~/.bin/repo /usr/local/bin/repo
+
+      - name: Set Git Identity
+        run: |
+          git config --global user.name "sheikhmehraann"
+          git config --global user.email "mehraann.19@gmail.com"
+
+      - name: Sync OrangeFox Minimal Tree
+        run: |
+          mkdir -p $HOME/fox_12.1
+          cd $HOME/fox_12.1
+          git clone https://gitlab.com/OrangeFox/sync.git $HOME/OrangeFox_sync
+          cd $HOME/OrangeFox_sync
+          ./orangefox_sync.sh --branch 12.1 --path $HOME/fox_12.1
+
+      - name: Setup Device Trees & Patches
+        run: |
+          cd $HOME/fox_12.1
+
+          echo "Cloning Infinix-X6871 device tree..."
+          git clone https://github.com/RamaBP-Recovery-Project/twrp-device_infinix_Infinix-X6871 -b fox_12.1-tos15 device/infinix/Infinix-X6871
+
+          echo "Cloning mt6895-common tree..."
+          git clone https://github.com/RamaBP-Recovery-Project/twrp-device_transsion_mt6895-common -b fox_12.1-tos15 device/transsion/mt6895-common
+
+          echo "Cloning external/gflags..."
+          git clone https://android.googlesource.com/platform/external/gflags/ -b android-12.1.0_r4 external/gflags
+
+          echo "Applying Dexpreopt fix for minimal tree..."
+          echo "WITH_DEXPREOPT := false" >> device/transsion/mt6895-common/BoardConfigCommon.mk
+          sed -i '/func shouldBuildBootImages(/a \\tif global.DisablePreoptBootImages { return false }' build/soong/java/dexpreopt_bootjars.go
+
+      - name: Build OrangeFox Recovery Image
+        run: |
+          cd $HOME/fox_12.1
+          export FOX_BUILD_DEVICE=X6871
+          export ALLOW_MISSING_DEPENDENCIES=true
+          source build/envsetup.sh
+          lunch twrp_X6871-eng
+          mka vendorbootimage -j$(nproc)
+
+      - name: Prepare Artifacts
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/output
+          TARGET_DIR="$HOME/fox_12.1/out/target/product/Infinix-X6871"
+          if [ -d "$TARGET_DIR" ]; then
+            cp -vf "$TARGET_DIR"/OrangeFox* $GITHUB_WORKSPACE/output/ || true
+            cp -vf "$TARGET_DIR"/vendor_boot.img $GITHUB_WORKSPACE/output/ || true
+          fi
+          echo "Generated artifacts:"
+          ls -lh $GITHUB_WORKSPACE/output/
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: OrangeFox-X6871-Recovery
+          path: output/*
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: success()
+        with:
+          files: output/*
+          tag_name: build-${{ github.run_number }}
+          name: "OrangeFox Recovery - Infinix GT 20 Pro (X6871) #${{ github.run_number }}"
+          body: |
+            ## OrangeFox Recovery Unofficial — Infinix GT 20 Pro (X6871)
+            * **Target:** `vendor_boot.img` (Header v4)
+            * **Device:** Infinix GT 20 Pro (`X6871` / MediaTek Dimensity 8200)
+            * **Source Branch:** `fox_12.1-tos15`
+            * **Build Type:** Automated Cloud Build via GitHub Actions
+            * **Maintainer:** sheikhmehraann
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
