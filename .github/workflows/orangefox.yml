@@ -111,6 +111,9 @@ jobs:
           export ALLOW_MISSING_DEPENDENCIES=true
           export USE_CCACHE=1
           export CCACHE_EXEC=/usr/bin/ccache
+          export CCACHE_DIR=$HOME/fox_12.1/.ccache
+          export CCACHE_TEMPDIR=$HOME/fox_12.1/.ccache/tmp
+          mkdir -p $HOME/fox_12.1/.ccache/tmp
           ccache -M 20G
 
           set +e
