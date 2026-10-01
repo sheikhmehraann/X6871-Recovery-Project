@@ -70,7 +70,10 @@ def patch_flashlight(fox_root):
     if target in content and "/sys/class/torch/torch/torch_level" not in content:
         replacement = """bright_one = path_one + "/brightness";
 \t\t\tif (!TWFunc::Path_Exists(bright_one)) {
-\t\t\t\tif (TWFunc::Path_Exists("/sys/class/torch/torch/torch_level")) {
+\t\t\t\tif (TWFunc::Path_Exists(path_one)) {
+\t\t\t\t\tbright_one = path_one;
+\t\t\t\t\tmax_brt_one = "1";
+\t\t\t\t} else if (TWFunc::Path_Exists("/sys/class/torch/torch/torch_level")) {
 \t\t\t\t\tbright_one = "/sys/class/torch/torch/torch_level";
 \t\t\t\t\tmax_brt_one = "1";
 \t\t\t\t} else if (TWFunc::Path_Exists("/sys/class/sub_torch/sub_torch/sub_torch_level")) {

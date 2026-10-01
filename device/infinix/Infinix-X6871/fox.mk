@@ -20,7 +20,7 @@
 
 # screen settings (Infinix GT 20 Pro 1080x2436 AMOLED)
 OF_SCREEN_H := 2436
-OF_STATUS_H := 108
+OF_STATUS_H := 90
 OF_STATUS_INDENT_LEFT := 48
 OF_STATUS_INDENT_RIGHT := 48
 OF_ALLOW_DISABLE_NAVBAR := 0
@@ -28,7 +28,8 @@ OF_CLOCK_POS := 0
 
 # Flashlight (MediaTek OCP81375 torch driver)
 OF_FLASHLIGHT_ENABLE := 1
-OF_FL_PATH1 := /flashlight
+OF_FL_PATH1 := /sys/class/torch/torch/torch_level
+OF_FL_PATH2 := /flashlight/brightness
 OF_USE_GREEN_LED := 0
 
 
@@ -43,7 +44,7 @@ OF_UNBIND_SDCARD_F2FS := 1
 OF_WIPE_METADATA_AFTER_DATAFORMAT := 1
 OF_BIND_MOUNT_SDCARD_ON_FORMAT := 1
 OF_LOOP_DEVICE_ERRORS_TO_LOG := 1
-OF_USE_LZ4_COMPRESSION := 1
+# OF_USE_LZ4_COMPRESSION := 0 (Standard GZIP for 64MB partition budget)
 OF_MAINTAINER := withmehraan
 
 # Magisk & AVB

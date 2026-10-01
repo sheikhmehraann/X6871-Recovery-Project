@@ -35,6 +35,14 @@ jobs:
             python3 python-is-python3 libssl-dev rsync bc liblz4-tool libncurses5-dev \
             squashfs-tools libtinfo5 openjdk-11-jdk-headless ccache
 
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/fox_14.1/.ccache
+          key: ccache-fox_14.1-${{ github.sha }}
+          restore-keys: |
+            ccache-fox_14.1-
+
       - name: Install Repo Tool
         run: |
           mkdir -p ~/.bin
@@ -116,12 +124,13 @@ jobs:
           export FOX_VARIANT="A15"
           export OF_MAINTAINER="withmehraan"
           export OF_SCREEN_H=2436
-          export OF_STATUS_H=108
+          export OF_STATUS_H=90
           export OF_CLOCK_POS=0
           export OF_STATUS_INDENT_LEFT=48
           export OF_STATUS_INDENT_RIGHT=48
           export OF_FLASHLIGHT_ENABLE=1
-          export OF_FL_PATH1=/flashlight
+          export OF_FL_PATH1=/sys/class/torch/torch/torch_level
+          export OF_FL_PATH2=/flashlight/brightness
 
           export OF_USE_GREEN_LED=0
 
