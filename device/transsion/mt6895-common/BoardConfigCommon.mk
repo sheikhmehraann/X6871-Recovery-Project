@@ -153,12 +153,6 @@ TARGET_USES_MKE2FS := true
 TW_MAX_BRIGHTNESS := 255
 TW_LOAD_VENDOR_BOOT_MODULES := true
 
-# StatusBar
-TW_STATUS_ICONS_ALIGN := center
-TW_CUSTOM_CPU_POS := 240
-TW_CUSTOM_CLOCK_POS := 60
-TW_CUSTOM_BATTERY_POS := 900
-
 # Thermals / CPU Temperature (MT6895 soc_max)
 TW_CUSTOM_CPU_TEMP_PATH := /sys/class/thermal/thermal_zone0/temp
 TW_CPU_TEMP_PATH := /sys/class/thermal/thermal_zone0/temp

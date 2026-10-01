@@ -6,7 +6,6 @@ Patches:
 2. Haptics: Direct hardware support for AW8697 Linear Vibrator (/sys/class/leds/vibrator_single)
 3. Thermals: Dynamic resolution and unquoted fallback for CPU temp (/sys/class/thermal/thermal_zone0/temp)
 4. Splash: Native 1080x2436 AMOLED resolution scaling across all splash XML resources
-5. Version: Canonical R12.1 release version alignment
 """
 
 import os
@@ -92,24 +91,22 @@ def patch_thermals(fox_root):
     with open(data_cpp, "r", encoding="utf-8") as f:
         content = f.read()
 
-    pattern_init = re.compile(r'if\s*\(\s*TWFunc::Path_Exists\s*\(\s*cpu_temp_file\s*\)\s*\)\s*\{\s*mConst\.SetValue\s*\(\s*"tw_no_cpu_temp"\s*,\s*"0"\s*\);', re.MULTILINE)
+    # Ensure tw_no_cpu_temp is never permanently locked to 1 at startup
+    pattern_init = re.compile(r'if\s*\(\s*TWFunc::Path_Exists\s*\(\s*cpu_temp_file\s*\)\s*\)\s*\{[\s\S]*?mConst\.SetValue\s*\(\s*"tw_no_cpu_temp"\s*,\s*"1"\s*\);\s*\}', re.MULTILINE)
     if pattern_init.search(content):
-        replacement_init = """if (!TWFunc::Path_Exists(cpu_temp_file) && TWFunc::Path_Exists("/sys/class/thermal/thermal_zone0/temp")) {
-        cpu_temp_file = "/sys/class/thermal/thermal_zone0/temp";
-    }
-    if (TWFunc::Path_Exists(cpu_temp_file) || TWFunc::Path_Exists("/sys/class/thermal/thermal_zone0/temp"))
-      {
-        mConst.SetValue("tw_no_cpu_temp", "0");"""
+        replacement_init = """mConst.SetValue("tw_no_cpu_temp", "0");"""
         content = pattern_init.sub(replacement_init, content, count=1)
+        print("[+] Successfully unlocked tw_no_cpu_temp initialization")
 
+    # In reading function, try fallback thermal zones if primary returns != 0
     pattern_read = re.compile(r'if\s*\(\s*TWFunc::read_file\s*\(\s*cpu_temp_file\s*,\s*results\s*\)\s*!=\s*0\s*\)', re.MULTILINE)
     if pattern_read.search(content):
-        replacement_read = """if (TWFunc::read_file(cpu_temp_file, results) != 0 && TWFunc::read_file("/sys/class/thermal/thermal_zone0/temp", results) != 0)"""
-        content = pattern_read.sub(replacement_read, content)
+        replacement_read = """if (TWFunc::read_file(cpu_temp_file, results) != 0 && TWFunc::read_file("/sys/class/thermal/thermal_zone0/temp", results) != 0 && TWFunc::read_file("/sys/class/thermal/thermal_zone1/temp", results) != 0 && TWFunc::read_file("/sys/class/thermal/thermal_zone46/temp", results) != 0)"""
+        content = pattern_read.sub(replacement_read, content, count=1)
+        print("[+] Successfully added thermal zone fallbacks to data.cpp")
 
     with open(data_cpp, "w", encoding="utf-8") as f:
         f.write(content)
-    print("[+] Successfully patched data.cpp with thermal zone 0 fallback")
     return True
 
 def patch_splash(fox_root):
@@ -152,26 +149,6 @@ def patch_splash(fox_root):
     print(f"[+] Successfully patched {patched_count} splash XML files to 1080x2436")
     return True
 
-def patch_version(fox_root):
-    ofmk = os.path.join(fox_root, "bootable/recovery/orangefox.mk")
-    if os.path.isfile(ofmk):
-        with open(ofmk, "r", encoding="utf-8") as f:
-            c = f.read()
-        c = c.replace("FOX_INTERNAL_RELEASE := R12.0", "FOX_INTERNAL_RELEASE := R12.1")
-        with open(ofmk, "w", encoding="utf-8") as f:
-            f.write(c)
-        print("[+] Patched bootable/recovery/orangefox.mk with R12.1")
-
-    vend_sh = os.path.join(fox_root, "vendor/recovery/OrangeFox_vendor.sh")
-    if os.path.isfile(vend_sh):
-        with open(vend_sh, "r", encoding="utf-8") as f:
-            c = f.read()
-        c = c.replace("export FOX_INTERNAL_RELEASE=R12.0", "export FOX_INTERNAL_RELEASE=R12.1")
-        with open(vend_sh, "w", encoding="utf-8") as f:
-            f.write(c)
-        print("[+] Patched vendor/recovery/OrangeFox_vendor.sh with R12.1")
-    return True
-
 def main():
     fox_root = sys.argv[1] if len(sys.argv) > 1 else "."
     print(f"[*] OrangeFox Patch Engine targeting: {os.path.abspath(fox_root)}")
@@ -179,8 +156,7 @@ def main():
     patch_haptics(fox_root)
     patch_thermals(fox_root)
     patch_splash(fox_root)
-    patch_version(fox_root)
-    print("[*] All patches applied successfully!")
+    print("[*] Hardware and architecture patches applied successfully!")
 
 if __name__ == "__main__":
     main()

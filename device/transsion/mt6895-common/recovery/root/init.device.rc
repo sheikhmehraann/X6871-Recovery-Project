@@ -1,22 +1,42 @@
+on early-init
+    mkdir /flashlight 0777 root root
+
 on init
     # Flashlight hardware bridge for OrangeFox GUI
     mkdir /flashlight 0777 root root
     symlink /sys/class/torch/torch/torch_level /flashlight/brightness
+    chmod 0777 /flashlight
+    chmod 0666 /flashlight/brightness
     chmod 0666 /sys/class/torch/torch/torch_level
     chmod 0666 /sys/class/sub_torch/sub_torch/sub_torch_level
     chmod 0666 /sys/devices/virtual/torch/torch/torch_level
     chmod 0666 /sys/devices/virtual/flashlight_core/flashlight/flashlight_torch
 
+    # Enforce permissive SELinux
+    write /sys/fs/selinux/enforce 0
+
+on post-fs-data
+    mkdir /flashlight 0777 root root
+    rm /flashlight/brightness
+    symlink /sys/class/torch/torch/torch_level /flashlight/brightness
+    chmod 0777 /flashlight
+    chmod 0666 /flashlight/brightness
+    chmod 0666 /sys/class/torch/torch/torch_level
+    chmod 0666 /sys/class/sub_torch/sub_torch/sub_torch_level
+
 on boot
     # Refresh flashlight bridge once drivers probe
     mkdir /flashlight 0777 root root
+    rm /flashlight/brightness
     symlink /sys/class/torch/torch/torch_level /flashlight/brightness
+    chmod 0777 /flashlight
     chmod 0666 /flashlight/brightness
     chmod 0666 /sys/class/torch/torch/torch_level
     chmod 0666 /sys/class/sub_torch/sub_torch/sub_torch_level
     chmod 0666 /sys/devices/virtual/torch/torch/torch_level
 
     # Infinix GT 20 Pro (X6871) AW8697 Linear Haptics
+    rm /sys/class/leds/vibrator
     symlink /sys/class/leds/vibrator_single /sys/class/leds/vibrator
     chmod 0666 /sys/class/leds/vibrator_single/activate
     chmod 0666 /sys/class/leds/vibrator_single/duration
@@ -37,4 +57,5 @@ on boot
     chmod 0666 /sys/class/thermal/thermal_zone46/temp
     chmod 0666 /sys/devices/virtual/thermal/thermal_zone0/temp
 
-
+    # Ensure SELinux remains permissive
+    write /sys/fs/selinux/enforce 0

@@ -84,3 +84,21 @@ subsystem dma_heap
 /sys/devices/system/cpu/cpu*   cpufreq/scaling_min_freq   0664  system system
 /sys/devices/virtual/misc/uhid/*/leds/* brightness   0664  system system
 /sys/devices/virtual/misc/uhid/*/leds/* multi_intensity   0664  system system
+
+# Hardware Controls (Torch, Vibrator, Thermals)
+/sys/devices/virtual/torch/torch*          torch_level       0666  system system
+/sys/devices/virtual/sub_torch/sub_torch*  sub_torch_level   0666  system system
+/sys/devices/virtual/flashlight_core/flashlight* flashlight_torch 0666 system system
+/sys/class/torch/torch*                    torch_level       0666  system system
+/sys/class/sub_torch/sub_torch*            sub_torch_level   0666  system system
+/sys/class/leds/vibrator_single*           activate          0666  system system
+/sys/class/leds/vibrator_single*           duration          0666  system system
+/sys/class/leds/vibrator_single*           state             0666  system system
+/sys/class/leds/vibrator_single*           brightness        0666  system system
+/sys/class/leds/vibrator*                  activate          0666  system system
+/sys/class/leds/vibrator*                  duration          0666  system system
+/sys/class/leds/vibrator*                  state             0666  system system
+/sys/class/leds/vibrator*                  brightness        0666  system system
+/sys/class/thermal/thermal_zone*           temp              0666  system system
+/sys/devices/virtual/thermal/thermal_zone* temp              0666  system system
+

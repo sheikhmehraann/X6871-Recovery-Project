@@ -49,15 +49,15 @@ jobs:
 
       - name: Sync OrangeFox Minimal Tree
         run: |
-          mkdir -p $HOME/fox_12.1
-          cd $HOME/fox_12.1
+          mkdir -p $HOME/fox_14.1
+          cd $HOME/fox_14.1
           git clone --depth=1 https://gitlab.com/OrangeFox/sync.git $HOME/OrangeFox_sync
           cd $HOME/OrangeFox_sync
-          ./orangefox_sync.sh --branch 12.1 --path $HOME/fox_12.1
+          ./orangefox_sync.sh --branch 14.1 --path $HOME/fox_14.1
 
       - name: Setup Device Trees & Patches
         run: |
-          cd $HOME/fox_12.1
+          cd $HOME/fox_14.1
 
           echo "Deploying Infinix-X6871 device tree from repository..."
           mkdir -p device/infinix device/transsion
@@ -66,7 +66,7 @@ jobs:
 
           if [ ! -d "external/gflags" ]; then
             echo "Cloning external/gflags..."
-            git clone --depth=1 https://android.googlesource.com/platform/external/gflags/ -b android-12.1.0_r4 external/gflags
+            git clone --depth=1 https://android.googlesource.com/platform/external/gflags/ -b android-14.0.0_r1 external/gflags || git clone --depth=1 https://github.com/gflags/gflags.git external/gflags
           fi
 
           echo "Applying Dexpreopt fix for minimal tree..."
@@ -88,11 +88,11 @@ jobs:
           find prebuilts/ -name "clang-tidy" -type f -exec bash -c 'echo -e "#!/bin/sh\nexit 0" > "$1" && chmod +x "$1"' _ {} \; || true
 
           echo "Executing OrangeFox Universal Hardware & Architecture Patch Engine..."
-          python3 $GITHUB_WORKSPACE/scripts/patch_ofox.py $HOME/fox_12.1
+          python3 $GITHUB_WORKSPACE/scripts/patch_ofox.py $HOME/fox_14.1
 
       - name: Build OrangeFox Recovery Image
         run: |
-          cd $HOME/fox_12.1
+          cd $HOME/fox_14.1
           unset FOX_VERSION
           export FOX_MAINTAINER_PATCH_VERSION=1
           export FOX_BUILD_TYPE="Unofficial"
@@ -137,9 +137,9 @@ jobs:
           export ALLOW_MISSING_DEPENDENCIES=true
           export USE_CCACHE=1
           export CCACHE_EXEC=/usr/bin/ccache
-          export CCACHE_DIR=$HOME/fox_12.1/.ccache
-          export CCACHE_TEMPDIR=$HOME/fox_12.1/.ccache/tmp
-          mkdir -p $HOME/fox_12.1/.ccache/tmp
+          export CCACHE_DIR=$HOME/fox_14.1/.ccache
+          export CCACHE_TEMPDIR=$HOME/fox_14.1/.ccache/tmp
+          mkdir -p $HOME/fox_14.1/.ccache/tmp
           ccache -M 20G
 
           set +e
@@ -157,9 +157,9 @@ jobs:
       - name: Prepare Artifacts
         run: |
           mkdir -p $GITHUB_WORKSPACE/output
-          TARGET_DIR="$HOME/fox_12.1/out/target/product/Infinix-X6871"
+          TARGET_DIR="$HOME/fox_14.1/out/target/product/Infinix-X6871"
           if [ ! -d "$TARGET_DIR" ]; then
-            TARGET_DIR="$HOME/fox_12.1/out/target/product/X6871"
+            TARGET_DIR="$HOME/fox_14.1/out/target/product/X6871"
           fi
 
           if [ -d "$TARGET_DIR" ]; then
