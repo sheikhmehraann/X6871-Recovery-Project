@@ -29,13 +29,15 @@ cc_library_shared {
     header_libs: ["device_kernel_headers"],
 
     shared_libs: [
+        "libbase",
+        "libcutils",
         "liblog",
         "libhidlbase",
         "libhardware",
         "libutils",
         "android.hardware.boot@1.0",
         "android.hardware.boot@1.1",
-        "android.hardware.boot@1.2"
+        "android.hardware.boot@1.2",
     ],
     static_libs: [
         "libboot_control",
