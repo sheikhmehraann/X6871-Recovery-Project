@@ -18,6 +18,15 @@ def patch_envsetup(fox_root):
         os.path.join(fox_root, "build/make/envsetup.sh"),
         os.path.join(fox_root, "build/envsetup.sh")
     ]
+    # Dynamically detect available release config
+    flag_values_dir = os.path.join(fox_root, "build/release/flag_values")
+    avail_release = "ap2a"
+    if os.path.isdir(flag_values_dir):
+        subdirs = [d for d in os.listdir(flag_values_dir) if os.path.isdir(os.path.join(flag_values_dir, d))]
+        if subdirs:
+            avail_release = subdirs[0]
+            print(f"[*] Detected available release configs: {subdirs}, using: {avail_release}")
+
     patched = False
     for path in envsetup_paths:
         if os.path.isfile(path) and not os.path.islink(path):
@@ -26,17 +35,23 @@ def patch_envsetup(fox_root):
                     content = f.read()
 
                 target = 'IFS="-" read -r product release variant <<< "$selection"'
-                if target in content and "TARGET_RELEASE:-trunk_staging" not in content:
-                    replacement = """IFS="-" read -r product release variant <<< "$selection"
+                if target in content and "TARGET_RELEASE:-" not in content:
+                    replacement = f"""IFS="-" read -r product release variant <<< "$selection"
     # Android 14 2-part lunch combo compatibility shim
     if [[ -n "$product" && -n "$release" && -z "$variant" ]]; then
         variant="$release"
-        release="${TARGET_RELEASE:-trunk_staging}"
+        release="${{TARGET_RELEASE:-{avail_release}}}"
     fi"""
                     content = content.replace(target, replacement, 1)
                     with open(path, "w", encoding="utf-8") as f:
                         f.write(content)
-                    print(f"[+] Successfully patched {path} with 2-part lunch compatibility shim")
+                    print(f"[+] Successfully patched {path} with 2-part lunch compatibility shim ({avail_release})")
+                    patched = True
+                elif "TARGET_RELEASE:-" in content:
+                    content = re.sub(r'release="\$\{TARGET_RELEASE:-[^}]+\}"', f'release="${{TARGET_RELEASE:-{avail_release}}}"', content)
+                    with open(path, "w", encoding="utf-8") as f:
+                        f.write(content)
+                    print(f"[+] Updated release shim in {path} to target: {avail_release}")
                     patched = True
             except Exception as e:
                 print(f"[-] Failed patching {path}: {e}")

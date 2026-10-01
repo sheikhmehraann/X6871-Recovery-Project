@@ -62,7 +62,9 @@ jobs:
           echo "Deploying Infinix-X6871 device tree from repository..."
           mkdir -p device/infinix device/transsion
           cp -r $GITHUB_WORKSPACE/device/infinix/Infinix-X6871 device/infinix/
+          ln -sf Infinix-X6871 device/infinix/X6871
           cp -r $GITHUB_WORKSPACE/device/transsion/mt6895-common device/transsion/
+
 
           if [ ! -d "external/gflags" ]; then
             echo "Cloning external/gflags..."
@@ -142,9 +144,19 @@ jobs:
           mkdir -p $HOME/fox_14.1/.ccache/tmp
           ccache -M 20G
 
+          RELEASE_TAG="ap2a"
+          if [ -d build/release/flag_values ]; then
+            AVAIL_REL=$(ls -1 build/release/flag_values 2>/dev/null | head -n 1)
+            if [ -n "$AVAIL_REL" ]; then
+              RELEASE_TAG="$AVAIL_REL"
+            fi
+          fi
+          export TARGET_RELEASE="$RELEASE_TAG"
+          echo "Target release config: $TARGET_RELEASE"
+
           set +e
           source build/envsetup.sh
-          lunch twrp_X6871-trunk_staging-eng || lunch twrp_X6871-eng
+          lunch twrp_X6871-${TARGET_RELEASE}-eng || lunch twrp_X6871-ap2a-eng || lunch twrp_X6871-eng
           LUNCH_STATUS=$?
           set -e
           if [ $LUNCH_STATUS -ne 0 ]; then
