@@ -144,11 +144,11 @@ jobs:
 
           set +e
           source build/envsetup.sh
-          lunch twrp_X6871-eng
+          lunch twrp_X6871-trunk_staging-eng || lunch twrp_X6871-eng
           LUNCH_STATUS=$?
           set -e
           if [ $LUNCH_STATUS -ne 0 ]; then
-            echo "ERROR: lunch twrp_X6871-eng failed with exit code $LUNCH_STATUS"
+            echo "ERROR: lunch failed with exit code $LUNCH_STATUS"
             exit 1
           fi
 

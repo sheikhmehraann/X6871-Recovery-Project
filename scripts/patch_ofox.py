@@ -6,11 +6,41 @@ Patches:
 2. Haptics: Direct hardware support for AW8697 Linear Vibrator (/sys/class/leds/vibrator_single)
 3. Thermals: Dynamic resolution and unquoted fallback for CPU temp (/sys/class/thermal/thermal_zone0/temp)
 4. Splash: Native 1080x2436 AMOLED resolution scaling across all splash XML resources
+5. Build: Android 14 2-part and 3-part lunch combo compatibility shim for envsetup.sh
 """
 
 import os
 import sys
 import re
+
+def patch_envsetup(fox_root):
+    envsetup_paths = [
+        os.path.join(fox_root, "build/make/envsetup.sh"),
+        os.path.join(fox_root, "build/envsetup.sh")
+    ]
+    patched = False
+    for path in envsetup_paths:
+        if os.path.isfile(path) and not os.path.islink(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    content = f.read()
+
+                target = 'IFS="-" read -r product release variant <<< "$selection"'
+                if target in content and "TARGET_RELEASE:-trunk_staging" not in content:
+                    replacement = """IFS="-" read -r product release variant <<< "$selection"
+    # Android 14 2-part lunch combo compatibility shim
+    if [[ -n "$product" && -n "$release" && -z "$variant" ]]; then
+        variant="$release"
+        release="${TARGET_RELEASE:-trunk_staging}"
+    fi"""
+                    content = content.replace(target, replacement, 1)
+                    with open(path, "w", encoding="utf-8") as f:
+                        f.write(content)
+                    print(f"[+] Successfully patched {path} with 2-part lunch compatibility shim")
+                    patched = True
+            except Exception as e:
+                print(f"[-] Failed patching {path}: {e}")
+    return patched
 
 def patch_flashlight(fox_root):
     action_cpp = os.path.join(fox_root, "bootable/recovery/gui/action.cpp")
@@ -152,6 +182,7 @@ def patch_splash(fox_root):
 def main():
     fox_root = sys.argv[1] if len(sys.argv) > 1 else "."
     print(f"[*] OrangeFox Patch Engine targeting: {os.path.abspath(fox_root)}")
+    patch_envsetup(fox_root)
     patch_flashlight(fox_root)
     patch_haptics(fox_root)
     patch_thermals(fox_root)
