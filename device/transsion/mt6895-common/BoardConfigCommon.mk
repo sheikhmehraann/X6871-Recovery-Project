@@ -46,8 +46,8 @@ BOARD_TAGS_OFFSET := 0x07c88000
 BOARD_RAMDISK_OFFSET := 0x26f08000
 BOARD_DTB_SIZE := 209018
 BOARD_DTB_OFFSET := 0x07c88000
-BOARD_VENDOR_BASE := 0x3fff8000
-BOARD_VENDOR_CMDLINE := bootopt=64S3,32N2,64N2
+BOARD_VENDOR_CMDLINE := bootopt=64S3,32N2,64N2 androidboot.selinux=permissive
+BOARD_KERNEL_CMDLINE := androidboot.selinux=permissive
 
 BOARD_MKBOOTIMG_ARGS += --dtb $(TARGET_PREBUILT_DTB)
 BOARD_MKBOOTIMG_ARGS += --vendor_cmdline $(BOARD_VENDOR_CMDLINE)
@@ -155,21 +155,16 @@ TW_LOAD_VENDOR_BOOT_MODULES := true
 
 # StatusBar
 TW_STATUS_ICONS_ALIGN := center
-TW_CUSTOM_CPU_POS := 300
-TW_CUSTOM_CLOCK_POS := 70
-TW_CUSTOM_BATTERY_POS := 790
+TW_CUSTOM_CPU_POS := 240
+TW_CUSTOM_CLOCK_POS := 60
+TW_CUSTOM_BATTERY_POS := 900
 
 # Thermals / CPU Temperature (MT6895 soc_max)
-TW_CUSTOM_CPU_TEMP_PATH := "/sys/class/thermal/thermal_zone0/temp"
-TW_CPU_TEMP_PATH := "/sys/class/thermal/thermal_zone0/temp"
+TW_CUSTOM_CPU_TEMP_PATH := /sys/class/thermal/thermal_zone0/temp
+TW_CPU_TEMP_PATH := /sys/class/thermal/thermal_zone0/temp
 
-# Haptics & Vibration
-TW_SUPPORT_INPUT_1_2_HAPTICS := true
+# Haptics & Vibration (MediaTek AW8697 / vibrator_single)
 TW_USE_LEDS_HAPTICS := true
-
-# Display & Screen Offsets (1080x2436 AMOLED)
-TW_Y_OFFSET := 120
-TW_H_OFFSET := -120
 
 # Hack depends
 ALLOW_MISSING_DEPENDENCIES := true

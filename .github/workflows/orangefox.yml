@@ -87,24 +87,8 @@ jobs:
           echo "Applying Clang-Tidy Stub..."
           find prebuilts/ -name "clang-tidy" -type f -exec bash -c 'echo -e "#!/bin/sh\nexit 0" > "$1" && chmod +x "$1"' _ {} \; || true
 
-          echo "Applying Haptics / Vibrator Single Patch..."
-          if [ -f bootable/recovery/minuitwrp/events.cpp ]; then
-            sed -i 's|/sys/class/leds/vibrator/duration|/sys/class/leds/vibrator_single/duration|g' bootable/recovery/minuitwrp/events.cpp
-            sed -i 's|/sys/class/leds/vibrator/activate|/sys/class/leds/vibrator_single/activate|g' bootable/recovery/minuitwrp/events.cpp
-          fi
-
-          echo "Applying Flashlight Torch Direct Mapping Patch..."
-          if [ -f bootable/recovery/gui/action.cpp ]; then
-            sed -i 's|bright_one = path_one + "/brightness";|bright_one = (TWFunc::Path_Exists("/sys/class/torch/torch/torch_level") ? "/sys/class/torch/torch/torch_level" : path_one + "/brightness");|g' bootable/recovery/gui/action.cpp
-          fi
-
-          echo "Updating canonical OrangeFox release to R12.1..."
-          if [ -f bootable/recovery/orangefox.mk ]; then
-            sed -i 's/FOX_INTERNAL_RELEASE := R12.0/FOX_INTERNAL_RELEASE := R12.1/g' bootable/recovery/orangefox.mk
-          fi
-          if [ -f vendor/recovery/OrangeFox_vendor.sh ]; then
-            sed -i 's/FOX_INTERNAL_RELEASE=R12.0/FOX_INTERNAL_RELEASE=R12.1/g' vendor/recovery/OrangeFox_vendor.sh
-          fi
+          echo "Executing OrangeFox Universal Hardware & Architecture Patch Engine..."
+          python3 $GITHUB_WORKSPACE/scripts/patch_ofox.py $HOME/fox_12.1
 
       - name: Build OrangeFox Recovery Image
         run: |
@@ -130,7 +114,8 @@ jobs:
           export FOX_VARIANT="A15"
           export OF_MAINTAINER="withmehraan"
           export OF_SCREEN_H=2436
-          export OF_STATUS_H=120
+          export OF_STATUS_H=108
+          export OF_CLOCK_POS=0
           export OF_STATUS_INDENT_LEFT=48
           export OF_STATUS_INDENT_RIGHT=48
           export OF_FLASHLIGHT_ENABLE=1
