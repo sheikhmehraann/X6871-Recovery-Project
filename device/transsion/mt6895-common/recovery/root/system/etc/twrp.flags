@@ -6,6 +6,7 @@
 # User writeable partitions
 /boot				emmc		/dev/block/by-name/boot											flags=display=boot;slotselect;backup;flashimg
 /vendor_boot		emmc		/dev/block/by-name/vendor_boot									flags=display=vendor_boot;slotselect;backup;flashimg
+/init_boot			emmc		/dev/block/by-name/init_boot									flags=display=init_boot;slotselect;backup;flashimg
 /vbmeta				emmc		/dev/block/by-name/vbmeta										flags=display=vbmeta;slotselect;backup;flashimg
 /vbmeta_system		emmc		/dev/block/by-name/vbmeta_system								flags=display=vbmeta_system;slotselect;backup;flashimg
 /vbmeta_vendor		emmc		/dev/block/by-name/vbmeta_vendor								flags=display=vbmeta_vendor;slotselect;backup;flashimg
@@ -36,7 +37,8 @@
 /tee2				emmc		/dev/block/by-name/tee2											flags=display=tee2
 
 # Removable Storage
-/usb_otg			auto		/dev/block/sdd1				/dev/block/sdd			/dev/block/sda1		flags=display="USB-OTG";storage;wipeingui;removable;backup=0
+/external_sd		auto		/dev/block/mmcblk0p1		/dev/block/mmcblk0								flags=display="Micro SD card";storage;wipeingui;removable
+/usb_otg			auto		/dev/block/sdd1				/dev/block/sdd			/dev/block/sda1			flags=display="USB-OTG";storage;wipeingui;removable;backup=0
 
 # Hardware & Firmware Partitions
 /super				emmc		/dev/block/by-name/super										flags=display="Super Image";backup;flashimg
@@ -50,6 +52,9 @@
 /vcp				emmc		/dev/block/by-name/vcp											flags=display=vcp;backup
 /gpueb				emmc		/dev/block/by-name/gpueb										flags=display=gpueb;backup
 /apusys1			emmc		/dev/block/by-name/apusys1										flags=display=apusys;backup
+/pi_img				emmc		/dev/block/by-name/pi_img										flags=display=pi_img;slotselect;backup
+/mcf_ota			emmc		/dev/block/by-name/mcf_ota										flags=display=mcf_ota;slotselect;backup
+/tkv				emmc		/dev/block/by-name/tkv											flags=display=tkv;slotselect;backup
 /tranfs				ext4		/dev/block/by-name/tranfs										flags=display="TranFS";backup
 
 # Flashable logical partitions
@@ -58,3 +63,6 @@
 /system_ext_image	emmc		/dev/block/bootdevice/by-name/system_ext						flags=display="System_EXT Image";backup;flashimg
 /product_image		emmc		/dev/block/bootdevice/by-name/product							flags=display="Product Image";backup;flashimg
 /vendor_dlkm_image	emmc		/dev/block/bootdevice/by-name/vendor_dlkm						flags=display="VendorDLKM Image";backup;flashimg
+/odm_dlkm_image		emmc		/dev/block/bootdevice/by-name/odm_dlkm							flags=display="OdmDLKM Image";backup;flashimg
+/tr_product_image	emmc		/dev/block/bootdevice/by-name/tr_product						flags=display="tr_product Image";backup;flashimg
+/tr_preload_image	emmc		/dev/block/bootdevice/by-name/tr_preload						flags=display="tr_preload Image";backup;flashimg

@@ -24,12 +24,14 @@ PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS := false
 AB_OTA_PARTITIONS += \
     boot \
     dtbo \
+    init_boot \
     lk \
     odm \
     odm_dlkm \
     product \
     system \
     system_ext \
+    vbmeta \
     vbmeta_system \
     vbmeta_vendor \
     vendor \

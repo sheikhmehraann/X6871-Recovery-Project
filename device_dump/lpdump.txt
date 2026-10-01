@@ -1,0 +1,214 @@
+Slot 0:
+Metadata version: 10.2
+Metadata size: 2256 bytes
+Metadata max size: 65536 bytes
+Metadata slot count: 3
+Header flags: virtual_ab_device
+Partition table:
+------------------------
+  Name: system_a
+  Group: main_a
+  Attributes: none
+  Extents:
+    0 .. 1653279 linear super 2048
+------------------------
+  Name: system_b
+  Group: main_a
+  Attributes: none
+  Extents:
+------------------------
+  Name: vendor_a
+  Group: main_a
+  Attributes: none
+  Extents:
+    0 .. 4193967 linear super 1655808
+------------------------
+  Name: vendor_b
+  Group: main_a
+  Attributes: none
+  Extents:
+------------------------
+  Name: product_a
+  Group: main_a
+  Attributes: none
+  Extents:
+    0 .. 6665927 linear super 5850112
+------------------------
+  Name: product_b
+  Group: main_a
+  Attributes: none
+  Extents:
+------------------------
+  Name: system_ext_a
+  Group: main_a
+  Attributes: none
+  Extents:
+    0 .. 5604871 linear super 12516352
+------------------------
+  Name: system_ext_b
+  Group: main_a
+  Attributes: none
+  Extents:
+------------------------
+  Name: vendor_dlkm_a
+  Group: main_a
+  Attributes: none
+  Extents:
+    0 .. 42879 linear super 18121728
+------------------------
+  Name: vendor_dlkm_b
+  Group: main_a
+  Attributes: none
+  Extents:
+------------------------
+  Name: odm_dlkm_a
+  Group: main_a
+  Attributes: none
+  Extents:
+    0 .. 679 linear super 18164736
+------------------------
+  Name: odm_dlkm_b
+  Group: main_a
+  Attributes: none
+  Extents:
+------------------------
+  Name: tr_carrier_a
+  Group: main_a
+  Attributes: none
+  Extents:
+    0 .. 679 linear super 18165760
+------------------------
+  Name: tr_carrier_b
+  Group: main_a
+  Attributes: none
+  Extents:
+------------------------
+  Name: tr_company_a
+  Group: main_a
+  Attributes: none
+  Extents:
+    0 .. 679 linear super 18166784
+------------------------
+  Name: tr_company_b
+  Group: main_a
+  Attributes: none
+  Extents:
+------------------------
+  Name: tr_mi_a
+  Group: main_a
+  Attributes: none
+  Extents:
+    0 .. 679 linear super 18167808
+------------------------
+  Name: tr_mi_b
+  Group: main_a
+  Attributes: none
+  Extents:
+------------------------
+  Name: tr_overlayfs_a
+  Group: main_a
+  Attributes: none
+  Extents:
+    0 .. 679 linear super 18168832
+------------------------
+  Name: tr_overlayfs_b
+  Group: main_a
+  Attributes: none
+  Extents:
+------------------------
+  Name: tr_preload_a
+  Group: main_a
+  Attributes: none
+  Extents:
+    0 .. 600415 linear super 18169856
+------------------------
+  Name: tr_preload_b
+  Group: main_a
+  Attributes: none
+  Extents:
+------------------------
+  Name: tr_product_a
+  Group: main_a
+  Attributes: none
+  Extents:
+    0 .. 397383 linear super 18770944
+------------------------
+  Name: tr_product_b
+  Group: main_a
+  Attributes: none
+  Extents:
+------------------------
+  Name: tr_region_a
+  Group: main_a
+  Attributes: none
+  Extents:
+    0 .. 679 linear super 19169280
+------------------------
+  Name: tr_region_b
+  Group: main_a
+  Attributes: none
+  Extents:
+------------------------
+  Name: tr_theme_a
+  Group: main_a
+  Attributes: none
+  Extents:
+    0 .. 679 linear super 19170304
+------------------------
+  Name: tr_theme_b
+  Group: main_a
+  Attributes: none
+  Extents:
+------------------------
+Super partition layout:
+------------------------
+super: 2048 .. 1655328: system_a (1653280 sectors)
+super: 1655808 .. 5849776: vendor_a (4193968 sectors)
+super: 5850112 .. 12516040: product_a (6665928 sectors)
+super: 12516352 .. 18121224: system_ext_a (5604872 sectors)
+super: 18121728 .. 18164608: vendor_dlkm_a (42880 sectors)
+super: 18164736 .. 18165416: odm_dlkm_a (680 sectors)
+super: 18165760 .. 18166440: tr_carrier_a (680 sectors)
+super: 18166784 .. 18167464: tr_company_a (680 sectors)
+super: 18167808 .. 18168488: tr_mi_a (680 sectors)
+super: 18168832 .. 18169512: tr_overlayfs_a (680 sectors)
+super: 18169856 .. 18770272: tr_preload_a (600416 sectors)
+super: 18770944 .. 19168328: tr_product_a (397384 sectors)
+super: 19169280 .. 19169960: tr_region_a (680 sectors)
+super: 19170304 .. 19170984: tr_theme_a (680 sectors)
+------------------------
+Block device table:
+------------------------
+  Partition name: super
+  First sector: 2048
+  Size: 12426428416 bytes
+  Flags: none
+------------------------
+Group table:
+------------------------
+  Name: default
+  Maximum size: 0 bytes
+  Flags: none
+------------------------
+  Name: main_a
+  Maximum size: 12424331264 bytes
+  Flags: none
+------------------------
+  Name: main_b
+  Maximum size: 12424331264 bytes
+  Flags: none
+------------------------
+---------------
+Snapshot state:
+---------------
+Update state: none
+Using snapuserd: 0
+Using userspace snapshots: 0
+Using io_uring: 0
+Using o_direct: 0
+Using XOR compression: 0
+Current slot: _a
+Boot indicator: booting from unknown slot
+Rollback indicator: No such file or directory
+Forward merge indicator: No such file or directory
+Source build fingerprint: 
