@@ -1,6 +1,10 @@
 import /init.tee.rc
 import /init.device.rc
 
+on early-init
+    symlink /system/etc/recovery.fstab /etc/recovery.fstab
+    symlink /system/etc/twrp.flags /etc/twrp.flags
+
 on init
     setprop sys.usb.configfs 1
     setprop sys.usb.controller "11201000.usb0"
@@ -23,19 +27,6 @@ on init
     setprop ro.build.display.id "X6871-15.1.2.180SP05(OP001PF001AZ)"
     setprop ro.build.version.release "15"
     setprop ro.build.version.release_or_codename "15"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.model "Infinix X6871"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.marketname "Infinix GT 20 Pro"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.device "Infinix-X6871"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.name "X6871-OP"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.brand "Infinix"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.manufacturer "INFINIX"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.board "Infinix-X6871"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.board.platform "mt6895"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.product "Infinix-X6871"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.fingerprint "Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.display.id "X6871-15.1.2.180SP05(OP001PF001AZ)"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.version.incremental "180003"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.description "X6871-user 15 AP3A.240905.015.A2 release-keys"
 
 on fs
     wait /dev/block/platform/soc/112b0000.ufshci
@@ -60,9 +51,6 @@ on boot
     setprop sys.usb.config adb
     start mtk.plpath.utils.link
 
-    # Haptics legacy symlink for TWRP/OrangeFox UI
-    symlink /sys/class/leds/vibrator_single /sys/class/leds/vibrator
-
     # Load LVTS CPU thermal driver for real soc_max readings
     insmod /lib/modules/soc_temp_lvts.ko
 
@@ -73,6 +61,9 @@ on boot
 
     # Load AWINIC / Richtap haptics driver
     insmod /lib/modules/richtap_haptic_hv.ko
+
+    # Haptics legacy symlink for TWRP/OrangeFox UI (after driver load)
+    symlink /sys/class/leds/vibrator_single /sys/class/leds/vibrator
 
     # Rear camera flashlight permissions (MediaTek OCP81375)
     chmod 0666 /sys/class/torch/torch/torch_level
@@ -87,6 +78,8 @@ on boot
     chmod 0666 /sys/class/leds/vibrator_single/gain
     chmod 0666 /sys/class/leds/vibrator/duration
     chmod 0666 /sys/class/leds/vibrator/activate
+    chmod 0666 /sys/class/leds/vibrator/state
+    chmod 0666 /sys/class/leds/vibrator/brightness
 
     # Thermal sensor permissions (MT6895 soc_max)
     chmod 0666 /sys/class/thermal/thermal_zone0/temp
@@ -99,6 +92,22 @@ on boot
     chmod 0666 /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
     chmod 0666 /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
     chmod 0666 /sys/devices/system/cpu/cpu7/cpufreq/scaling_governor
+
+    # Exact Stock Device Identity Overrides via resetprop
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.model "Infinix X6871"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.marketname "Infinix GT 20 Pro"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.device "Infinix-X6871"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.name "X6871-OP"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.brand "Infinix"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.manufacturer "INFINIX"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.board "Infinix-X6871"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.board.platform "mt6895"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.product "Infinix-X6871"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.fingerprint "Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.display.id "X6871-15.1.2.180SP05(OP001PF001AZ)"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.version.incremental "180003"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.description "X6871-user 15 AP3A.240905.015.A2 release-keys"
+
 
 on property:persist.vendor.mtk.pl_lnk=1
     symlink /dev/block/mapper/pl_a /dev/block/by-name/preloader_raw_a
