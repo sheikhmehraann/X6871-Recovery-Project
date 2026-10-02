@@ -26,10 +26,10 @@ OF_STATUS_INDENT_RIGHT := 48
 OF_ALLOW_DISABLE_NAVBAR := 0
 OF_CLOCK_POS := 0
 
-# Flashlight (MediaTek OCP81375 torch driver)
+# Flashlight (MediaTek OCP81375 camera flash driver)
 OF_FLASHLIGHT_ENABLE := 1
-OF_FL_PATH1 := /sys/class/torch/torch/torch_level
-OF_FL_PATH2 := /flashlight/brightness
+OF_FL_PATH1 := "/sys/class/torch/torch/torch_level"
+OF_FL_PATH2 := "/sys/devices/virtual/torch/torch/torch_level"
 OF_USE_GREEN_LED := 0
 
 
@@ -56,7 +56,7 @@ OF_PATCH_AVB20 := 1
 OF_ADVANCED_SECURITY := 1
 OF_USE_TWRP_SAR_DETECT := 1
 OF_SUPPORT_OZIP_DECRYPTION := 1
-OF_FBE_METADATA_MOUNT_IGNORE := 1
+OF_FBE_METADATA_MOUNT_IGNORE := 0
 OF_SKIP_DECRYPTED_ADOPTED_STORAGE := 1
 OF_SPLASH_MAX_SIZE := 8388608
 

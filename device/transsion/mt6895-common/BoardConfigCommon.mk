@@ -124,11 +124,13 @@ TARGET_RECOVERY_PIXEL_FORMAT := RGBX_8888
 TARGET_USERIMAGES_USE_EXT4 := true
 TARGET_USERIMAGES_USE_F2FS := true
 
-# Crypto (Disabled to eliminate Keystore2/KeyMint deadlock on MediaTek MT6895)
-TW_INCLUDE_CRYPTO := false
-TW_INCLUDE_CRYPTO_FBE := false
-TW_INCLUDE_FBE_METADATA_DECRYPT := false
+# Crypto
+TW_INCLUDE_CRYPTO := true
+TW_INCLUDE_CRYPTO_FBE := true
+TW_INCLUDE_FBE_METADATA_DECRYPT := true
 BOARD_USES_METADATA_PARTITION := true
+TW_USE_FSCRYPT_POLICY := 2
+TW_FORCE_KEYMASTER_VER := true
 TW_NO_SCREEN_TIMEOUT := true
 
 # Hack
@@ -172,8 +174,8 @@ TW_MAX_BRIGHTNESS := 511
 TW_LOAD_VENDOR_BOOT_MODULES := true
 
 # Thermals / CPU Temperature (MT6895 soc_max)
-TW_CUSTOM_CPU_TEMP_PATH := /sys/class/thermal/thermal_zone0/temp
-TW_CPU_TEMP_PATH := /sys/class/thermal/thermal_zone0/temp
+TW_CUSTOM_CPU_TEMP_PATH := "/sys/class/thermal/thermal_zone0/temp"
+TW_CPU_TEMP_PATH := "/sys/class/thermal/thermal_zone0/temp"
 
 # Haptics & Vibration (MediaTek AW8697 / vibrator_single)
 TW_USE_LEDS_HAPTICS := true

@@ -14,15 +14,47 @@ on fs
     symlink /dev/block/platform/soc/112b0000.ufshci /dev/block/bootdevice
     wait /dev/block/by-name/metadata
     mount ext4 /dev/block/by-name/metadata /metadata noatime nosuid nodev discard
+    wait /dev/block/by-name/persist
+    mkdir /mnt/vendor/persist 0771 root root
+    mount ext4 /dev/block/by-name/persist /mnt/vendor/persist noatime nosuid nodev
+    mkdir /mnt/vendor/persist/mcRegistry 0771 root root
+    install_keyring
 
-on boot
-    setprop sys.usb.config adb
+on post-fs
+    start mobicore
+    start vendor.gatekeeper-1-0
+    start vendor.keymint-trustonic
 
 on post-fs-data
     start health-hal-2-1
 
 on boot
+    setprop sys.usb.config adb
     start mtk.plpath.utils.link
+
+    # Load verified hardware drivers in strict dependency order
+    insmod /lib/modules/i2c-mt65xx.ko
+    insmod /lib/modules/richtap_haptic_hv.ko
+    insmod /lib/modules/ocp81375.ko
+    insmod /lib/modules/sgm37864.ko
+    insmod /lib/modules/thermal_interface.ko
+    insmod /lib/modules/flashlight.ko
+
+    # Rear camera flashlight permissions (MediaTek OCP81375)
+    chmod 0666 /sys/class/torch/torch/torch_level
+    chmod 0666 /sys/devices/virtual/torch/torch/torch_level
+
+    # Haptics & Vibration permissions (MediaTek AW8697 / vibrator_single)
+    chmod 0666 /sys/class/leds/vibrator_single/duration
+    chmod 0666 /sys/class/leds/vibrator_single/activate
+    chmod 0666 /sys/class/leds/vibrator_single/state
+    chmod 0666 /sys/class/leds/vibrator_single/vibr_level
+    chmod 0666 /sys/class/leds/vibrator_single/brightness
+    chmod 0666 /sys/class/leds/vibrator_single/gain
+
+    # Thermal sensor permissions (MT6895 soc_max)
+    chmod 0666 /sys/class/thermal/thermal_zone0/temp
+    chmod 0666 /sys/devices/virtual/thermal/thermal_zone0/temp
 
 on property:persist.vendor.mtk.pl_lnk=1
     symlink /dev/block/mapper/pl_a /dev/block/by-name/preloader_raw_a
@@ -66,9 +98,17 @@ service vendor.gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-ser
     disabled
     seclabel u:r:recovery:s0
 
-on property:ro.crypto.state=encrypted && property:ro.boot.dynamic_partitions=true
+service vendor.keymint-trustonic /vendor/bin/hw/android.hardware.security.keymint-service.trustonic
+    class early_hal
+    user root
+    group root
+    disabled
+    seclabel u:r:recovery:s0
+
+on property:ro.crypto.state=encrypted
     start mobicore
     start vendor.gatekeeper-1-0
+    start vendor.keymint-trustonic
 
 on property:servicemanager.ready=true
     setprop sys.boot_completed 1

@@ -99,6 +99,10 @@ pidmap.ko
 mtk-pmic-keys.ko
 mtk-kpd.ko
 i2c-mt65xx.ko
+richtap_haptic_hv.ko
+ocp81375.ko
+sgm37864.ko
+flashlight.ko
 rtc-mt6685.ko
 spi-mt65xx.ko
 mt6375.ko

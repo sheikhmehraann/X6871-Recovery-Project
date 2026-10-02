@@ -2,11 +2,12 @@
 """
 OrangeFox Recovery Hardware & Architecture Patch Engine for Infinix GT 20 Pro (X6871 / MT6895)
 Patches:
-1. Flashlight: Direct hardware support for MediaTek OCP81375 (/sys/class/torch/torch/torch_level)
-2. Haptics: Direct hardware support for AW8697 Linear Vibrator (/sys/class/leds/vibrator_single)
-3. Thermals: Dynamic resolution and unquoted fallback for CPU temp (/sys/class/thermal/thermal_zone0/temp)
+1. Flashlight: Direct hardware support for MediaTek OCP81375 (/sys/class/torch/torch/torch_level) - ignores aw22xxx_led mecha loop
+2. Haptics: Full recursive source patch for AW8697 Linear Vibrator (/sys/class/leds/vibrator_single)
+3. Thermals: Unlocked CPU temp display for MT6895 soc_max (/sys/class/thermal/thermal_zone0/temp)
 4. Splash: Native 1080x2436 AMOLED resolution scaling across all splash XML resources
-5. Build: Android 14 2-part and 3-part lunch combo compatibility shim for envsetup.sh
+5. DRM: Single-pipe atomic display rendering for MediaTek MT6895
+6. Build: Android 14 2-part and 3-part lunch combo compatibility shim for envsetup.sh
 """
 
 import os
@@ -66,69 +67,82 @@ def patch_flashlight(fox_root):
     with open(action_cpp, "r", encoding="utf-8") as f:
         content = f.read()
 
-    target = 'bright_one = path_one + "/brightness";'
-    if target in content and "/sys/class/torch/torch/torch_level" not in content:
-        replacement = """bright_one = path_one + "/brightness";
-\t\t\tif (!TWFunc::Path_Exists(bright_one)) {
-\t\t\t\tif (TWFunc::Path_Exists(path_one)) {
-\t\t\t\t\tbright_one = path_one;
-\t\t\t\t\tmax_brt_one = "1";
-\t\t\t\t} else if (TWFunc::Path_Exists("/sys/class/torch/torch/torch_level")) {
-\t\t\t\t\tbright_one = "/sys/class/torch/torch/torch_level";
-\t\t\t\t\tmax_brt_one = "1";
-\t\t\t\t} else if (TWFunc::Path_Exists("/sys/class/sub_torch/sub_torch/sub_torch_level")) {
-\t\t\t\t\tbright_one = "/sys/class/sub_torch/sub_torch/sub_torch_level";
-\t\t\t\t\tmax_brt_one = "1";
-\t\t\t\t} else if (TWFunc::Path_Exists("/sys/devices/virtual/torch/torch/torch_level")) {
-\t\t\t\t\tbright_one = "/sys/devices/virtual/torch/torch/torch_level";
-\t\t\t\t\tmax_brt_one = "1";
-\t\t\t\t}
+    # 1. Block aw22xxx_led (Mecha Loop RGB) from being detected as flashlight LED during directory walk
+    if "aw22xxx" not in content:
+        content = content.replace(
+            "while ((dentry = readdir(dd))) {",
+            "while ((dentry = readdir(dd))) {\n\t\t\tif (strstr(dentry->d_name, \"aw22xxx\") || strstr(dentry->d_name, \"loop\")) continue;"
+        )
+
+    # 2. Unconditionally prioritize the real camera flash next to the rear camera
+    torch_override = """// Infinix GT 20 Pro (X6871 / MT6895) Real Camera Flashlight Override
+\t\t\tif (TWFunc::Path_Exists("/sys/class/torch/torch/torch_level")) {
+\t\t\t\tbright_one = "/sys/class/torch/torch/torch_level";
+\t\t\t\tmax_brt_one = "1";
+\t\t\t} else if (TWFunc::Path_Exists("/sys/devices/virtual/torch/torch/torch_level")) {
+\t\t\t\tbright_one = "/sys/devices/virtual/torch/torch/torch_level";
+\t\t\t\tmax_brt_one = "1";
+\t\t\t} else if (TWFunc::Path_Exists("/sys/class/sub_torch/sub_torch/sub_torch_level")) {
+\t\t\t\tbright_one = "/sys/class/sub_torch/sub_torch/sub_torch_level";
+\t\t\t\tmax_brt_one = "1";
+\t\t\t} else {
+\t\t\t\tbright_one = path_one + "/brightness";
+\t\t\t}
+\t\t\tif (bright_one.find("aw22xxx") != std::string::npos || bright_one.find("loop") != std::string::npos) {
+\t\t\t\tbright_one = "/sys/class/torch/torch/torch_level";
+\t\t\t\tmax_brt_one = "1";
 \t\t\t}"""
-        content = content.replace(target, replacement, 1)
-        with open(action_cpp, "w", encoding="utf-8") as f:
-            f.write(content)
-        print("[+] Successfully patched action.cpp with flashlight hardware fallback")
-        return True
-    else:
-        print("[!] Flashlight patch already applied or target line not found in action.cpp")
-        return True
+
+    if 'bright_one = path_one + "/brightness";' in content:
+        content = content.replace('bright_one = path_one + "/brightness";', torch_override, 1)
+        print("[+] Patched action.cpp with rear camera flashlight priority")
+
+    # 3. Ensure writing "1\n" for ON and "0\n" for OFF when controlling torch_level
+    content = content.replace(
+        'TWFunc::write_to_file(bright_one, max_brt_one);',
+        'if (bright_one.find("torch") != std::string::npos) { TWFunc::write_to_file(bright_one, "1\\n"); } else { TWFunc::write_to_file(bright_one, max_brt_one); }'
+    )
+    content = content.replace(
+        'TWFunc::write_to_file(bright_one, "0");',
+        'TWFunc::write_to_file(bright_one, "0\\n");'
+    )
+
+    with open(action_cpp, "w", encoding="utf-8") as f:
+        f.write(content)
+    print("[+] Successfully hardened action.cpp with real camera flashlight controls")
+    return True
 
 def patch_haptics(fox_root):
-    events_cpp = os.path.join(fox_root, "bootable/recovery/minuitwrp/events.cpp")
-    if not os.path.isfile(events_cpp):
-        print(f"[-] events.cpp not found at {events_cpp}")
-        return False
-
-    with open(events_cpp, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    vibrate_regex = re.compile(r"int vibrate\(int timeout_ms\)\s*\{[\s\S]*?\n\}", re.MULTILINE)
-    match = vibrate_regex.search(content)
-    if match:
-        new_vibrate = """int vibrate(int timeout_ms)
-{
-    if (timeout_ms > 10000) timeout_ms = 1000;
-    char tout[16];
-    snprintf(tout, sizeof(tout), "%d\\n", timeout_ms);
-    if (std::ifstream("/sys/class/leds/vibrator_single/activate").good()) {
-        write_to_file("/sys/class/leds/vibrator_single/duration", tout);
-        write_to_file("/sys/class/leds/vibrator_single/activate", "1\\n");
-    } else if (std::ifstream("/sys/class/leds/vibrator/activate").good()) {
-        write_to_file("/sys/class/leds/vibrator/duration", tout);
-        write_to_file("/sys/class/leds/vibrator/activate", "1\\n");
-    } else {
-        write_to_file("/sys/class/timed_output/vibrator/enable", tout);
-    }
-    return 0;
-}"""
-        content = content[:match.start()] + new_vibrate + content[match.end():]
-        with open(events_cpp, "w", encoding="utf-8") as f:
-            f.write(content)
-        print("[+] Successfully patched events.cpp with universal AW8697 vibrator_single logic")
-        return True
-    else:
-        print("[-] Could not find vibrate function in events.cpp")
-        return False
+    # Walk all files under bootable/recovery and vendor/recovery
+    patched_count = 0
+    search_dirs = [
+        os.path.join(fox_root, "bootable/recovery"),
+        os.path.join(fox_root, "vendor/recovery")
+    ]
+    for sdir in search_dirs:
+        if not os.path.isdir(sdir):
+            continue
+        for root, _, files in os.walk(sdir):
+            for file in files:
+                if file.endswith((".cpp", ".c", ".h", ".hpp")):
+                    fpath = os.path.join(root, file)
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            content = f.read()
+                        orig = content
+                        content = content.replace("/sys/class/leds/vibrator/duration", "/sys/class/leds/vibrator_single/duration")
+                        content = content.replace("/sys/class/leds/vibrator/activate", "/sys/class/leds/vibrator_single/activate")
+                        content = content.replace("/sys/class/leds/vibrator/state", "/sys/class/leds/vibrator_single/state")
+                        content = content.replace("/sys/class/leds/vibrator/brightness", "/sys/class/leds/vibrator_single/brightness")
+                        content = content.replace('"/sys/class/leds/vibrator"', '"/sys/class/leds/vibrator_single"')
+                        if content != orig:
+                            with open(fpath, "w", encoding="utf-8") as f:
+                                f.write(content)
+                            patched_count += 1
+                    except Exception as e:
+                        pass
+    print(f"[+] Successfully patched {patched_count} source files with AW8697 vibrator_single sysfs paths")
+    return True
 
 def patch_thermals(fox_root):
     data_cpp = os.path.join(fox_root, "bootable/recovery/data.cpp")
@@ -139,22 +153,21 @@ def patch_thermals(fox_root):
     with open(data_cpp, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Ensure tw_no_cpu_temp is never permanently locked to 1 at startup
-    pattern_init = re.compile(r'if\s*\(\s*TWFunc::Path_Exists\s*\(\s*cpu_temp_file\s*\)\s*\)\s*\{[\s\S]*?mConst\.SetValue\s*\(\s*"tw_no_cpu_temp"\s*,\s*"1"\s*\);\s*\}', re.MULTILINE)
-    if pattern_init.search(content):
-        replacement_init = """mConst.SetValue("tw_no_cpu_temp", "0");"""
-        content = pattern_init.sub(replacement_init, content, count=1)
-        print("[+] Successfully unlocked tw_no_cpu_temp initialization")
+    # 1. Unconditionally unlock tw_no_cpu_temp so the GUI always displays CPU temperature
+    content = re.sub(r'mConst\.SetValue\s*\(\s*"tw_no_cpu_temp"\s*,\s*"1"\s*\);', 'mConst.SetValue("tw_no_cpu_temp", "0");', content)
+    content = re.sub(r'mConst\.SetValue\s*\(\s*"tw_no_cpu_temp"\s*,\s*"\w+"\s*\);', 'mConst.SetValue("tw_no_cpu_temp", "0");', content)
 
-    # In reading function, try fallback thermal zones if primary returns != 0
-    pattern_read = re.compile(r'if\s*\(\s*TWFunc::read_file\s*\(\s*cpu_temp_file\s*,\s*results\s*\)\s*!=\s*0\s*\)', re.MULTILINE)
-    if pattern_read.search(content):
-        replacement_read = """if (TWFunc::read_file(cpu_temp_file, results) != 0 && TWFunc::read_file("/sys/class/thermal/thermal_zone0/temp", results) != 0 && TWFunc::read_file("/sys/class/thermal/thermal_zone1/temp", results) != 0 && TWFunc::read_file("/sys/class/thermal/thermal_zone46/temp", results) != 0)"""
-        content = pattern_read.sub(replacement_read, content, count=1)
-        print("[+] Successfully added thermal zone fallbacks to data.cpp")
+    # 2. Force default user settings to show CPU temperature on status bar
+    content = re.sub(r'mPersist\.SetValue\s*\(\s*"tw_show_cpu_temp"\s*,\s*"0"\s*\);', 'mPersist.SetValue("tw_show_cpu_temp", "1");', content)
+    content = re.sub(r'mPersist\.SetValue\s*\(\s*"of_status_cpu_temp"\s*,\s*"0"\s*\);', 'mPersist.SetValue("of_status_cpu_temp", "1");', content)
+
+    # 3. Ensure fallback in read function
+    content = re.sub(r'if\s*\(\s*TWFunc::read_file\s*\(\s*cpu_temp_file\s*,\s*results\s*\)\s*!=\s*0\s*\)',
+                     'if (TWFunc::read_file(cpu_temp_file, results) != 0 && TWFunc::read_file("/sys/class/thermal/thermal_zone0/temp", results) != 0 && TWFunc::read_file("/sys/devices/virtual/thermal/thermal_zone0/temp", results) != 0)', content)
 
     with open(data_cpp, "w", encoding="utf-8") as f:
         f.write(content)
+    print("[+] Successfully patched data.cpp with thermal zone 0 unlocked and status bar enabled")
     return True
 
 def patch_splash(fox_root):
@@ -347,4 +360,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

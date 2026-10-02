@@ -101,8 +101,10 @@ blocktag.ko
 pidmap.ko
 mtk-pmic-keys.ko
 mtk-kpd.ko
-richtap_haptic_hv.ko
 i2c-mt65xx.ko
+richtap_haptic_hv.ko
+ocp81375.ko
+sgm37864.ko
 rtc-mt6685.ko
 spi-mt65xx.ko
 mt6375.ko
@@ -178,6 +180,7 @@ mtk_gpu_hal.ko
 mtk_gpufreq_wrapper.ko
 reset-ti-syscon.ko
 thermal_interface.ko
+flashlight.ko
 mtk-cqdma.ko
 tinysys-scmi.ko
 mtk_rpmsg_mbox.ko
