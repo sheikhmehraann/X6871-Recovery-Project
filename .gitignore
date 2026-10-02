@@ -8,6 +8,8 @@ __pycache__/
 *.log
 *.txt
 downloaded_release*/
+unpacked_build*/
+*.png
 output/
 .DS_Store
 Thumbs.db

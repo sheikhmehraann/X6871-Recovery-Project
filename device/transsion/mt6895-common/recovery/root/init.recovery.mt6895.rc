@@ -12,7 +12,8 @@ on init
 on fs
     wait /dev/block/platform/soc/112b0000.ufshci
     symlink /dev/block/platform/soc/112b0000.ufshci /dev/block/bootdevice
-    install_keyring
+    wait /dev/block/by-name/metadata
+    mount ext4 /dev/block/by-name/metadata /metadata noatime nosuid nodev discard
 
 on boot
     setprop sys.usb.config adb

@@ -900,12 +900,6 @@ static void update_plane_fb() {
      return;
   }
 
-  /* Add conn-crtc association property required
-   * for driver to recognize quadpipe topology.
-   */
-  add_prop(&conn_res, connector, Connector, main_monitor_connector->connector_id,
-           "CRTC_ID", main_monitor_crtc->crtc_id);
-
   /* Add property */
   for(i = 0; i < number_of_lms; i++) {
     drmModeAtomicAddProperty(atomic_req, plane_res[i].plane->plane_id,
@@ -918,7 +912,7 @@ static void update_plane_fb() {
   /* Commit changes */
   int32_t ret;
   ret = drmModeAtomicCommit(drm_fd, atomic_req,
-                 DRM_MODE_ATOMIC_ALLOW_MODESET, NULL);
+                 0, NULL);
 
   drmModeAtomicFree(atomic_req);
 
@@ -1145,6 +1139,15 @@ static GRSurface* drm_init(minui_backend* backend __unused) {
 static GRSurface* drm_flip(minui_backend* backend __unused) {
     memcpy(drm_surfaces[current_buffer]->base.data,
             draw_buf->data, draw_buf->height * draw_buf->row_bytes);
+
+    int ret = drmModePageFlip(drm_fd, main_monitor_crtc->crtc_id,
+                              drm_surfaces[current_buffer]->fb_id, 0, nullptr);
+    if (ret < 0) {
+        drmModeSetCrtc(drm_fd, main_monitor_crtc->crtc_id,
+                       drm_surfaces[current_buffer]->fb_id, 0, 0,
+                       &main_monitor_connector->connector_id, 1,
+                       &main_monitor_crtc->mode);
+    }
     update_plane_fb();
     current_buffer = 1 - current_buffer;
     return draw_buf;

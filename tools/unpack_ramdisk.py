@@ -96,8 +96,9 @@ def unpack_cpio(cpio_path, out_dir):
                     out_f.write(file_data)
             file_count += 1
         except Exception as e:
-            print(f"[-] Error unpacking entry at {pos}: {e}")
-            break
+            # Continue extracting remaining files
+            pos = file_data_pos + (((filesize + 3) // 4) * 4) if 'file_data_pos' in locals() else pos + 512
+            continue
 
     print(f"[+] Unpacked {file_count} files into {out_dir}")
 
