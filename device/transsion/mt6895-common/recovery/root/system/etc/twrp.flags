@@ -3,69 +3,74 @@
 # specify MF_CHECK, and must come before any filesystems that do specify MF_CHECK
 
 # mount point		fs			device						device2			 device3			flags
-# User writeable partitions
-/boot				emmc		/dev/block/by-name/boot											flags=display=boot;slotselect;backup;flashimg
-/vendor_boot		emmc		/dev/block/by-name/vendor_boot									flags=display=vendor_boot;slotselect;backup;flashimg
-/init_boot			emmc		/dev/block/by-name/init_boot									flags=display=init_boot;slotselect;backup;flashimg
-/vbmeta				emmc		/dev/block/by-name/vbmeta										flags=display=vbmeta;slotselect;backup;flashimg
-/vbmeta_system		emmc		/dev/block/by-name/vbmeta_system								flags=display=vbmeta_system;slotselect;backup;flashimg
-/vbmeta_vendor		emmc		/dev/block/by-name/vbmeta_vendor								flags=display=vbmeta_vendor;slotselect;backup;flashimg
+# User writeable & Core Boot Partitions (A/B)
+/boot				emmc		/dev/block/by-name/boot											flags=display="Boot";slotselect;backup=1;flashimg=1
+/vendor_boot		emmc		/dev/block/by-name/vendor_boot									flags=display="Vendor Boot";slotselect;backup=1;flashimg=1
+/init_boot			emmc		/dev/block/by-name/init_boot									flags=display="Init Boot";slotselect;backup=1;flashimg=1
+/dtbo				emmc		/dev/block/by-name/dtbo											flags=display="DTBO";slotselect;backup=1;flashimg=1
+/vbmeta				emmc		/dev/block/by-name/vbmeta										flags=display="VBMeta";slotselect;backup=1;flashimg=1
+/vbmeta_system		emmc		/dev/block/by-name/vbmeta_system								flags=display="VBMeta System";slotselect;backup=1;flashimg=1
+/vbmeta_vendor		emmc		/dev/block/by-name/vbmeta_vendor								flags=display="VBMeta Vendor";slotselect;backup=1;flashimg=1
 
-# Firmware
-/dtbo				emmc		/dev/block/by-name/dtbo											flags=display=dtbo;slotselect;backup
-/metadata			ext4		/dev/block/by-name/metadata										flags=display=metadata;backup
-/misc				emmc		/dev/block/by-name/misc											flags=display=misc;backup
+# Core Firmware Partitions (A/B)
+/lk					emmc		/dev/block/by-name/lk											flags=display="Bootloader (lk)";slotselect;backup=1;flashimg=1
+/logo				emmc		/dev/block/by-name/logo											flags=display="Logo";slotselect;backup=1;flashimg=1
+/md1img				emmc		/dev/block/by-name/md1img										flags=display="Modem (md1img)";slotselect;backup=1;flashimg=1
+/spmfw				emmc		/dev/block/by-name/spmfw										flags=display="SPMFW";slotselect;backup=1;flashimg=1
+/scp				emmc		/dev/block/by-name/scp											flags=display="SCP";slotselect;backup=1;flashimg=1
+/sspm				emmc		/dev/block/by-name/sspm											flags=display="SSPM";slotselect;backup=1;flashimg=1
+/gz					emmc		/dev/block/by-name/gz											flags=display="GZ";slotselect;backup=1;flashimg=1
+/dpm				emmc		/dev/block/by-name/dpm											flags=display="DPM";slotselect;backup=1;flashimg=1
+/mcupm				emmc		/dev/block/by-name/mcupm										flags=display="MCUPM";slotselect;backup=1;flashimg=1
+/vcp				emmc		/dev/block/by-name/vcp											flags=display="VCP";slotselect;backup=1;flashimg=1
+/gpueb				emmc		/dev/block/by-name/gpueb										flags=display="GPUEB";slotselect;backup=1;flashimg=1
+/apusys				emmc		/dev/block/by-name/apusys										flags=display="APUSYS";slotselect;backup=1;flashimg=1
+/ccu				emmc		/dev/block/by-name/ccu											flags=display="CCU";slotselect;backup=1;flashimg=1
+/mvpu_algo			emmc		/dev/block/by-name/mvpu_algo									flags=display="MVPU Algo";slotselect;backup=1;flashimg=1
+/pi_img				emmc		/dev/block/by-name/pi_img										flags=display="PI Image";slotselect;backup=1;flashimg=1
+/mcf_ota			emmc		/dev/block/by-name/mcf_ota										flags=display="MCF OTA";slotselect;backup=1;flashimg=1
+/tee				emmc		/dev/block/by-name/tee											flags=display="TEE";slotselect;backup=1;flashimg=1
+/tkv				emmc		/dev/block/by-name/tkv											flags=display="TKV";slotselect;backup=1;flashimg=1
+/connsys_bt			emmc		/dev/block/by-name/connsys_bt									flags=display="Connsys BT";slotselect;backup=1;flashimg=1
+/connsys_wifi		emmc		/dev/block/by-name/connsys_wifi									flags=display="Connsys WiFi";slotselect;backup=1;flashimg=1
 
-# Sensitive Data
-/nvcfg				ext4		/dev/block/by-name/nvcfg										flags=display=nvcfg;backup
-/persist_image		emmc		/dev/block/by-name/persist										flags=display=persist;backup
-/persistent			emmc		/dev/block/by-name/frp											flags=display=persistent;backup
+# Sensitive, Security & NV Partitions (Single)
+/nvcfg				ext4		/dev/block/by-name/nvcfg										flags=display="NVCFG";backup=1
+/nvdata				ext4		/dev/block/by-name/nvdata										flags=display="NVDATA";backup=1
+/nvram				emmc		/dev/block/by-name/nvram										flags=display="NVRAM";backup=1
+/persist			ext4		/dev/block/by-name/persist										flags=display="Persist";backup=1
+/persist_image		emmc		/dev/block/by-name/persist										flags=display="Persist Image";backup=1;flashimg=1
+/proinfo			emmc		/dev/block/by-name/proinfo										flags=display="Proinfo";backup=1
+/protect_f			ext4		/dev/block/by-name/protect1										flags=display="Protect_F";backup=1
+/protect_s			ext4		/dev/block/by-name/protect2										flags=display="Protect_S";backup=1
+/seccfg				emmc		/dev/block/by-name/seccfg										flags=display="SecCFG";backup=1
+/sec1				emmc		/dev/block/by-name/sec1											flags=display="Sec1";backup=1
+/persistent			emmc		/dev/block/by-name/frp											flags=display="FRP";backup=1
+/expdb				emmc		/dev/block/by-name/expdb										flags=display="EXPDB";backup=1
+/otp				emmc		/dev/block/by-name/otp											flags=display="OTP";backup=1
+/flashinfo			emmc		/dev/block/by-name/flashinfo									flags=display="FlashInfo";backup=1
+/dram_para			emmc		/dev/block/by-name/dram_para									flags=display="DRAM Para";backup=1
+/efuse				emmc		/dev/block/by-name/efuse										flags=display="Efuse";backup=1
+/tranfs				ext4		/dev/block/by-name/tranfs										flags=display="TranFS";backup=1
+/metadata			ext4		/dev/block/by-name/metadata										flags=display="Metadata";backup=1
+/misc				emmc		/dev/block/by-name/misc											flags=display="Misc";backup=1
 
-# IMEI and modem related
-/nvdata				ext4		/dev/block/by-name/nvdata										flags=display=nvdata;backup
-/protect_f			ext4		/dev/block/by-name/protect1										flags=display=protect_f;backup
-/protect_s			ext4		/dev/block/by-name/protect2										flags=display=protect_s;backup
-/nvram				emmc		/dev/block/by-name/nvram										flags=display=nvram;backup
-
-# Standard MediaTeks's partitions
-/expdb				emmc		/dev/block/by-name/expdb										flags=display=expdb
-/logo				emmc		/dev/block/by-name/logo											flags=display=logo;slotselect;backup
-/otp				emmc		/dev/block/by-name/otp											flags=display=otp
-/seccfg				emmc		/dev/block/by-name/seccfg										flags=display=seccfg
-/spmfw				emmc		/dev/block/by-name/spmfw										flags=display=spmfw;slotselect
-/tee1				emmc		/dev/block/by-name/tee1											flags=display=tee1
-/tee2				emmc		/dev/block/by-name/tee2											flags=display=tee2
-
-# Removable Storage (No SD slot; USB-OTG supported)
+# Removable Storage (USB-OTG)
 /usb_otg			auto		/dev/block/sdd1				/dev/block/sdd			/dev/block/sda1			flags=display="USB-OTG";storage;wipeingui;removable;backup=0
 
-# Hardware & Firmware Partitions
-/super				emmc		/dev/block/by-name/super										flags=display="Super Image";backup;flashimg
-/md1img				emmc		/dev/block/by-name/md1img										flags=display="Modem (md1img)";backup;flashimg
-/proinfo			emmc		/dev/block/by-name/proinfo										flags=display=proinfo;backup
-/scp1				emmc		/dev/block/by-name/scp1											flags=display=scp;backup
-/sspm1				emmc		/dev/block/by-name/sspm1										flags=display=sspm;backup
-/dpm1				emmc		/dev/block/by-name/dpm1											flags=display=dpm;backup
-/mcupm1				emmc		/dev/block/by-name/mcupm1										flags=display=mcupm;backup
-/gz1				emmc		/dev/block/by-name/gz1											flags=display=gz;backup
-/vcp				emmc		/dev/block/by-name/vcp											flags=display=vcp;backup
-/gpueb				emmc		/dev/block/by-name/gpueb										flags=display=gpueb;backup
-/apusys1			emmc		/dev/block/by-name/apusys1										flags=display=apusys;backup
-/pi_img				emmc		/dev/block/by-name/pi_img										flags=display=pi_img;slotselect;backup
-/mcf_ota			emmc		/dev/block/by-name/mcf_ota										flags=display=mcf_ota;slotselect;backup
-/tkv				emmc		/dev/block/by-name/tkv											flags=display=tkv;slotselect;backup
-/tranfs				ext4		/dev/block/by-name/tranfs										flags=display="TranFS";backup
-/connsys_bt			emmc		/dev/block/by-name/connsys_bt									flags=display="Connsys BT";slotselect;backup
-/connsys_wifi		emmc		/dev/block/by-name/connsys_wifi									flags=display="Connsys WiFi";slotselect;backup
-/dram_para			emmc		/dev/block/by-name/dram_para									flags=display=dram_para;backup
-/efuse				emmc		/dev/block/by-name/efuse										flags=display=efuse;backup
-
-# Flashable logical partitions
-/system_image		emmc		/dev/block/bootdevice/by-name/system							flags=backup;flashimg
-/vendor_image		emmc		/dev/block/bootdevice/by-name/vendor							flags=backup;flashimg
-/system_ext_image	emmc		/dev/block/bootdevice/by-name/system_ext						flags=display="System_EXT Image";backup;flashimg
-/product_image		emmc		/dev/block/bootdevice/by-name/product							flags=display="Product Image";backup;flashimg
-/vendor_dlkm_image	emmc		/dev/block/bootdevice/by-name/vendor_dlkm						flags=display="VendorDLKM Image";backup;flashimg
-/odm_dlkm_image		emmc		/dev/block/bootdevice/by-name/odm_dlkm							flags=display="OdmDLKM Image";backup;flashimg
-/tr_product_image	emmc		/dev/block/bootdevice/by-name/tr_product						flags=display="tr_product Image";backup;flashimg
-/tr_preload_image	emmc		/dev/block/bootdevice/by-name/tr_preload						flags=display="tr_preload Image";backup;flashimg
+# Super & Logical Flashable Image Partitions
+/super				emmc		/dev/block/by-name/super										flags=display="Super Image";backup=1;flashimg=1
+/system_image		emmc		/dev/block/bootdevice/by-name/system							flags=display="System Image";backup=1;flashimg=1
+/vendor_image		emmc		/dev/block/bootdevice/by-name/vendor							flags=display="Vendor Image";backup=1;flashimg=1
+/product_image		emmc		/dev/block/bootdevice/by-name/product							flags=display="Product Image";backup=1;flashimg=1
+/system_ext_image	emmc		/dev/block/bootdevice/by-name/system_ext						flags=display="System_EXT Image";backup=1;flashimg=1
+/vendor_dlkm_image	emmc		/dev/block/bootdevice/by-name/vendor_dlkm						flags=display="VendorDLKM Image";backup=1;flashimg=1
+/odm_dlkm_image		emmc		/dev/block/bootdevice/by-name/odm_dlkm							flags=display="OdmDLKM Image";backup=1;flashimg=1
+/tr_product_image	emmc		/dev/block/bootdevice/by-name/tr_product						flags=display="tr_product Image";backup=1;flashimg=1
+/tr_preload_image	emmc		/dev/block/bootdevice/by-name/tr_preload						flags=display="tr_preload Image";backup=1;flashimg=1
+/tr_carrier_image	emmc		/dev/block/bootdevice/by-name/tr_carrier						flags=display="tr_carrier Image";backup=1;flashimg=1
+/tr_company_image	emmc		/dev/block/bootdevice/by-name/tr_company						flags=display="tr_company Image";backup=1;flashimg=1
+/tr_mi_image		emmc		/dev/block/bootdevice/by-name/tr_mi								flags=display="tr_mi Image";backup=1;flashimg=1
+/tr_overlayfs_image	emmc		/dev/block/bootdevice/by-name/tr_overlayfs						flags=display="tr_overlayfs Image";backup=1;flashimg=1
+/tr_region_image	emmc		/dev/block/bootdevice/by-name/tr_region							flags=display="tr_region Image";backup=1;flashimg=1
+/tr_theme_image		emmc		/dev/block/bootdevice/by-name/tr_theme							flags=display="tr_theme Image";backup=1;flashimg=1
