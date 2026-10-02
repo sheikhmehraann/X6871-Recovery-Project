@@ -28,8 +28,8 @@ OF_CLOCK_POS := 0
 
 # Flashlight (MediaTek OCP81375 camera flash driver)
 OF_FLASHLIGHT_ENABLE := 1
-OF_FL_PATH1 := "/sys/class/torch/torch/torch_level"
-OF_FL_PATH2 := "/sys/devices/virtual/torch/torch/torch_level"
+OF_FL_PATH1 := /sys/class/torch/torch/torch_level
+OF_FL_PATH2 := /sys/devices/virtual/torch/torch/torch_level
 OF_USE_GREEN_LED := 0
 
 

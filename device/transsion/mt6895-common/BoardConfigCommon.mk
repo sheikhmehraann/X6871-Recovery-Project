@@ -173,8 +173,8 @@ TW_MAX_BRIGHTNESS := 511
 TW_LOAD_VENDOR_BOOT_MODULES := true
 
 # Thermals / CPU Temperature (MT6895 soc_max)
-TW_CUSTOM_CPU_TEMP_PATH := "/sys/class/thermal/thermal_zone0/temp"
-TW_CPU_TEMP_PATH := "/sys/class/thermal/thermal_zone0/temp"
+TW_CUSTOM_CPU_TEMP_PATH := /sys/class/thermal/thermal_zone0/temp
+TW_CPU_TEMP_PATH := /sys/class/thermal/thermal_zone0/temp
 
 # Haptics & Vibration (MediaTek AW8697 / vibrator_single)
 TW_USE_LEDS_HAPTICS := true
