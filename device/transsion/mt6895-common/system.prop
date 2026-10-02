@@ -8,6 +8,10 @@ ro.product.marketname=Infinix GT 20 Pro
 ro.board.platform=mt6895
 ro.hardware=mt6895
 ro.build.product=Infinix-X6871
+ro.build.display.id=X6871-15.1.2.180SP05(OP001PF001AZ)
+ro.build.fingerprint=Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys
+ro.build.version.incremental=180003
+ro.build.description=X6871-user 15 AP3A.240905.015.A2 release-keys
 
 # OS & Platform
 ro.treble.enabled=true

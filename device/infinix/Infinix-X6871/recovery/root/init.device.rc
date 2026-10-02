@@ -36,6 +36,7 @@ on boot
     chmod 0666 /sys/devices/virtual/torch/torch/torch_level
 
     # Infinix GT 20 Pro (X6871) AW8697 Linear Haptics
+    insmod /lib/modules/richtap_haptic_hv.ko
     rm /sys/class/leds/vibrator
     symlink /sys/class/leds/vibrator_single /sys/class/leds/vibrator
     chmod 0666 /sys/class/leds/vibrator_single/activate

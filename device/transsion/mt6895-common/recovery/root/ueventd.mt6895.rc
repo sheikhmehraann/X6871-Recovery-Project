@@ -1,3 +1,5 @@
+firmware_directories /etc/firmware/ /vendor/firmware/ /lib/firmware/
+
 #change partition permission
 # eMMC only
 /dev/block/mmcblk0                               0660    root    system

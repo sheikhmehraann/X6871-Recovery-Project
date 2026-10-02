@@ -20,9 +20,22 @@ on init
     setprop ro.board.platform "mt6895"
     setprop ro.build.product "Infinix-X6871"
     setprop ro.build.fingerprint "Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys"
-    setprop ro.build.display.id "X6871-15.1.2.180SP05(BASE001PF001AZ)"
+    setprop ro.build.display.id "X6871-15.1.2.180SP05(OP001PF001AZ)"
     setprop ro.build.version.release "15"
     setprop ro.build.version.release_or_codename "15"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.model "Infinix X6871"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.marketname "Infinix GT 20 Pro"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.device "Infinix-X6871"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.name "X6871-OP"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.brand "Infinix"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.manufacturer "INFINIX"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.board "Infinix-X6871"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.board.platform "mt6895"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.product "Infinix-X6871"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.fingerprint "Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.display.id "X6871-15.1.2.180SP05(OP001PF001AZ)"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.version.incremental "180003"
+    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.description "X6871-user 15 AP3A.240905.015.A2 release-keys"
 
 on fs
     wait /dev/block/platform/soc/112b0000.ufshci
@@ -58,6 +71,9 @@ on boot
     insmod /lib/modules/ocp81375.ko
     insmod /lib/modules/sgm37864.ko
 
+    # Load AWINIC / Richtap haptics driver
+    insmod /lib/modules/richtap_haptic_hv.ko
+
     # Rear camera flashlight permissions (MediaTek OCP81375)
     chmod 0666 /sys/class/torch/torch/torch_level
     chmod 0666 /sys/devices/virtual/torch/torch/torch_level
@@ -75,6 +91,14 @@ on boot
     # Thermal sensor permissions (MT6895 soc_max)
     chmod 0666 /sys/class/thermal/thermal_zone0/temp
     chmod 0666 /sys/devices/virtual/thermal/thermal_zone0/temp
+
+    # CPU governor & recovery performance mode permissions
+    chmod 0666 /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
+    chmod 0666 /sys/devices/system/cpu/cpufreq/policy4/scaling_governor
+    chmod 0666 /sys/devices/system/cpu/cpufreq/policy7/scaling_governor
+    chmod 0666 /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+    chmod 0666 /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
+    chmod 0666 /sys/devices/system/cpu/cpu7/cpufreq/scaling_governor
 
 on property:persist.vendor.mtk.pl_lnk=1
     symlink /dev/block/mapper/pl_a /dev/block/by-name/preloader_raw_a
@@ -132,3 +156,10 @@ on property:ro.crypto.state=encrypted
 
 on property:servicemanager.ready=true
     setprop sys.boot_completed 1
+
+on property:twrp.decrypt.done=true
+    mkdir /data/media/0/Fox 0777 media_rw media_rw
+    chmod 0777 /data/media/0/Fox
+    chown media_rw media_rw /data/media/0/Fox
+    chmod 0666 /data/media/0/Fox/*
+
