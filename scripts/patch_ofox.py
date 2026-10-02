@@ -197,6 +197,143 @@ def patch_splash(fox_root):
     print(f"[+] Successfully patched {patched_count} splash XML files to 1080x2436")
     return True
 
+def patch_graphics_drm(fox_root):
+    drm_cpp = os.path.join(fox_root, "bootable/recovery/minuitwrp/graphics_drm.cpp")
+    if not os.path.isfile(drm_cpp):
+        print(f"[-] graphics_drm.cpp not found at {drm_cpp}")
+        return False
+
+    repo_script_drm = os.path.join(os.path.dirname(os.path.abspath(__file__)), "graphics_drm.cpp")
+    if os.path.isfile(repo_script_drm):
+        try:
+            with open(repo_script_drm, "r", encoding="utf-8") as f_src:
+                src_content = f_src.read()
+            with open(drm_cpp, "w", encoding="utf-8") as f_dst:
+                f_dst.write(src_content)
+            print(f"[+] Successfully deployed verified MediaTek single-pipe graphics_drm.cpp to {drm_cpp}")
+            return True
+        except Exception as e:
+            print(f"[!] Direct copy of graphics_drm.cpp failed ({e}), falling back to in-place patching...")
+
+    try:
+        with open(drm_cpp, "r", encoding="utf-8") as f:
+            code = f.read()
+
+        if "#define DEFAULT_NUM_LMS 2" in code:
+            code = code.replace("#define DEFAULT_NUM_LMS 2", "#define DEFAULT_NUM_LMS 1")
+
+        old_zpos = """  /* populate z-order property required for 4 layer mixer */
+  if (number_of_lms == 4)
+    zpos = plane >> 1;
+
+  atomic_add_prop_to_plane(plane_res, atomic_req,
+                           plane_res[plane].plane->plane_id, "zpos", zpos);"""
+
+        new_zpos = """  /* populate z-order property required for 4 layer mixer */
+  if (number_of_lms == 4) {
+    zpos = plane >> 1;
+    atomic_add_prop_to_plane(plane_res, atomic_req,
+                             plane_res[plane].plane->plane_id, "zpos", zpos);
+  }"""
+        if old_zpos in code:
+            code = code.replace(old_zpos, new_zpos)
+
+        old_add_prop = """static int atomic_add_prop_to_plane(Plane *plane_res, drmModeAtomicReq *req,
+                                    uint32_t obj_id, const char *prop_name,
+                                    uint64_t value) {
+  uint32_t prop_id;
+
+  prop_id = find_plane_prop_id(obj_id, prop_name, plane_res);
+  if (prop_id == 0) {
+    printf("Could not find obj_id = %d\\n", obj_id);
+    return -EINVAL;
+  }"""
+
+        new_add_prop = """static int atomic_add_prop_to_plane(Plane *plane_res, drmModeAtomicReq *req,
+                                    uint32_t obj_id, const char *prop_name,
+                                    uint64_t value) {
+  uint32_t prop_id;
+
+  prop_id = find_plane_prop_id(obj_id, prop_name, plane_res);
+  if (prop_id == 0) {
+    if (strcmp(prop_name, "zpos") != 0) {
+      printf("Could not find prop %s for obj_id = %d\\n", prop_name, obj_id);
+    }
+    return -EINVAL;
+  }"""
+        if old_add_prop in code:
+            code = code.replace(old_add_prop, new_add_prop)
+
+        old_update = """  /* Add property */
+  for(i = 0; i < number_of_lms; i++)
+    drmModeAtomicAddProperty(atomic_req, plane_res[i].plane->plane_id,
+                             fb_prop_id, drm_surfaces[current_buffer]->fb_id);"""
+
+        new_update = """  /* Add property */
+  for(i = 0; i < number_of_lms; i++) {
+    drmModeAtomicAddProperty(atomic_req, plane_res[i].plane->plane_id,
+                             fb_prop_id, drm_surfaces[current_buffer]->fb_id);
+    atomic_add_prop_to_plane(plane_res, atomic_req,
+                             plane_res[i].plane->plane_id, "CRTC_ID",
+                             main_monitor_crtc->crtc_id);
+  }"""
+        if old_update in code:
+            code = code.replace(old_update, new_update)
+
+        old_disable = """static void disable_non_main_crtcs(int fd,
+                    drmModeRes *resources,
+                    drmModeCrtc* main_crtc) {
+  uint32_t prop_id;
+  drmModeAtomicReqPtr atomic_req = drmModeAtomicAlloc();
+  for (int i = 0; i < resources->count_connectors; i++) {
+    drmModeConnector* connector = drmModeGetConnector(fd, resources->connectors[i]);
+    drmModeCrtc* crtc = find_crtc_for_connector(fd, resources, connector);
+    if (crtc->crtc_id != main_crtc->crtc_id) {
+      // Switching to atomic commit. Given only crtc, we can only set ACTIVE = 0
+      // to disable any Nonmain CRTCs
+      find_prop_id(&crtc_res, crtc, Crtc, crtc->crtc_id, "ACTIVE", prop_id);
+      if (prop_id == 0)
+        return;
+
+      if (drmModeAtomicAddProperty(atomic_req, main_monitor_crtc->crtc_id, prop_id, 0) < 0)
+        return;
+
+    }
+    drmModeFreeCrtc(crtc);
+  }
+  if (drmModeAtomicCommit(drm_fd, atomic_req,DRM_MODE_ATOMIC_ALLOW_MODESET, NULL))
+    printf("Atomic Commit failed in DisableNonMainCrtcs\\n");
+
+  drmModeAtomicFree(atomic_req);
+}"""
+
+        new_disable = """static void disable_non_main_crtcs(int fd,
+                    drmModeRes *resources,
+                    drmModeCrtc* main_crtc) {
+  for (int i = 0; i < resources->count_connectors; i++) {
+    drmModeConnector* connector = drmModeGetConnector(fd, resources->connectors[i]);
+    if (!connector) continue;
+    drmModeCrtc* crtc = find_crtc_for_connector(fd, resources, connector);
+    if (crtc) {
+      if (crtc->crtc_id != main_crtc->crtc_id) {
+        drmModeSetCrtc(fd, crtc->crtc_id, 0, 0, 0, NULL, 0, NULL);
+      }
+      drmModeFreeCrtc(crtc);
+    }
+    drmModeFreeConnector(connector);
+  }
+}"""
+        if old_disable in code:
+            code = code.replace(old_disable, new_disable)
+
+        with open(drm_cpp, "w", encoding="utf-8") as f:
+            f.write(code)
+        print(f"[+] Successfully patched {drm_cpp} with MediaTek single-pipe DRM fixes")
+        return True
+    except Exception as e:
+        print(f"[-] Failed patching {drm_cpp}: {e}")
+        return False
+
 def main():
     fox_root = sys.argv[1] if len(sys.argv) > 1 else "."
     print(f"[*] OrangeFox Patch Engine targeting: {os.path.abspath(fox_root)}")
@@ -205,7 +342,9 @@ def main():
     patch_haptics(fox_root)
     patch_thermals(fox_root)
     patch_splash(fox_root)
+    patch_graphics_drm(fox_root)
     print("[*] Hardware and architecture patches applied successfully!")
 
 if __name__ == "__main__":
     main()
+

@@ -5,5 +5,10 @@ __pycache__/
 *.tar
 *.bak
 *.tmp
+*.log
+*.txt
+downloaded_release*/
+output/
 .DS_Store
 Thumbs.db
+

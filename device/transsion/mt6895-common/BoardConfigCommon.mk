@@ -108,7 +108,7 @@ TARGET_COPY_OUT_VENDOR := vendor
 TARGET_COPY_OUT_VENDOR_DLKM := vendor_dlkm
 
 # Platform
-TARGET_BOARD_PLATFORM := transsion_mt6895
+TARGET_BOARD_PLATFORM := mt6895
 
 # Properties
 TARGET_SYSTEM_PROP += $(COMMON_PATH)/system.prop
