@@ -34,15 +34,21 @@ on fs
     wait /dev/block/by-name/metadata
     mount ext4 /dev/block/by-name/metadata /metadata noatime nosuid nodev discard
     wait /dev/block/by-name/persist
-    mkdir /mnt/vendor/persist 0771 root root
+    mkdir /mnt/vendor/persist 0771 system system
     mount ext4 /dev/block/by-name/persist /mnt/vendor/persist noatime nosuid nodev
-    mkdir /mnt/vendor/persist/mcRegistry 0771 root root
+    chown system system /mnt/vendor/persist
+    chmod 0771 /mnt/vendor/persist
+    restorecon -R /mnt/vendor/persist
+    mkdir /mnt/vendor/persist/mcRegistry 0771 system system
+    chown system system /mnt/vendor/persist/mcRegistry
+    chmod 0771 /mnt/vendor/persist/mcRegistry
     install_keyring
 
 on post-fs
     start mobicore
     start vendor.gatekeeper-1-0
     start vendor.keymint-trustonic
+    start health-hal-2-1
 
     # Load MediaTek Dimensity 8200 Hardware CPUFreq / Performance Governor driver
     insmod /lib/modules/mediatek-cpufreq-hw.ko
@@ -151,15 +157,25 @@ service vendor.gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-ser
 
 service vendor.keymint-trustonic /vendor/bin/hw/android.hardware.security.keymint-service.trustonic
     class early_hal
-    user root
-    group root
+    user system
+    group system drmrpc
     disabled
+    seclabel u:r:recovery:s0
+
+service health-hal-2-1 /vendor/bin/hw/android.hardware.health@2.1-service
+    class hal
+    user system
+    group system
+    disabled
+    capabilities WAKE_ALARM BLOCK_SUSPEND
+    file /dev/kmsg w
     seclabel u:r:recovery:s0
 
 on property:ro.crypto.state=encrypted
     start mobicore
     start vendor.gatekeeper-1-0
     start vendor.keymint-trustonic
+    start health-hal-2-1
 
 on property:servicemanager.ready=true
     setprop sys.boot_completed 1

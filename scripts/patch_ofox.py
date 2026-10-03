@@ -459,8 +459,6 @@ def patch_magiskboot_vendor_boot(fox_root):
         return False
 
 def patch_foxstart_identity(fox_root):
-    stock_fp = "Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys"
-    stock_disp = "X6871-15.1.2.180SP05(OP001PF001AZ)"
     patched_count = 0
     search_dirs = [
         os.path.join(fox_root, "vendor/recovery"),
@@ -479,44 +477,68 @@ def patch_foxstart_identity(fox_root):
                         orig = content
 
                         target = 'ROM=$(get_ROM)'
-                        replacement = f"""ROM=$(get_ROM)
-   # Force exact Stock Infinix GT 20 Pro Android 15 identity
-   FP="{stock_fp}"
-   ANDROID_SDK="35"
-   INCREMENTAL_VERSION="180003"
-   RELEASE_VERSION="15"
-   BUILD_FLAVOR="X6871-user 15"
-   tmp2="{stock_disp}"
-   echo "ROM=Infinix GT 20 Pro Stock" >> $CFG
-   echo "ROM_FINGERPRINT=$FP" >> $CFG
-   echo "ANDROID_SDK=35" >> $CFG
-   echo "INCREMENTAL_VERSION=180003" >> $CFG
-   echo "RELEASE_VERSION=15" >> $CFG
-   echo "BUILD_FLAVOR=X6871-user 15" >> $CFG
-   [ -x "$SETPROP" ] && {{
-      $SETPROP "ro.build.fingerprint" "$FP" > /dev/null 2>&1
-      $SETPROP "orangefox.system.fingerprint" "$FP" > /dev/null 2>&1
-      $SETPROP "orangefox.rom.sdk" "35" > /dev/null 2>&1
-      $SETPROP "orangefox.system.release" "15" > /dev/null 2>&1
-      $SETPROP "orangefox.system.incremental" "180003" > /dev/null 2>&1
+                        replacement = """ROM=$(get_ROM)
+   # Dynamic runtime device identity detection (Clean Native OrangeFox Standard)
+   # Static Device Identity (Infinix GT 20 Pro - X6871)
+   [ -x "$SETPROP" ] && {
+      $SETPROP "ro.product.brand" "Infinix" > /dev/null 2>&1
       $SETPROP "ro.product.model" "Infinix X6871" > /dev/null 2>&1
       $SETPROP "ro.product.marketname" "Infinix GT 20 Pro" > /dev/null 2>&1
       $SETPROP "ro.product.device" "Infinix-X6871" > /dev/null 2>&1
-      $SETPROP "ro.build.display.id" "{stock_disp}" > /dev/null 2>&1
-      $SETPROP "ro.build.version.incremental" "180003" > /dev/null 2>&1
-      $SETPROP "ro.build.version.release" "15" > /dev/null 2>&1
-      $SETPROP "ro.build.version.sdk" "35" > /dev/null 2>&1
-      $SETPROP "ro.build.version.security_patch" "2026-07-01" > /dev/null 2>&1
-      $SETPROP "ro.vendor.build.security_patch" "2026-07-01" > /dev/null 2>&1
-   }}"""
-                        if target in content and stock_disp not in content:
+      $SETPROP "ro.board.platform" "mt6895" > /dev/null 2>&1
+   }
+
+   # Dynamic Runtime Properties - Read directly from the running ROM / system
+   RT_RELEASE=$(getprop ro.build.version.release)
+   [ -z "$RT_RELEASE" ] && [ -f /system/build.prop ] && RT_RELEASE=$(grep -m1 '^ro.build.version.release=' /system/build.prop | cut -d= -f2)
+   [ -z "$RT_RELEASE" ] && [ -f /system_root/system/build.prop ] && RT_RELEASE=$(grep -m1 '^ro.build.version.release=' /system_root/system/build.prop | cut -d= -f2)
+   [ -n "$RT_RELEASE" ] && {
+      RELEASE_VERSION="$RT_RELEASE"
+      echo "RELEASE_VERSION=$RT_RELEASE" >> $CFG
+      [ -x "$SETPROP" ] && {
+         $SETPROP "ro.build.version.release" "$RT_RELEASE" > /dev/null 2>&1
+         $SETPROP "orangefox.system.release" "$RT_RELEASE" > /dev/null 2>&1
+      }
+   }
+
+   RT_DISP=$(getprop ro.build.display.id)
+   [ -z "$RT_DISP" ] && [ -f /system/build.prop ] && RT_DISP=$(grep -m1 '^ro.build.display.id=' /system/build.prop | cut -d= -f2)
+   [ -z "$RT_DISP" ] && [ -f /system_root/system/build.prop ] && RT_DISP=$(grep -m1 '^ro.build.display.id=' /system_root/system/build.prop | cut -d= -f2)
+   [ -n "$RT_DISP" ] && {
+      tmp2="$RT_DISP"
+      [ -x "$SETPROP" ] && $SETPROP "ro.build.display.id" "$RT_DISP" > /dev/null 2>&1
+   }
+
+   RT_FP=$(getprop ro.build.fingerprint)
+   [ -z "$RT_FP" ] && [ -f /system/build.prop ] && RT_FP=$(grep -m1 '^ro.build.fingerprint=' /system/build.prop | cut -d= -f2)
+   [ -z "$RT_FP" ] && [ -f /system_root/system/build.prop ] && RT_FP=$(grep -m1 '^ro.build.fingerprint=' /system_root/system/build.prop | cut -d= -f2)
+   [ -n "$RT_FP" ] && {
+      FP="$RT_FP"
+      echo "ROM_FINGERPRINT=$RT_FP" >> $CFG
+      [ -x "$SETPROP" ] && {
+         $SETPROP "ro.build.fingerprint" "$RT_FP" > /dev/null 2>&1
+         $SETPROP "orangefox.system.fingerprint" "$RT_FP" > /dev/null 2>&1
+      }
+   }
+
+   RT_SDK=$(getprop ro.build.version.sdk)
+   [ -z "$RT_SDK" ] && [ -f /system/build.prop ] && RT_SDK=$(grep -m1 '^ro.build.version.sdk=' /system/build.prop | cut -d= -f2)
+   [ -n "$RT_SDK" ] && {
+      ANDROID_SDK="$RT_SDK"
+      echo "ANDROID_SDK=$RT_SDK" >> $CFG
+      [ -x "$SETPROP" ] && {
+         $SETPROP "ro.build.version.sdk" "$RT_SDK" > /dev/null 2>&1
+         $SETPROP "orangefox.rom.sdk" "$RT_SDK" > /dev/null 2>&1
+      }
+   }"""
+                        if target in content and "Dynamic Runtime Properties" not in content:
                             content = content.replace(target, replacement, 1)
 
                         if content != orig:
                             with open(fpath, "w", encoding="utf-8") as f:
                                 f.write(content)
                             patched_count += 1
-                            print(f"[+] Patched {fpath} with stock Infinix Android 15 identity injection")
+                            print(f"[+] Patched {fpath} with dynamic runtime identity detection")
                     except Exception as e:
                         print(f"[-] Failed patching {fpath}: {e}")
     return patched_count > 0

@@ -127,6 +127,7 @@ TARGET_USERIMAGES_USE_F2FS := true
 # Crypto
 TW_INCLUDE_CRYPTO := true
 TW_INCLUDE_CRYPTO_FBE := true
+TW_INCLUDE_CRYPTO_KEYMINT := true
 TW_INCLUDE_FBE_METADATA_DECRYPT := true
 BOARD_USES_METADATA_PARTITION := true
 TW_USE_FSCRYPT_POLICY := 2
@@ -172,6 +173,9 @@ TW_LOAD_VENDOR_BOOT_MODULES := true
 # Thermals / CPU Temperature (MT6895 soc_max)
 TW_CUSTOM_CPU_TEMP_PATH := /sys/class/thermal/thermal_zone0/temp
 TW_CPU_TEMP_PATH := /sys/class/thermal/thermal_zone0/temp
+
+# Battery (MediaTek MT6375 Battery Driver)
+TW_CUSTOM_BATTERY_PATH := /sys/class/power_supply/battery
 
 # Haptics & Vibration (MediaTek AW8697 / vibrator_single)
 TW_USE_LEDS_HAPTICS := true

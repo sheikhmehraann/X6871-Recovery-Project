@@ -78,3 +78,13 @@
 /tr_overlayfs_image	emmc		/dev/block/mapper/tr_overlayfs									flags=display="tr_overlayfs Image";backup=1;flashimg=1
 /tr_region_image	emmc		/dev/block/mapper/tr_region										flags=display="tr_region Image";backup=1;flashimg=1
 /tr_theme_image		emmc		/dev/block/mapper/tr_theme										flags=display="tr_theme Image";backup=1;flashimg=1
+
+# Transsion Mount Partitions
+/tr_product			auto		/dev/block/mapper/tr_product									flags=display="TR Product";logical
+/tr_preload			auto		/dev/block/mapper/tr_preload									flags=display="TR Preload";logical
+/tr_carrier			auto		/dev/block/mapper/tr_carrier									flags=display="TR Carrier";logical
+/tr_company			auto		/dev/block/mapper/tr_company									flags=display="TR Company";logical
+/tr_mi				auto		/dev/block/mapper/tr_mi											flags=display="TR MI";logical
+/tr_overlayfs		auto		/dev/block/mapper/tr_overlayfs									flags=display="TR OverlayFS";logical
+/tr_region			auto		/dev/block/mapper/tr_region										flags=display="TR Region";logical
+/tr_theme			auto		/dev/block/mapper/tr_theme										flags=display="TR Theme";logical
