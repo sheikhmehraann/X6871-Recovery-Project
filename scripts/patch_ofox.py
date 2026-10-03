@@ -421,9 +421,9 @@ def patch_magiskboot_vendor_boot(fox_root):
     repack_pattern = r'(AppendLineToFile\s*\(\s*cmd_script2,\s*magiskboot_sbin\s*\+\s*" repack)'
     repack_inject = r'''// Fast in-place splash update via magiskboot cpio (sub-second turnaround)
 \t        AppendLineToFile (cmd_script2, "if [ -f /tmp/orangefox/ramdisk/twres/splash.xml ]; then");
-\t        AppendLineToFile (cmd_script2, "  " + magiskboot_sbin + " cpio ramdisk.cpio \\\"add 0644 twres/splash.xml /tmp/orangefox/ramdisk/twres/splash.xml\\\"");
+\t        AppendLineToFile (cmd_script2, "  " + magiskboot_sbin + " cpio ramdisk.cpio 'add 0644 twres/splash.xml /tmp/orangefox/ramdisk/twres/splash.xml'");
 \t        AppendLineToFile (cmd_script2, "  if [ -f /tmp/orangefox/ramdisk/twres/images/Splash/user.png ]; then");
-\t        AppendLineToFile (cmd_script2, "    " + magiskboot_sbin + " cpio ramdisk.cpio \\\"add 0644 twres/images/Splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png\\\"");
+\t        AppendLineToFile (cmd_script2, "    " + magiskboot_sbin + " cpio ramdisk.cpio 'add 0644 twres/images/Splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png'");
 \t        AppendLineToFile (cmd_script2, "  fi");
 \t        AppendLineToFile (cmd_script2, "fi");
 \t        // Vendor_boot v4 recovery ramdisk repack bridge
