@@ -35,10 +35,6 @@ Built and maintained by [@withmehraan](https://t.me/Gt20ProINUpdates).
 - Dynamic partition mapper symlinks
 - Root suite: Magisk v28.1, KernelSU v3.3.0, APatch 11224
 
-## What Doesn't Work
-
-- SD card — this phone doesn't have a slot, so nothing to fix there
-
 ## Flashing
 
 Both slots, from fastboot:
