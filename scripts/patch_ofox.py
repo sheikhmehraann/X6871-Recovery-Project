@@ -233,34 +233,8 @@ def patch_splash(fox_root):
     return True
 
 def patch_identity_fingerprint(fox_root):
-    stock_fp = "Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys"
-    patched_count = 0
-    search_dirs = [
-        os.path.join(fox_root, "bootable/recovery"),
-        os.path.join(fox_root, "vendor/recovery")
-    ]
-    for sdir in search_dirs:
-        if not os.path.isdir(sdir):
-            continue
-        for root, _, files in os.walk(sdir):
-            for file in files:
-                if file.endswith((".cpp", ".c", ".h", ".hpp", ".sh", ".py")):
-                    fpath = os.path.join(root, file)
-                    try:
-                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
-                            content = f.read()
-                        orig = content
-                        if "alps/hal_mgvi_64" in content:
-                            content = re.sub(r'alps/hal_mgvi_64[^\s"\';\)]+', stock_fp, content)
-                        if "ro.build.fingerprint" in content and "alps" in content:
-                            content = content.replace("alps", "Infinix")
-                        if content != orig:
-                            with open(fpath, "w", encoding="utf-8") as f:
-                                f.write(content)
-                            patched_count += 1
-                    except Exception as e:
-                        pass
-    print(f"[+] Successfully patched {patched_count} source files with stock device identity fingerprint")
+    # Dynamic runtime identity handled via patch_foxstart_identity - avoid hardcoding static fingerprints
+    print("[*] Runtime dynamic identity active: skipping static fingerprint hardcoding")
     return True
 
 def patch_graphics_drm(fox_root):
@@ -412,42 +386,37 @@ def patch_magiskboot_vendor_boot(fox_root):
     orig = content
 
     # 1. Target vendor_boot on Header v4 devices for unpack/repack
-    old_boot_find = 'TWPartition *Boot = PartitionManager.Find_Partition_By_Path("/boot");'
-    new_boot_find = """TWPartition *Boot = PartitionManager.Find_Partition_By_Path("/boot");
-  TWPartition *VendorBoot = PartitionManager.Find_Partition_By_Path("/vendor_boot");"""
-    if old_boot_find in content and "VendorBoot =" not in content:
-        content = content.replace(old_boot_find, new_boot_find, 1)
+    if "VendorBoot =" not in content:
+        content = re.sub(
+            r'TWPartition\s*\*\s*Boot\s*=\s*PartitionManager\.Find_Partition_By_Path\s*\(\s*"/boot"\s*\);',
+            'TWPartition *Boot = PartitionManager.Find_Partition_By_Path("/boot");\n  TWPartition *VendorBoot = PartitionManager.Find_Partition_By_Path("/vendor_boot");',
+            content
+        )
 
-    old_ab_check = """#if (defined(AB_OTA_UPDATER) || defined(FOX_AB_DEVICE)) && !defined(OF_AB_DEVICE_WITH_RECOVERY_PARTITION)
-  if (Boot != NULL)
-    {
-       tmpstr = Boot->Actual_Block_Device;"""
-    new_ab_check = """#if (defined(AB_OTA_UPDATER) || defined(FOX_AB_DEVICE)) && !defined(OF_AB_DEVICE_WITH_RECOVERY_PARTITION)
-  if (VendorBoot != NULL)
-    {
-       tmpstr = VendorBoot->Actual_Block_Device;
-    }
-  else if (Boot != NULL)
-    {
-       tmpstr = Boot->Actual_Block_Device;"""
-    if old_ab_check in content:
-        content = content.replace(old_ab_check, new_ab_check, 1)
+    # 2. On A/B Header v4 devices: route recovery operations (!is_boot) to VendorBoot, keep boot operations (is_boot) on Boot
+    ab_pattern = r'(#if\s*\(defined\(AB_OTA_UPDATER\)\s*\|\|\s*defined\(FOX_AB_DEVICE\)\)\s*&&\s*!defined\(OF_AB_DEVICE_WITH_RECOVERY_PARTITION\)\s*\n\s*if\s*\(\s*Boot\s*!=\s*NULL\s*\)\s*\n\s*\{\s*\n\s*)tmpstr\s*=\s*Boot->Actual_Block_Device;'
+    ab_replacement = r'''\1if (!is_boot && VendorBoot != NULL) {
+         tmpstr = VendorBoot->Actual_Block_Device;
+       } else {
+         tmpstr = Boot->Actual_Block_Device;
+       }'''
+    content = re.sub(ab_pattern, ab_replacement, content)
 
-    # 2. Inject recovery ramdisk rename after magiskboot unpack
-    unpack_needle = 'AppendLineToFile (cmd_script, "[ $? == 0 ] && LOGINFO \\"- Succeeded.\\" || abort \\"- Unpacking image failed.\\");'
-    unpack_inject = """AppendLineToFile (cmd_script, "[ $? == 0 ] && LOGINFO \\"- Succeeded.\\" || abort \\"- Unpacking image failed.\\");
+    # 3. Inject recovery ramdisk rename after magiskboot unpack
+    unpack_pattern = r'(AppendLineToFile\s*\(\s*cmd_script,\s*".*?Unpacking image failed.*?"\s*\);)'
+    unpack_inject = r'''\1
 \t        // Vendor_boot v4 recovery ramdisk bridge
-\t        AppendLineToFile (cmd_script, "[ -f vendor_ramdisk_recovery.cpio ] && mv -f vendor_ramdisk_recovery.cpio ramdisk.cpio");"""
-    if unpack_needle in content and "vendor_ramdisk_recovery.cpio" not in content:
-        content = content.replace(unpack_needle, unpack_inject, 1)
+\t        AppendLineToFile (cmd_script, "[ -f vendor_ramdisk_recovery.cpio ] && cp -f vendor_ramdisk_recovery.cpio ramdisk.cpio");'''
+    if "vendor_ramdisk_recovery.cpio ramdisk.cpio" not in content:
+        content = re.sub(unpack_pattern, unpack_inject, content)
 
-    # 3. Inject vendor_ramdisk_recovery.cpio copy before magiskboot repack
-    repack_needle = 'AppendLineToFile (cmd_script2, magiskboot_sbin + " repack \\"" + tmpstr + "\\" > /dev/null 2>&1");'
-    repack_inject = """// Vendor_boot v4 recovery ramdisk repack bridge
+    # 4. Inject vendor_ramdisk_recovery.cpio copy before magiskboot repack
+    repack_pattern = r'(AppendLineToFile\s*\(\s*cmd_script2,\s*magiskboot_sbin\s*\+\s*" repack)'
+    repack_inject = r'''// Vendor_boot v4 recovery ramdisk repack bridge
 \t        AppendLineToFile (cmd_script2, "[ -f ramdisk.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio");
-\t        AppendLineToFile (cmd_script2, magiskboot_sbin + " repack \\"" + tmpstr + "\\" > /dev/null 2>&1");"""
-    if repack_needle in content and "vendor_ramdisk_recovery.cpio" not in content:
-        content = content.replace(repack_needle, repack_inject, 1)
+\t        \1'''
+    if "ramdisk.cpio vendor_ramdisk_recovery.cpio" not in content:
+        content = re.sub(repack_pattern, repack_inject, content)
 
     if content != orig:
         with open(twrp_funcs_cpp, "w", encoding="utf-8") as f:
@@ -476,6 +445,46 @@ def patch_foxstart_identity(fox_root):
                             content = f.read()
                         orig = content
 
+                        # 1. Prioritize system build.prop ($PROP) over vendor BSP ($V_PROP)
+                        # Official OrangeFox prioritizes $V_PROP which reads stale MediaTek BSP strings (Android 12, alps/...)
+                        # By checking $PROP first, we read the real running ROM Android version, fingerprint, SDK, and display ID!
+
+                        # SDK
+                        content = re.sub(
+                            r'\[\s*-n\s*"\$V_PROP"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$V_PROP"\s*"ro\.vendor\.build\.version\.sdk"\)\s*\n\s*\[\s*-z\s*"\$tmp3"\s*\]\s*&&\s*t?tmp3=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.version\.sdk"\)\s*\n\s*\[\s*-z\s*"\$tmp3"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$PROP"\s*"ro\.system\.build\.version\.sdk"\)',
+                            'tmp3=$(file_getprop "$PROP" "ro.build.version.sdk")\n        [ -z "$tmp3" ] && tmp3=$(file_getprop "$PROP" "ro.system.build.version.sdk")\n        [ -z "$tmp3" ] && [ -n "$V_PROP" ] && tmp3=$(file_getprop "$V_PROP" "ro.vendor.build.version.sdk")',
+                            content
+                        )
+
+                        # Incremental version
+                        content = re.sub(
+                            r'\[\s*-n\s*"\$V_PROP"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$V_PROP"\s*"ro\.vendor\.build\.version\.incremental"\)\s*\n\s*\[\s*-z\s*"\$tmp3"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.version\.incremental"\)\s*\n\s*\[\s*-z\s*"\$tmp3"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$PROP"\s*"ro\.system\.build\.version\.incremental"\)',
+                            'tmp3=$(file_getprop "$PROP" "ro.build.version.incremental")\n        [ -z "$tmp3" ] && tmp3=$(file_getprop "$PROP" "ro.system.build.version.incremental")\n        [ -z "$tmp3" ] && [ -n "$V_PROP" ] && tmp3=$(file_getprop "$V_PROP" "ro.vendor.build.version.incremental")',
+                            content
+                        )
+
+                        # Release version
+                        content = re.sub(
+                            r'\[\s*-n\s*"\$V_PROP"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$V_PROP"\s*"ro\.vendor\.build\.version\.release"\)\s*\n\s*\[\s*-z\s*"\$tmp3"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.version\.release"\)\s*\n\s*\[\s*-z\s*"\$tmp3"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$PROP"\s*"ro\.system\.build\.version\.release"\)',
+                            'tmp3=$(file_getprop "$PROP" "ro.build.version.release")\n        [ -z "$tmp3" ] && tmp3=$(file_getprop "$PROP" "ro.system.build.version.release")\n        [ -z "$tmp3" ] && [ -n "$V_PROP" ] && tmp3=$(file_getprop "$V_PROP" "ro.vendor.build.version.release")',
+                            content
+                        )
+
+                        # Fingerprint
+                        content = re.sub(
+                            r'\[\s*-n\s*"\$V_PROP"\s*\]\s*&&\s*FP=\$\(file_getprop\s*"\$V_PROP"\s*"ro\.vendor\.build\.fingerprint"\)\s*\n\s*\[\s*-z\s*"\$FP"\s*\]\s*&&\s*FP=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.version\.base_os"\)\s*\n\s*\[\s*-z\s*"\$FP"\s*\]\s*&&\s*FP=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.fingerprint"\)\s*\n\s*\[\s*-z\s*"\$FP"\s*\]\s*&&\s*FP=\$\(file_getprop\s*"\$PROP"\s*"ro\.system\.build\.fingerprint"\)',
+                            'FP=$(file_getprop "$PROP" "ro.build.fingerprint")\n        [ -z "$FP" ] && FP=$(file_getprop "$PROP" "ro.system.build.fingerprint")\n        [ -z "$FP" ] && [ -n "$V_PROP" ] && FP=$(file_getprop "$V_PROP" "ro.vendor.build.fingerprint")\n        [ -z "$FP" ] && FP=$(file_getprop "$PROP" "ro.build.version.base_os")',
+                            content
+                        )
+
+                        # Display ID
+                        content = re.sub(
+                            r'tmp2=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.display\.id"\)\s*\n\s*\[\s*-n\s*"\$V_PROP"\s*-a\s*-z\s*"\$tmp2"\s*\]\s*&&\s*tmp2=\$\(file_getprop\s*"\$V_PROP"\s*"ro\.vendor\.build\.id"\)\s*\n\s*\[\s*-z\s*"\$tmp2"\s*\]\s*&&\s*tmp2=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.id"\)\s*\n\s*\[\s*-z\s*"\$tmp2"\s*\]\s*&&\s*tmp2=\$\(file_getprop\s*"\$PROP"\s*"ro\.system\.build\.id"\)',
+                            'tmp2=$(file_getprop "$PROP" "ro.build.display.id")\n     [ -z "$tmp2" ] && tmp2=$(file_getprop "$PROP" "ro.build.id")\n     [ -z "$tmp2" ] && tmp2=$(file_getprop "$PROP" "ro.system.build.id")\n     [ -n "$V_PROP" -a -z "$tmp2" ] && tmp2=$(file_getprop "$V_PROP" "ro.vendor.build.id")',
+                            content
+                        )
+
+                        # 2. Inject Static Hardware Identity & Dynamic Synchronization after ROM=$(get_ROM)
                         target = 'ROM=$(get_ROM)'
                         replacement = """ROM=$(get_ROM)
    # Dynamic runtime device identity detection (Clean Native OrangeFox Standard)
@@ -486,59 +495,19 @@ def patch_foxstart_identity(fox_root):
       $SETPROP "ro.product.marketname" "Infinix GT 20 Pro" > /dev/null 2>&1
       $SETPROP "ro.product.device" "Infinix-X6871" > /dev/null 2>&1
       $SETPROP "ro.board.platform" "mt6895" > /dev/null 2>&1
-   }
-
-   # Dynamic Runtime Properties - Read directly from the running ROM / system
-   RT_RELEASE=$(getprop ro.build.version.release)
-   [ -z "$RT_RELEASE" ] && [ -f /system/build.prop ] && RT_RELEASE=$(grep -m1 '^ro.build.version.release=' /system/build.prop | cut -d= -f2)
-   [ -z "$RT_RELEASE" ] && [ -f /system_root/system/build.prop ] && RT_RELEASE=$(grep -m1 '^ro.build.version.release=' /system_root/system/build.prop | cut -d= -f2)
-   [ -n "$RT_RELEASE" ] && {
-      RELEASE_VERSION="$RT_RELEASE"
-      echo "RELEASE_VERSION=$RT_RELEASE" >> $CFG
-      [ -x "$SETPROP" ] && {
-         $SETPROP "ro.build.version.release" "$RT_RELEASE" > /dev/null 2>&1
-         $SETPROP "orangefox.system.release" "$RT_RELEASE" > /dev/null 2>&1
-      }
-   }
-
-   RT_DISP=$(getprop ro.build.display.id)
-   [ -z "$RT_DISP" ] && [ -f /system/build.prop ] && RT_DISP=$(grep -m1 '^ro.build.display.id=' /system/build.prop | cut -d= -f2)
-   [ -z "$RT_DISP" ] && [ -f /system_root/system/build.prop ] && RT_DISP=$(grep -m1 '^ro.build.display.id=' /system_root/system/build.prop | cut -d= -f2)
-   [ -n "$RT_DISP" ] && {
-      tmp2="$RT_DISP"
-      [ -x "$SETPROP" ] && $SETPROP "ro.build.display.id" "$RT_DISP" > /dev/null 2>&1
-   }
-
-   RT_FP=$(getprop ro.build.fingerprint)
-   [ -z "$RT_FP" ] && [ -f /system/build.prop ] && RT_FP=$(grep -m1 '^ro.build.fingerprint=' /system/build.prop | cut -d= -f2)
-   [ -z "$RT_FP" ] && [ -f /system_root/system/build.prop ] && RT_FP=$(grep -m1 '^ro.build.fingerprint=' /system_root/system/build.prop | cut -d= -f2)
-   [ -n "$RT_FP" ] && {
-      FP="$RT_FP"
-      echo "ROM_FINGERPRINT=$RT_FP" >> $CFG
-      [ -x "$SETPROP" ] && {
-         $SETPROP "ro.build.fingerprint" "$RT_FP" > /dev/null 2>&1
-         $SETPROP "orangefox.system.fingerprint" "$RT_FP" > /dev/null 2>&1
-      }
-   }
-
-   RT_SDK=$(getprop ro.build.version.sdk)
-   [ -z "$RT_SDK" ] && [ -f /system/build.prop ] && RT_SDK=$(grep -m1 '^ro.build.version.sdk=' /system/build.prop | cut -d= -f2)
-   [ -n "$RT_SDK" ] && {
-      ANDROID_SDK="$RT_SDK"
-      echo "ANDROID_SDK=$RT_SDK" >> $CFG
-      [ -x "$SETPROP" ] && {
-         $SETPROP "ro.build.version.sdk" "$RT_SDK" > /dev/null 2>&1
-         $SETPROP "orangefox.rom.sdk" "$RT_SDK" > /dev/null 2>&1
-      }
+      [ -n "$ROM" ] && $SETPROP "ro.build.display.id" "$ROM" > /dev/null 2>&1
+      [ -n "$FP" ] && $SETPROP "ro.build.fingerprint" "$FP" > /dev/null 2>&1
+      [ -n "$RELEASE_VERSION" ] && $SETPROP "ro.build.version.release" "$RELEASE_VERSION" > /dev/null 2>&1
+      [ -n "$ANDROID_SDK" ] && $SETPROP "ro.build.version.sdk" "$ANDROID_SDK" > /dev/null 2>&1
    }"""
-                        if target in content and "Dynamic Runtime Properties" not in content:
+                        if target in content and "Static Device Identity" not in content:
                             content = content.replace(target, replacement, 1)
 
                         if content != orig:
                             with open(fpath, "w", encoding="utf-8") as f:
                                 f.write(content)
                             patched_count += 1
-                            print(f"[+] Patched {fpath} with dynamic runtime identity detection")
+                            print(f"[+] Patched {fpath} with dynamic runtime identity detection and system-first property priority")
                     except Exception as e:
                         print(f"[-] Failed patching {fpath}: {e}")
     return patched_count > 0

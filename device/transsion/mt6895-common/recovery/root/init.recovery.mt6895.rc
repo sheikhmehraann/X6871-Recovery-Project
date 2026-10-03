@@ -23,8 +23,10 @@ on init
     setprop ro.product.board "Infinix-X6871"
     setprop ro.board.platform "mt6895"
     setprop ro.build.product "Infinix-X6871"
-    setprop ro.build.fingerprint "Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys"
-    setprop ro.build.display.id "X6871-15.1.2.180SP05(OP001PF001AZ)"
+
+    # KeyMint HAL Security Patch Level requirement
+    setprop ro.build.version.security_patch "2026-07-01"
+    setprop ro.vendor.build.security_patch "2026-07-01"
     setprop ro.build.version.release "15"
     setprop ro.build.version.release_or_codename "15"
 
