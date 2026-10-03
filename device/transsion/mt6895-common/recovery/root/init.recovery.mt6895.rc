@@ -18,13 +18,14 @@ on init
     # Exact Stock Device Identity (Infinix GT 20 Pro - X6871)
     setprop ro.product.model "Infinix X6871"
     setprop ro.product.marketname "Infinix GT 20 Pro"
-    setprop ro.product.device "Infinix-X6871"
+    setprop ro.product.device "X6871"
     setprop ro.product.name "X6871-OP"
     setprop ro.product.brand "Infinix"
     setprop ro.product.manufacturer "INFINIX"
-    setprop ro.product.board "Infinix-X6871"
-    setprop ro.board.platform "mt6895"
-    setprop ro.build.product "Infinix-X6871"
+    setprop ro.product.board "mt6895"
+    setprop ro.board.platform "MediaTek Dimensity 8200 Ultimate (MT6895)"
+    setprop ro.build.product "X6871"
+    setprop ro.twrp.target.devices "X6871,Infinix-X6871,Infinix_X6871,X6871-OP"
 
 on fs
     wait /dev/block/platform/soc/112b0000.ufshci

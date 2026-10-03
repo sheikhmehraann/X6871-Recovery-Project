@@ -237,6 +237,11 @@ def patch_magiskboot_vendor_boot(fox_root):
     if "[ -f ramdisk.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio" not in content:
         content = re.sub(repack_pattern, repack_inject, content)
 
+    # 6. Bypass slow extraction of all 4200 ramdisk files when updating splash
+    cpio_unpack_pattern = r'AppendLineToFile\s*\(\s*cmd_script,\s*"/system/bin/cpio -idu < "\s*\+\s*tmp_cpio\s*\);'
+    cpio_unpack_replacement = r'AppendLineToFile (cmd_script, "[ ! -f /tmp/orangefox/ramdisk/twres/splash.xml ] && /system/bin/cpio -idu < " + tmp_cpio);'
+    content = re.sub(cpio_unpack_pattern, cpio_unpack_replacement, content)
+
     if content != orig:
         with open(twrp_funcs_cpp, "w", encoding="utf-8") as f:
             f.write(content)
@@ -273,7 +278,29 @@ def patch_splash(fox_root):
                     except Exception:
                         pass
 
-    # 2. Patch customization.xml with extra customization options (Restore Stock, Backup Splash, Colors, PNG Verification)
+    # 2. Inject of_splash_max_size into vars.xml
+    for sdir in search_dirs:
+        if not os.path.isdir(sdir):
+            continue
+        for root, _, files in os.walk(sdir):
+            for file in files:
+                if file == "vars.xml":
+                    fpath = os.path.join(root, file)
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            v_content = f.read()
+                        if 'name="of_splash_max_size"' not in v_content and '<variables>' in v_content:
+                            v_content = v_content.replace(
+                                '<variables>',
+                                '<variables>\n\t\t<variable name="of_splash_max_size" value="10240"/>'
+                            )
+                            with open(fpath, "w", encoding="utf-8") as f:
+                                f.write(v_content)
+                            print(f"[+] Injected of_splash_max_size into {fpath}")
+                    except Exception:
+                        pass
+
+    # 3. Patch customization.xml with extra customization options and safe image handling
     for sdir in search_dirs:
         if not os.path.isdir(sdir):
             continue
@@ -298,6 +325,30 @@ def patch_splash(fox_root):
                                 'if [[ \'%spl_bg_user%\' = \'1\' ]]; then',
                                 f'if [[ \'%spl_bg_user%\' = \'1\' ]]; then\n\t\t\t\t\t\t\t{png_check}'
                             )
+
+                        # Fix splash size checking and ensure user.png is always preserved when valid
+                        cust_size_pattern = r'if \[\[ \'%spl_bg_on%\' = \'1\' \]\] &amp;&amp; \[\[ \"\$\(du -s.*?fi;'
+                        cust_size_replacement = """if [[ '%spl_bg_on%' = '1' ]]; then
+\t\t\t\t\t\t\t\timg_sz=$(du -k "%tw_splash_png_path%/%tw_splash_png_name%" 2>/dev/null | cut -f1);
+\t\t\t\t\t\t\t\t[ -z "$img_sz" ] &amp;&amp; img_sz=0;
+\t\t\t\t\t\t\t\tmax_sz="%of_splash_max_size%";
+\t\t\t\t\t\t\t\t[[ -z "$max_sz" || "$max_sz" == "%"* ]] &amp;&amp; max_sz=10240;
+\t\t\t\t\t\t\t\tif [ "$img_sz" -le "$max_sz" ]; then
+\t\t\t\t\t\t\t\t\tbg_on=;
+\t\t\t\t\t\t\t\t\tmkdir -p /tmp/orangefox/ramdisk/twres/images/Splash/ /tmp/orangefox/ramdisk/twres/themes/sed/;
+\t\t\t\t\t\t\t\t\tcp -f "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png";
+\t\t\t\t\t\t\t\t\tcp -f "%tw_splash_png_path%/%tw_splash_png_name%" "/twres/images/Splash/user.png";
+\t\t\t\t\t\t\t\telse
+\t\t\t\t\t\t\t\t\tbg_on=!--;
+\t\t\t\t\t\t\t\t\techo "E:The splash image exceeds maximum allowed size ($max_sz KB)." >> /tmp/recovery.log;
+\t\t\t\t\t\t\t\tfi;
+\t\t\t\t\t\t\telse
+\t\t\t\t\t\t\t\tbg_on=!--;
+\t\t\t\t\t\t\t\tcp -f "/twres/images/Splash/empty.png" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png" 2>/dev/null;
+\t\t\t\t\t\t\t\tcp -f "/twres/images/Splash/empty.png" "/twres/images/Splash/user.png" 2>/dev/null;
+\t\t\t\t\t\t\tfi;"""
+                        if re.search(cust_size_pattern, content, re.DOTALL):
+                            content = re.sub(cust_size_pattern, cust_size_replacement, content, flags=re.DOTALL)
 
                         # Add color options in ext_custom_splash_logo
                         color_additions = """<listitem name="Cyan">c</listitem>
@@ -371,17 +422,17 @@ def patch_identity_and_banner(fox_root):
             with open(twrp_funcs_cpp, "r", encoding="utf-8", errors="ignore") as f:
                 c = f.read()
 
-            # Clean device identity format: Infinix GT 20 Pro Infinix X6871
+            # Clean device identity format: Infinix GT 20 Pro (Infinix X6871)
             c = re.sub(
                 r'gui_print\s*\(\s*"\*\s*Device:\s*%s\s*\(\s*%s\s*\)\\n"\s*,\s*TWFunc::Fox_Property_Get\("ro\.product\.device"\)\.c_str\(\)\s*,\s*TWFunc::Fox_Property_Get\("ro\.product\.system\.device"\)\.c_str\(\)\s*\);',
-                'gui_print("* Device:     Infinix GT 20 Pro Infinix X6871\\n");\n       gui_print("* Platform:   MediaTek Dimensity 8200 Ultimate MT6895\\n");',
+                'gui_print("* Device:     Infinix GT 20 Pro (Infinix X6871)\\n");\n       gui_print("* Platform:   MediaTek Dimensity 8200 Ultimate (MT6895)\\n");',
                 c
             )
 
             # Clean platform in Welcome_Message
             c = re.sub(
                 r'gui_print\s*\(\s*"\[Platform\]\s*:\s*%s\\n"\s*,\s*DataManager::GetStrValue\(FOX_COMPATIBILITY_DEVICE\)\.c_str\(\)\s*\);',
-                'gui_print("[Platform]  : MediaTek Dimensity 8200 Ultimate MT6895\\n");',
+                'gui_print("[Platform]  : MediaTek Dimensity 8200 Ultimate (MT6895)\\n");',
                 c
             )
 
@@ -399,27 +450,11 @@ def patch_identity_and_banner(fox_root):
         except Exception as e:
             print(f"[-] Failed patching banner in twrp-functions.cpp: {e}")
 
-    # 2. Patch language files (en.xml)
+    # 2. Patch language files (en.xml) - preserve native {1} ({2}) format
     search_dirs = [
         os.path.join(fox_root, "vendor/recovery"),
         os.path.join(fox_root, "bootable/recovery")
     ]
-    for sdir in search_dirs:
-        if not os.path.isdir(sdir):
-            continue
-        for root, _, files in os.walk(sdir):
-            for file in files:
-                if file == "en.xml":
-                    fpath = os.path.join(root, file)
-                    try:
-                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
-                            c = f.read()
-                        c = c.replace('<string name="fox_device">* Device:     {1} ({2})</string>', '<string name="fox_device">* Device:     {1} {2}</string>')
-                        with open(fpath, "w", encoding="utf-8") as f:
-                            f.write(c)
-                        print(f"[+] Patched {fpath} with clean device formatting")
-                    except Exception:
-                        pass
 
     # 3. Patch foxstart.sh
     for sdir in search_dirs:
@@ -459,8 +494,10 @@ def patch_identity_and_banner(fox_root):
       $SETPROP "ro.product.brand" "Infinix" > /dev/null 2>&1
       $SETPROP "ro.product.model" "Infinix X6871" > /dev/null 2>&1
       $SETPROP "ro.product.marketname" "Infinix GT 20 Pro" > /dev/null 2>&1
-      $SETPROP "ro.product.device" "Infinix GT 20 Pro" > /dev/null 2>&1
-      $SETPROP "ro.board.platform" "MediaTek Dimensity 8200 Ultimate MT6895" > /dev/null 2>&1
+      $SETPROP "ro.product.device" "X6871" > /dev/null 2>&1
+      $SETPROP "ro.build.product" "X6871" > /dev/null 2>&1
+      $SETPROP "ro.twrp.target.devices" "X6871,Infinix-X6871,Infinix_X6871,X6871-OP" > /dev/null 2>&1
+      $SETPROP "ro.board.platform" "MediaTek Dimensity 8200 Ultimate (MT6895)" > /dev/null 2>&1
       $SETPROP "ro.hardware" "mt6895" > /dev/null 2>&1
       $SETPROP "ro.soc.manufacturer" "MediaTek" > /dev/null 2>&1
       $SETPROP "ro.soc.model" "Dimensity 8200 Ultimate" > /dev/null 2>&1
@@ -491,23 +528,25 @@ def patch_slot_switching(fox_root):
             with open(pm_cpp, "r", encoding="utf-8", errors="ignore") as f:
                 c = f.read()
 
-            old_slot = """\t\tif (module->setActiveBootSlot(module, slot_number))
-\t\t\t\tgui_msg(Msg(msg::kError, "unable_set_boot_slot=Error changing bootloader boot slot to {1}")(Slot));"""
-
-            new_slot = """\t\tint slot_idx = (Slot == "B" || Slot == "b" || Slot == "_b" || Slot == "1") ? 1 : 0;
-\t\tstd::string bctl_cmd = "bootctl set-active-boot-slot " + std::to_string(slot_idx);
-\t\tLOGINFO("Setting active boot slot via hardware bootctl: %s\\n", bctl_cmd.c_str());
-\t\tint b_ret = TWFunc::Exec_Cmd(bctl_cmd, false);
-\t\tif (b_ret != 0) {
-\t\t\tLOGERR("bootctl returned error %d, trying HAL module...\\n", b_ret);
-\t\t\tif (module->setActiveBootSlot(module, slot_number))
+            slot_pattern = r'if\s*\(\s*module->setActiveBootSlot\s*\(\s*module\s*,\s*slot_number\s*\)\s*\)(?:\s*\{)?\s*gui_msg\s*\(\s*Msg\s*\(\s*msg::kError\s*,\s*"unable_set_boot_slot=Error changing bootloader boot slot to \{1\}"\s*\)\s*\(\s*Slot\s*\)\s*\);\s*(?:return\s+false\s*;\s*\})?'
+            slot_replacement = """int set_res = module->setActiveBootSlot(module, slot_number);
+\t\tif (set_res != 0) {
+\t\t\tstd::string bctl_out;
+\t\t\tint bctl_ret = TWFunc::Exec_Cmd("bootctl get-active-boot-slot", bctl_out);
+\t\t\tif (bctl_ret == 0 && bctl_out.find(std::to_string(slot_number)) != std::string::npos) {
+\t\t\t\tLOGINFO("setActiveBootSlot reported error %d, but bootctl verified active slot is %d\\n", set_res, slot_number);
+\t\t\t} else {
 \t\t\t\tgui_msg(Msg(msg::kError, "unable_set_boot_slot=Error changing bootloader boot slot to {1}")(Slot));
+\t\t\t\treturn false;
+\t\t\t}
 \t\t}"""
-            if old_slot in c:
-                c = c.replace(old_slot, new_slot, 1)
+            if re.search(slot_pattern, c):
+                c = re.sub(slot_pattern, slot_replacement, c, count=1)
                 with open(pm_cpp, "w", encoding="utf-8") as f:
                     f.write(c)
                 print("[+] Patched partitionmanager.cpp with hardware bootctl slot switching")
+            else:
+                print("[-] Could not find setActiveBootSlot pattern in partitionmanager.cpp")
         except Exception as e:
             print(f"[-] Failed patching partitionmanager.cpp: {e}")
 
@@ -536,51 +575,7 @@ def patch_slot_switching(fox_root):
     return True
 
 def patch_display_timeout_toggle(fox_root):
-    search_dirs = [
-        os.path.join(fox_root, "vendor/recovery"),
-        os.path.join(fox_root, "bootable/recovery")
-    ]
-    for sdir in search_dirs:
-        if not os.path.isdir(sdir):
-            continue
-        for root, _, files in os.walk(sdir):
-            for file in files:
-                if file == "settings.xml":
-                    fpath = os.path.join(root, file)
-                    try:
-                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
-                            c = f.read()
-
-                        # Look for screen timeout slider block
-                        target = '<slidervalue>\n\t\t\t\t<condition var1="tw_no_screen_timeout" op="!=" var2="1"/>\n\t\t\t\t<placement x="%slider_x%" y="%row3_1a_y%" w="%slidervalue_w%"/>\n\t\t\t\t<data variable="tw_screen_timeout_secs" min="0" max="300" showrange="0" showcurr="0" changeondrag="1"/>\n\t\t\t</slidervalue>'
-                        replacement = """<listbox style="settingslist_group">
-\t\t\t\t<placement x="0" y="%row2_2_y%" w="%screen_w%" h="%lb_group_l1%"/>
-\t\t\t\t<listitem name="Auto Screen Timeout [Disabled]">
-\t\t\t\t\t<condition var1="tw_screen_timeout_secs" var2="0"/>
-\t\t\t\t\t<icon res="checkbox_false"/>
-\t\t\t\t\t<action function="set">tw_screen_timeout_secs=60</action>
-\t\t\t\t</listitem>
-\t\t\t\t<listitem name="Auto Screen Timeout [Enabled]">
-\t\t\t\t\t<condition var1="tw_screen_timeout_secs" op="!=" var2="0"/>
-\t\t\t\t\t<icon res="checkbox_true"/>
-\t\t\t\t\t<action function="set">tw_screen_timeout_secs=0</action>
-\t\t\t\t</listitem>
-\t\t\t</listbox>
-\t\t\t<slidervalue>
-\t\t\t\t<condition var1="tw_screen_timeout_secs" op="!=" var2="0"/>
-\t\t\t\t<placement x="%slider_x%" y="%row3_1a_y%" w="%slidervalue_w%"/>
-\t\t\t\t<data variable="tw_screen_timeout_secs" min="15" max="300" showrange="0" showcurr="0" changeondrag="1"/>
-\t\t\t</slidervalue>"""
-
-                        if target in c and "Auto Screen Timeout [Disabled]" not in c:
-                            c = c.replace(target, replacement, 1)
-                            with open(fpath, "w", encoding="utf-8") as f:
-                                f.write(c)
-                            print(f"[+] Injected interactive [ Enabled / Disabled ] display timeout toggle into {fpath}")
-                    except Exception as e:
-                        print(f"[-] Failed patching {fpath}: {e}")
-
-    # Ensure data.cpp allows screen timeout
+    # Ensure data.cpp allows native OrangeFox screen timeout slider
     data_cpp = os.path.join(fox_root, "bootable/recovery/data.cpp")
     if os.path.isfile(data_cpp):
         try:
