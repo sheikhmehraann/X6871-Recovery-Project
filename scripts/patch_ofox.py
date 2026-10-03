@@ -506,6 +506,8 @@ def patch_foxstart_identity(fox_root):
       $SETPROP "ro.build.version.incremental" "180003" > /dev/null 2>&1
       $SETPROP "ro.build.version.release" "15" > /dev/null 2>&1
       $SETPROP "ro.build.version.sdk" "35" > /dev/null 2>&1
+      $SETPROP "ro.build.version.security_patch" "2026-07-01" > /dev/null 2>&1
+      $SETPROP "ro.vendor.build.security_patch" "2026-07-01" > /dev/null 2>&1
    }}"""
                         if target in content and stock_disp not in content:
                             content = content.replace(target, replacement, 1)
