@@ -61,9 +61,6 @@ on post-fs
     # Haptics legacy symlink for TWRP/OrangeFox UI (after driver load)
     symlink /sys/class/leds/vibrator_single /sys/class/leds/vibrator
 
-on post-fs-data
-    start health-hal-2-1
-
 on boot
     setprop sys.usb.config adb
     start mtk.plpath.utils.link
@@ -100,33 +97,6 @@ on boot
     chmod 0666 /sys/class/power_supply/charger/input_current_limit
     chmod 0666 /sys/class/power_supply/charger/constant_charge_current
     chmod 0666 /sys/class/power_supply/battery/current_now
-
-    # Hardware & Feature Tool Permissions
-    chmod 0755 /system/bin/switch_slot.sh
-    chmod 0755 /system/bin/fast_charge.sh
-    chmod 0755 /system/bin/cpu_governor.sh
-    chmod 0755 /system/bin/backup_imei.sh
-    chmod 0755 /system/bin/restore_imei.sh
-    chmod 0755 /system/bin/create_mapper_symlinks.sh
-
-    # Initialize dynamic mapper symlinks and 45W hypercharge
-    exec u:r:recovery:s0 -- /system/bin/create_mapper_symlinks.sh
-    exec u:r:recovery:s0 -- /system/bin/fast_charge.sh
-
-    # Exact Stock Device Identity Overrides via resetprop
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.model "Infinix X6871"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.marketname "Infinix GT 20 Pro"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.device "Infinix-X6871"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.name "X6871-OP"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.brand "Infinix"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.manufacturer "INFINIX"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.board "Infinix-X6871"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.board.platform "mt6895"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.product "Infinix-X6871"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.fingerprint "Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.display.id "X6871-15.1.2.180SP05(OP001PF001AZ)"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.version.incremental "180003"
-    exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.description "X6871-user 15 AP3A.240905.015.A2 release-keys"
 
 
 

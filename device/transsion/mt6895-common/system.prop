@@ -12,6 +12,10 @@ ro.build.product=Infinix-X6871
 
 # OS & Platform
 ro.treble.enabled=true
+ro.build.version.security_patch=2026-07-01
+ro.build.version.release=15
+ro.build.version.release_or_codename=15
+ro.build.version.sdk=35
 
 # Display & UI
 ro.sf.lcd_density=480

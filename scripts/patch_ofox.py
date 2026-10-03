@@ -433,19 +433,18 @@ def patch_magiskboot_vendor_boot(fox_root):
     if old_ab_check in content:
         content = content.replace(old_ab_check, new_ab_check, 1)
 
-    # 2. Inject recovery ramdisk symlink/copy after magiskboot unpack
+    # 2. Inject recovery ramdisk rename after magiskboot unpack
     unpack_needle = 'AppendLineToFile (cmd_script, "[ $? == 0 ] && LOGINFO \\"- Succeeded.\\" || abort \\"- Unpacking image failed.\\");'
     unpack_inject = """AppendLineToFile (cmd_script, "[ $? == 0 ] && LOGINFO \\"- Succeeded.\\" || abort \\"- Unpacking image failed.\\");
 \t        // Vendor_boot v4 recovery ramdisk bridge
-\t        AppendLineToFile (cmd_script, "[ -f vendor_ramdisk_recovery.cpio ] && ln -sf vendor_ramdisk_recovery.cpio ramdisk.cpio");
-\t        AppendLineToFile (cmd_script, "[ -f vendor_ramdisk_recovery.cpio ] && cp -f vendor_ramdisk_recovery.cpio ramdisk.cpio");"""
+\t        AppendLineToFile (cmd_script, "[ -f vendor_ramdisk_recovery.cpio ] && mv -f vendor_ramdisk_recovery.cpio ramdisk.cpio");"""
     if unpack_needle in content and "vendor_ramdisk_recovery.cpio" not in content:
         content = content.replace(unpack_needle, unpack_inject, 1)
 
     # 3. Inject vendor_ramdisk_recovery.cpio copy before magiskboot repack
     repack_needle = 'AppendLineToFile (cmd_script2, magiskboot_sbin + " repack \\"" + tmpstr + "\\" > /dev/null 2>&1");'
     repack_inject = """// Vendor_boot v4 recovery ramdisk repack bridge
-\t        AppendLineToFile (cmd_script2, "[ -f vendor_ramdisk_recovery.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio");
+\t        AppendLineToFile (cmd_script2, "[ -f ramdisk.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio");
 \t        AppendLineToFile (cmd_script2, magiskboot_sbin + " repack \\"" + tmpstr + "\\" > /dev/null 2>&1");"""
     if repack_needle in content and "vendor_ramdisk_recovery.cpio" not in content:
         content = content.replace(repack_needle, repack_inject, 1)

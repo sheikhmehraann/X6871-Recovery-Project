@@ -28,12 +28,8 @@ Built and maintained by [@withmehraan](https://t.me/Gt20ProINUpdates).
 - Native splash changer (patches vendor_boot directly, Header v4 aware)
 - Stock device identity (shows real Infinix fingerprint, not ALPS)
 - AVB 2.0 disable addon (slot-aware, works on A/B)
-- Active slot switcher
-- 45W fast charge toggle (MT6375 charger IC)
-- CPU governor profiles (tri-cluster: turbo / balanced / eco)
-- IMEI and NVRAM backup/restore (nvram, nvdata, nvcfg, protect1, protect2, proinfo)
-- Dynamic partition mapper symlinks
-- Root suite: Magisk v28.1, KernelSU v3.3.0, APatch 11224
+- Active boot slot switching (native reboot menu)
+- Root suite: Magisk v28.1 (bundled natively in /FFiles/OF_Magisk), KernelSU v3.3.0, APatch 11224
 
 ## Flashing
 

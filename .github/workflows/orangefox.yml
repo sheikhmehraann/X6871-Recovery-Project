@@ -178,6 +178,14 @@ jobs:
           export TARGET_RELEASE="$RELEASE_TAG"
           echo "Target release config: $TARGET_RELEASE"
 
+          # Download and bundle Magisk v28.1 directly for native OrangeFox Root Addon
+          curl -sSL "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -o /tmp/Magisk.zip || true
+          if [ -f /tmp/Magisk.zip ]; then
+            export FOX_USE_SPECIFIC_MAGISK_ZIP="/tmp/Magisk.zip"
+            mkdir -p $HOME/fox_14.1/vendor/recovery/OrangeFox/FoxFiles/OF_Magisk
+            cp -vf /tmp/Magisk.zip $HOME/fox_14.1/vendor/recovery/OrangeFox/FoxFiles/OF_Magisk/Magisk.zip || true
+          fi
+
           set +e
           source build/envsetup.sh
           lunch twrp_X6871-${TARGET_RELEASE}-eng || lunch twrp_X6871-ap2a-eng || lunch twrp_X6871-eng
@@ -205,7 +213,7 @@ jobs:
 
           echo "Bundling Root Suite (Magisk, KernelSU, APatch)..."
           mkdir -p $GITHUB_WORKSPACE/output/Root_Suite
-          curl -sSL "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/Magisk-v28.1.zip || true
+          cp -vf /tmp/Magisk.zip $GITHUB_WORKSPACE/output/Root_Suite/Magisk-v28.1.zip 2>/dev/null || curl -sSL "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/Magisk-v28.1.zip
           curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.0/KernelSU_v3.3.0_32601-release.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/KernelSU-v3.3.0.apk || true
           curl -sSL "https://github.com/bmax121/APatch/releases/download/11224/APatch_11224_9a63e0f_HEAD-release-signed.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/APatch-11224.apk || true
           cd $GITHUB_WORKSPACE/output/Root_Suite && zip -r ../OrangeFox-RootSuite-X6871.zip * || true
@@ -240,16 +248,13 @@ jobs:
             * **Stock ROM:** XOS Android 15 (SDK 35), `AP3A.240905.015.A2 / 180003`
             * **Recovery Target:** `vendor_boot` (Header v4, Virtual A/B)
 
-            ### Features & Fixes
-            - **Native Vendor_Boot Splash Changer:** Official recovery unpack & repack for Header v4
-            - **Exact Stock Identity:** Console banner & properties strictly reflect Infinix Android 15 (ALPS BSP neutralized)
-            - **Active Slot Switcher Tool:** Instant A/B boot slot toggle via `/system/bin/switch_slot.sh`
-            - **45W HyperCharge Mode:** Hardware 4500mA input engagement via `/system/bin/fast_charge.sh`
-            - **Performance Governor Mode:** Dimensity 8200 Tri-Cluster scaling (Turbo/Balanced/Eco)
-            - **IMEI & NVRAM Safety Net:** One-tap backup and restore with SHA256 verification
-            - **Dynamic Partition Image Flasher:** Direct symlinks for raw image flashing in recovery
-            - **Root Suite:** Full Magisk, KernelSU, and APatch bundle included
-            - **AVB 2.0 Addon:** Slot-aware disable verification support
+            ### Features & Native Support
+            - **Native Vendor_Boot Splash Changer:** Direct unpack & repack of Header v4 vendor_boot recovery image
+            - **Official A/B Boot Slot Support:** Seamless boot slot display and switching via native recovery reboot menu
+            - **Full Dynamic Partitions Support:** All 82 partitions and Transsion vendor partitions mounted and backup-ready
+            - **Native Root Suite Addon:** Magisk v28.1 bundled natively in recovery (/FFiles/OF_Magisk)
+            - **AVB 2.0 Addon:** Slot-aware disable vbmeta verification addon
+            - **Exact Stock Identity:** Console banner and properties strictly reflect Infinix Android 15
             - **Haptics & Flashlight:** AW8697 Linear Vibrator and OCP81375 rear camera torch
             - **Thermals:** Unlocked live CPU temperature display (`soc_max`)
         env:
