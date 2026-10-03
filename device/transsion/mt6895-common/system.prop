@@ -36,7 +36,6 @@ ro.sys.usb.storage.type=mtp
 
 # Security Patch Level for KeyMint HAL
 ro.vendor.build.security_patch=2026-07-01
-ro.build.version.security_patch=2026-07-01
 
 # Gatekeeper
 ro.hardware.gatekeeper=trustonic
