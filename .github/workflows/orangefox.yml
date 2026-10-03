@@ -148,6 +148,9 @@ jobs:
           export OF_USE_MAGISKBOOT_FOR_ALL_PATCHES=1
           export OF_PATCH_AVB20=1
           export OF_ADVANCED_SECURITY=1
+          export OF_AVB20_DECRYPTION=1
+          export OF_SUPPORT_ALL_BLOCK_OTA_UPDATES=1
+          export OF_DONT_PATCH_ON_FRESH_INSTALLATION=1
 
           export OF_USE_TWRP_SAR_DETECT=1
           export OF_SUPPORT_OZIP_DECRYPTION=1
@@ -197,10 +200,19 @@ jobs:
           if [ -d "$TARGET_DIR" ]; then
             cp -vf "$TARGET_DIR"/OrangeFox* $GITHUB_WORKSPACE/output/ 2>/dev/null || true
             cp -vf "$TARGET_DIR"/vendor_boot.img $GITHUB_WORKSPACE/output/ 2>/dev/null || true
-            cd $GITHUB_WORKSPACE/output
-            sha256sum * > SHA256SUMS.txt 2>/dev/null || true
-            md5sum * > MD5SUMS.txt 2>/dev/null || true
           fi
+
+          echo "Bundling Root Suite (Magisk, KernelSU, APatch)..."
+          mkdir -p $GITHUB_WORKSPACE/output/Root_Suite
+          curl -sSL "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/Magisk-v28.1.zip || true
+          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v1.0.1/KernelSU_v1.0.1_11942-release.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/KernelSU-v1.0.1.apk || true
+          curl -sSL "https://github.com/bmax121/APatch/releases/download/10763/APatch_10763_10763-release.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/APatch-10763.apk || true
+          cd $GITHUB_WORKSPACE/output/Root_Suite && zip -r ../OrangeFox-RootSuite-X6871.zip * || true
+          rm -rf $GITHUB_WORKSPACE/output/Root_Suite
+
+          cd $GITHUB_WORKSPACE/output
+          sha256sum * > SHA256SUMS.txt 2>/dev/null || true
+          md5sum * > MD5SUMS.txt 2>/dev/null || true
           echo "Generated artifacts:"
           ls -lh $GITHUB_WORKSPACE/output/
 
@@ -219,10 +231,25 @@ jobs:
           name: "OrangeFox Recovery - Infinix GT 20 Pro (X6871) #${{ github.run_number }}"
           body: |
             ## OrangeFox Recovery Unofficial — Infinix GT 20 Pro (X6871)
-            * **Target:** `vendor_boot.img` (Header v4)
-            * **Device:** Infinix GT 20 Pro (`X6871` / MediaTek Dimensity 8200)
-            * **Device Tree:** `device/infinix/Infinix-X6871`
-            * **Common Tree:** `device/transsion/mt6895-common`
-            * **Maintainer:** withmehraan
+            * **Maintainer:** `withmehraan`
+            * **Updates:** [GT 20 Pro Updates](https://t.me/Gt20ProINUpdates)
+            * **Discussion:** [GT 20 Pro Discussion](https://t.me/Gt20ProIN)
+            * **Platform:** `mt6895 (Dimensity 8200 Ultimate)`
+            * **Device:** `Infinix GT 20 Pro (Infinix-X6871)`
+            * **Stock ROM:** XOS Android 15 (SDK 35), `AP3A.240905.015.A2 / 180003`
+            * **Recovery Target:** `vendor_boot` (Header v4, Virtual A/B)
+
+            ### Features & Fixes
+            - **Native Vendor_Boot Splash Changer:** Official recovery unpack & repack for Header v4
+            - **Exact Stock Identity:** Console banner & properties strictly reflect Infinix Android 15 (ALPS BSP neutralized)
+            - **Active Slot Switcher Tool:** Instant A/B boot slot toggle via `/system/bin/switch_slot.sh`
+            - **45W HyperCharge Mode:** Hardware 4500mA input engagement via `/system/bin/fast_charge.sh`
+            - **Performance Governor Mode:** Dimensity 8200 Tri-Cluster scaling (Turbo/Balanced/Eco)
+            - **IMEI & NVRAM Safety Net:** One-tap backup and restore with SHA256 verification
+            - **Dynamic Partition Image Flasher:** Direct symlinks for raw image flashing in recovery
+            - **Root Suite:** Full Magisk, KernelSU, and APatch bundle included
+            - **AVB 2.0 Addon:** Slot-aware disable verification support
+            - **Haptics & Flashlight:** AW8697 Linear Vibrator and OCP81375 rear camera torch
+            - **Thermals:** Unlocked live CPU temperature display (`soc_max`)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

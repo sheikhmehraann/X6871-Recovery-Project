@@ -400,6 +400,174 @@ def patch_graphics_drm(fox_root):
         print(f"[-] Failed patching {drm_cpp}: {e}")
         return False
 
+def patch_magiskboot_vendor_boot(fox_root):
+    twrp_funcs_cpp = os.path.join(fox_root, "bootable/recovery/twrp-functions.cpp")
+    if not os.path.isfile(twrp_funcs_cpp):
+        print(f"[-] twrp-functions.cpp not found at {twrp_funcs_cpp}")
+        return False
+
+    with open(twrp_funcs_cpp, "r", encoding="utf-8", errors="ignore") as f:
+        content = f.read()
+
+    orig = content
+
+    # 1. Target vendor_boot on Header v4 devices for unpack/repack
+    old_boot_find = 'TWPartition *Boot = PartitionManager.Find_Partition_By_Path("/boot");'
+    new_boot_find = """TWPartition *Boot = PartitionManager.Find_Partition_By_Path("/boot");
+  TWPartition *VendorBoot = PartitionManager.Find_Partition_By_Path("/vendor_boot");"""
+    if old_boot_find in content and "VendorBoot =" not in content:
+        content = content.replace(old_boot_find, new_boot_find, 1)
+
+    old_ab_check = """#if (defined(AB_OTA_UPDATER) || defined(FOX_AB_DEVICE)) && !defined(OF_AB_DEVICE_WITH_RECOVERY_PARTITION)
+  if (Boot != NULL)
+    {
+       tmpstr = Boot->Actual_Block_Device;"""
+    new_ab_check = """#if (defined(AB_OTA_UPDATER) || defined(FOX_AB_DEVICE)) && !defined(OF_AB_DEVICE_WITH_RECOVERY_PARTITION)
+  if (VendorBoot != NULL)
+    {
+       tmpstr = VendorBoot->Actual_Block_Device;
+    }
+  else if (Boot != NULL)
+    {
+       tmpstr = Boot->Actual_Block_Device;"""
+    if old_ab_check in content:
+        content = content.replace(old_ab_check, new_ab_check, 1)
+
+    # 2. Inject recovery ramdisk symlink/copy after magiskboot unpack
+    unpack_needle = 'AppendLineToFile (cmd_script, "[ $? == 0 ] && LOGINFO \\"- Succeeded.\\" || abort \\"- Unpacking image failed.\\");'
+    unpack_inject = """AppendLineToFile (cmd_script, "[ $? == 0 ] && LOGINFO \\"- Succeeded.\\" || abort \\"- Unpacking image failed.\\");
+\t        // Vendor_boot v4 recovery ramdisk bridge
+\t        AppendLineToFile (cmd_script, "[ -f vendor_ramdisk_recovery.cpio ] && ln -sf vendor_ramdisk_recovery.cpio ramdisk.cpio");
+\t        AppendLineToFile (cmd_script, "[ -f vendor_ramdisk_recovery.cpio ] && cp -f vendor_ramdisk_recovery.cpio ramdisk.cpio");"""
+    if unpack_needle in content and "vendor_ramdisk_recovery.cpio" not in content:
+        content = content.replace(unpack_needle, unpack_inject, 1)
+
+    # 3. Inject vendor_ramdisk_recovery.cpio copy before magiskboot repack
+    repack_needle = 'AppendLineToFile (cmd_script2, magiskboot_sbin + " repack \\"" + tmpstr + "\\" > /dev/null 2>&1");'
+    repack_inject = """// Vendor_boot v4 recovery ramdisk repack bridge
+\t        AppendLineToFile (cmd_script2, "[ -f vendor_ramdisk_recovery.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio");
+\t        AppendLineToFile (cmd_script2, magiskboot_sbin + " repack \\"" + tmpstr + "\\" > /dev/null 2>&1");"""
+    if repack_needle in content and "vendor_ramdisk_recovery.cpio" not in content:
+        content = content.replace(repack_needle, repack_inject, 1)
+
+    if content != orig:
+        with open(twrp_funcs_cpp, "w", encoding="utf-8") as f:
+            f.write(content)
+        print("[+] Successfully patched twrp-functions.cpp with native vendor_boot v4 splash unpack/repack support")
+        return True
+    else:
+        print("[*] twrp-functions.cpp already patched or target blocks not found")
+        return False
+
+def patch_foxstart_identity(fox_root):
+    stock_fp = "Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys"
+    stock_disp = "X6871-15.1.2.180SP05(OP001PF001AZ)"
+    patched_count = 0
+    search_dirs = [
+        os.path.join(fox_root, "vendor/recovery"),
+        os.path.join(fox_root, "bootable/recovery")
+    ]
+    for sdir in search_dirs:
+        if not os.path.isdir(sdir):
+            continue
+        for root, _, files in os.walk(sdir):
+            for file in files:
+                if file == "foxstart.sh":
+                    fpath = os.path.join(root, file)
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            content = f.read()
+                        orig = content
+
+                        target = 'ROM=$(get_ROM)'
+                        replacement = f"""ROM=$(get_ROM)
+   # Force exact Stock Infinix GT 20 Pro Android 15 identity
+   FP="{stock_fp}"
+   ANDROID_SDK="35"
+   INCREMENTAL_VERSION="180003"
+   RELEASE_VERSION="15"
+   BUILD_FLAVOR="X6871-user 15"
+   tmp2="{stock_disp}"
+   echo "ROM=Infinix GT 20 Pro Stock" >> $CFG
+   echo "ROM_FINGERPRINT=$FP" >> $CFG
+   echo "ANDROID_SDK=35" >> $CFG
+   echo "INCREMENTAL_VERSION=180003" >> $CFG
+   echo "RELEASE_VERSION=15" >> $CFG
+   echo "BUILD_FLAVOR=X6871-user 15" >> $CFG
+   [ -x "$SETPROP" ] && {{
+      $SETPROP "ro.build.fingerprint" "$FP" > /dev/null 2>&1
+      $SETPROP "orangefox.system.fingerprint" "$FP" > /dev/null 2>&1
+      $SETPROP "orangefox.rom.sdk" "35" > /dev/null 2>&1
+      $SETPROP "orangefox.system.release" "15" > /dev/null 2>&1
+      $SETPROP "orangefox.system.incremental" "180003" > /dev/null 2>&1
+      $SETPROP "ro.product.model" "Infinix X6871" > /dev/null 2>&1
+      $SETPROP "ro.product.marketname" "Infinix GT 20 Pro" > /dev/null 2>&1
+      $SETPROP "ro.product.device" "Infinix-X6871" > /dev/null 2>&1
+      $SETPROP "ro.build.display.id" "{stock_disp}" > /dev/null 2>&1
+      $SETPROP "ro.build.version.incremental" "180003" > /dev/null 2>&1
+      $SETPROP "ro.build.version.release" "15" > /dev/null 2>&1
+      $SETPROP "ro.build.version.sdk" "35" > /dev/null 2>&1
+   }}"""
+                        if target in content and stock_disp not in content:
+                            content = content.replace(target, replacement, 1)
+
+                        if content != orig:
+                            with open(fpath, "w", encoding="utf-8") as f:
+                                f.write(content)
+                            patched_count += 1
+                            print(f"[+] Patched {fpath} with stock Infinix Android 15 identity injection")
+                    except Exception as e:
+                        print(f"[-] Failed patching {fpath}: {e}")
+    return patched_count > 0
+
+def patch_avb_settings(fox_root):
+    data_cpp = os.path.join(fox_root, "bootable/recovery/data.cpp")
+    if os.path.isfile(data_cpp):
+        try:
+            with open(data_cpp, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+            orig = content
+            if 'mConst.SetValue("fox_auto_disable_vbmeta_avb2"' not in content:
+                content = content.replace(
+                    'mConst.SetValue("fox_branch", FOX_BRANCH);',
+                    'mConst.SetValue("fox_branch", FOX_BRANCH);\n\tmConst.SetValue("fox_auto_disable_vbmeta_avb2", "1");\n\tmConst.SetValue("fox_patch_avb_20", "1");'
+                )
+            if 'mPersist.SetValue("tw_auto_disable_avb2"' not in content:
+                content = content.replace(
+                    'mPersist.SetValue("tw_mount_system_ro", "2");',
+                    'mPersist.SetValue("tw_mount_system_ro", "2");\n\tmPersist.SetValue("tw_auto_disable_avb2", "1");'
+                )
+            if content != orig:
+                with open(data_cpp, "w", encoding="utf-8") as f:
+                    f.write(content)
+                print("[+] Successfully enabled AVB2.0 disable addon in data.cpp")
+        except Exception as e:
+            print(f"[-] Failed patching data.cpp for AVB: {e}")
+
+    # Patch OF_avb20.sh to support A/B devices
+    for root, _, files in os.walk(os.path.join(fox_root, "vendor/recovery")):
+        for file in files:
+            if file == "OF_avb20.sh":
+                fpath = os.path.join(root, file)
+                try:
+                    with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                        sh_c = f.read()
+                    old_ab = """\tslot_suffix=$(getprop ro.boot.slot_suffix);
+\tif [ -n "$slot_suffix" ]; then
+\t\tabort "- AVB 2.0 patching is inappropriate for an A/B device.";
+\tfi"""
+                    new_ab = """\tslot_suffix=$(getprop ro.boot.slot_suffix);
+\tbootpart=$(find /dev/block -name "boot$slot_suffix" | grep "by-name/boot$slot_suffix" -m 1 2>/dev/null);
+\t[ -z "$bootpart" ] && bootpart=$(find /dev/block -name "vendor_boot$slot_suffix" | grep "by-name/vendor_boot$slot_suffix" -m 1 2>/dev/null);"""
+                    if old_ab in sh_c:
+                        sh_c = sh_c.replace(old_ab, new_ab, 1)
+                        with open(fpath, "w", encoding="utf-8") as f:
+                            f.write(sh_c)
+                        print(f"[+] Patched {fpath} for A/B slot-aware AVB2.0 patching")
+                except Exception as e:
+                    pass
+    return True
+
 def main():
     fox_root = sys.argv[1] if len(sys.argv) > 1 else "."
     print(f"[*] OrangeFox Patch Engine targeting: {os.path.abspath(fox_root)}")
@@ -408,7 +576,10 @@ def main():
     patch_haptics(fox_root)
     patch_thermals(fox_root)
     patch_splash(fox_root)
+    patch_magiskboot_vendor_boot(fox_root)
     patch_identity_fingerprint(fox_root)
+    patch_foxstart_identity(fox_root)
+    patch_avb_settings(fox_root)
     patch_graphics_drm(fox_root)
     print("[*] Hardware and architecture patches applied successfully!")
 

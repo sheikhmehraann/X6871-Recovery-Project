@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<recovery>
+	<pages>
+		<page name="maintainer">
+			<template name="base"/>
+
+			<text style="text_ab_title">
+				<placement x="%col1_x_indent%" y="%ab_bc_y%"/>
+				<text>GT 20 Pro Hardware &amp; Tools</text>
+			</text>
+
+			<listbox style="group_list">
+				<placement x="0" y="%ab_h%" w="%screen_w%" h="%files_np_w%"/>
+
+				<listitem name="Switch Active Boot Slot (A &lt;-&gt; B)">
+					<icon res="build"/>
+					<action function="cmd">/system/bin/switch_slot.sh</action>
+				</listitem>
+
+				<listitem name="45W HyperCharge Mode (Engage 4500mA)">
+					<icon res="build"/>
+					<action function="cmd">/system/bin/fast_charge.sh</action>
+				</listitem>
+
+				<listitem name="Dimensity 8200: Turbo Performance (3.1 GHz)">
+					<icon res="build"/>
+					<action function="cmd">/system/bin/cpu_governor.sh turbo</action>
+				</listitem>
+
+				<listitem name="Dimensity 8200: Balanced Scaling (Schedutil)">
+					<icon res="build"/>
+					<action function="cmd">/system/bin/cpu_governor.sh balanced</action>
+				</listitem>
+
+				<listitem name="Dimensity 8200: Eco / Cool Mode (Powersave)">
+					<icon res="build"/>
+					<action function="cmd">/system/bin/cpu_governor.sh eco</action>
+				</listitem>
+
+				<listitem name="Backup IMEI &amp; NVRAM Safety Net">
+					<icon res="archive"/>
+					<action function="cmd">/system/bin/backup_imei.sh</action>
+				</listitem>
+
+				<listitem name="Restore IMEI &amp; NVRAM Safety Net">
+					<icon res="archive"/>
+					<action function="cmd">/system/bin/restore_imei.sh</action>
+				</listitem>
+
+				<listitem name="Link Dynamic Partitions for Image Flashing">
+					<icon res="build"/>
+					<action function="cmd">/system/bin/create_mapper_symlinks.sh</action>
+				</listitem>
+			</listbox>
+		</page>
+	</pages>
+</recovery>
