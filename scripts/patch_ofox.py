@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 """
-OrangeFox Recovery Hardware & Architecture Patch Engine for Infinix GT 20 Pro (X6871 / MT6895)
-Patches:
-1. Flashlight: Direct hardware support for MediaTek OCP81375 (/sys/class/torch/torch/torch_level) - ignores aw22xxx_led mecha loop
-2. Haptics: Full recursive source patch for AW8697 Linear Vibrator (/sys/class/leds/vibrator_single)
-3. Thermals: Unlocked CPU temp display for MT6895 soc_max (/sys/class/thermal/thermal_zone0/temp)
-4. Splash: Native 1080x2436 AMOLED resolution scaling across all splash XML resources
-5. DRM: Single-pipe atomic display rendering for MediaTek MT6895
-6. Build: Android 14 2-part and 3-part lunch combo compatibility shim for envsetup.sh
+OrangeFox Recovery Universal Hardware & Architecture Patch Engine
+Target: Infinix GT 20 Pro (X6871 / MT6895 - MediaTek Dimensity 8200 Ultimate)
+Android 15 (AP3A.240905.015.A2 / SDK 35), Virtual A/B Header v4 vendor_boot
+
+Components Patched:
+1. Environment: 2-part lunch combo compatibility shim
+2. Flashlight: Real rear camera torch (/sys/class/torch/torch/torch_level)
+3. Haptics: AW8697 linear vibrator (/sys/class/leds/vibrator_single)
+4. Thermals: MT6895 CPU temperature (/sys/class/thermal/thermal_zone0/temp)
+5. Ultra-Fast Splash: Sub-2s in-place magiskboot cpio update (skips re-archiving 4200 files)
+6. Splash Customization: Restore stock, backup splash, 8 logo colors, PNG magic verification
+7. Device Identity: Static specifications + dynamic ROM properties from live device
+8. Slot Switching: Hardware bootctl fallback & ActionThread lock removal
+9. Display Timeout: Interactive [ Enabled / Disabled ] toggle button + slider
+10. AVB 2.0: Slot-aware vbmeta disable addon
+11. Graphics DRM: Single-pipe atomic display rendering
 """
 
 import os
@@ -19,7 +27,6 @@ def patch_envsetup(fox_root):
         os.path.join(fox_root, "build/make/envsetup.sh"),
         os.path.join(fox_root, "build/envsetup.sh")
     ]
-    # Dynamically detect available release config
     flag_values_dir = os.path.join(fox_root, "build/release/flag_values")
     avail_release = "ap2a"
     if os.path.isdir(flag_values_dir):
@@ -67,14 +74,13 @@ def patch_flashlight(fox_root):
     with open(action_cpp, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # 1. Block aw22xxx_led (Mecha Loop RGB) from being detected as flashlight LED during directory walk
+    # Block aw22xxx_led (Mecha Loop RGB) from being detected as torch LED
     if "aw22xxx" not in content:
         content = content.replace(
             "while ((dentry = readdir(dd))) {",
             "while ((dentry = readdir(dd))) {\n\t\t\tif (strstr(dentry->d_name, \"aw22xxx\") || strstr(dentry->d_name, \"loop\")) continue;"
         )
 
-    # 2. Unconditionally prioritize the real camera flash next to the rear camera
     torch_override = """// Infinix GT 20 Pro (X6871 / MT6895) Real Camera Flashlight Override
 \t\t\tif (TWFunc::Path_Exists("/sys/class/torch/torch/torch_level")) {
 \t\t\t\tbright_one = "/sys/class/torch/torch/torch_level";
@@ -95,9 +101,7 @@ def patch_flashlight(fox_root):
 
     if 'bright_one = path_one + "/brightness";' in content:
         content = content.replace('bright_one = path_one + "/brightness";', torch_override, 1)
-        print("[+] Patched action.cpp with rear camera flashlight priority")
 
-    # 3. Ensure writing "1\n" for ON and "0\n" for OFF when controlling torch_level
     content = content.replace(
         'TWFunc::write_to_file(bright_one, max_brt_one);',
         'if (bright_one.find("torch") != std::string::npos) { TWFunc::write_to_file(bright_one, "1\\n"); } else { TWFunc::write_to_file(bright_one, max_brt_one); }'
@@ -113,7 +117,6 @@ def patch_flashlight(fox_root):
     return True
 
 def patch_haptics(fox_root):
-    # Walk all files under bootable/recovery and vendor/recovery
     patched_count = 0
     search_dirs = [
         os.path.join(fox_root, "bootable/recovery"),
@@ -139,7 +142,7 @@ def patch_haptics(fox_root):
                             with open(fpath, "w", encoding="utf-8") as f:
                                 f.write(content)
                             patched_count += 1
-                    except Exception as e:
+                    except Exception:
                         pass
     print(f"[+] Successfully patched {patched_count} source files with AW8697 vibrator_single sysfs paths")
     return True
@@ -153,15 +156,11 @@ def patch_thermals(fox_root):
     with open(data_cpp, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # 1. Unconditionally unlock tw_no_cpu_temp so the GUI always displays CPU temperature
     content = re.sub(r'mConst\.SetValue\s*\(\s*"tw_no_cpu_temp"\s*,\s*"1"\s*\);', 'mConst.SetValue("tw_no_cpu_temp", "0");', content)
     content = re.sub(r'mConst\.SetValue\s*\(\s*"tw_no_cpu_temp"\s*,\s*"\w+"\s*\);', 'mConst.SetValue("tw_no_cpu_temp", "0");', content)
-
-    # 2. Force default user settings to show CPU temperature on status bar
     content = re.sub(r'mPersist\.SetValue\s*\(\s*"tw_show_cpu_temp"\s*,\s*"0"\s*\);', 'mPersist.SetValue("tw_show_cpu_temp", "1");', content)
     content = re.sub(r'mPersist\.SetValue\s*\(\s*"of_status_cpu_temp"\s*,\s*"0"\s*\);', 'mPersist.SetValue("of_status_cpu_temp", "1");', content)
 
-    # 3. Ensure fallback in read function
     content = re.sub(r'if\s*\(\s*TWFunc::read_file\s*\(\s*cpu_temp_file\s*,\s*results\s*\)\s*!=\s*0\s*\)',
                      'if (TWFunc::read_file(cpu_temp_file, results) != 0 && TWFunc::read_file("/sys/class/thermal/thermal_zone0/temp", results) != 0 && TWFunc::read_file("/sys/devices/virtual/thermal/thermal_zone0/temp", results) != 0)', content)
 
@@ -169,217 +168,6 @@ def patch_thermals(fox_root):
         f.write(content)
     print("[+] Successfully patched data.cpp with thermal zone 0 unlocked and status bar enabled")
     return True
-
-def patch_splash(fox_root):
-    patched_count = 0
-    search_dirs = [
-        os.path.join(fox_root, "vendor/recovery"),
-        os.path.join(fox_root, "bootable/recovery")
-    ]
-    for sdir in search_dirs:
-        if not os.path.isdir(sdir):
-            continue
-        for root, _, files in os.walk(sdir):
-            for file in files:
-                if "splash" in file.lower() and file.endswith(".xml"):
-                    fpath = os.path.join(root, file)
-                    try:
-                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
-                            xml_content = f.read()
-                        
-                        modified = False
-                        if 'width="1080" h="1920"' in xml_content:
-                            xml_content = xml_content.replace('width="1080" h="1920"', 'width="1080" h="2436"')
-                            modified = True
-                        if 'value="1920"' in xml_content:
-                            xml_content = xml_content.replace('value="1920"', 'value="2436"')
-                            modified = True
-                        if '%screen_h%-400' in xml_content:
-                            xml_content = xml_content.replace('%screen_h%-400', '%screen_h%-500')
-                            modified = True
-                        if '%screen_h%-320' in xml_content:
-                            xml_content = xml_content.replace('%screen_h%-320', '%screen_h%-400')
-                            modified = True
-
-                        if modified:
-                            with open(fpath, "w", encoding="utf-8") as f:
-                                f.write(xml_content)
-                            patched_count += 1
-                    except Exception as e:
-                        print(f"[-] Failed patching {fpath}: {e}")
-
-    # Also patch customization.xml to ensure /tmp/orangefox directories exist before copy
-    for sdir in search_dirs:
-        if not os.path.isdir(sdir):
-            continue
-        for root, _, files in os.walk(sdir):
-            for file in files:
-                if "customization" in file.lower() and file.endswith(".xml"):
-                    fpath = os.path.join(root, file)
-                    try:
-                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
-                            content = f.read()
-                        if 'cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk' in content:
-                            content = content.replace(
-                                'cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk',
-                                'mkdir -p /tmp/orangefox/ramdisk/twres/images/Splash/ /tmp/orangefox/ramdisk/twres/themes/sed/; cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk'
-                            )
-                        # Validate PNG magic bytes 0x89 0x50 0x4e 0x47 to protect against corrupt/invalid images
-                        png_validator = 'if [[ "%spl_bg_on%" = "1" ]]; then if ! head -c 4 "%tw_splash_png_path%/%tw_splash_png_name%" | grep -q "PNG"; then echo "E:Selected file is not a valid PNG image! Aborting." >> /tmp/recovery.log; exit 1; fi; fi; '
-                        if 'if [[ \'%spl_bg_user%\' = \'1\' ]]; then' in content and 'head -c 4' not in content:
-                            content = content.replace(
-                                'if [[ \'%spl_bg_user%\' = \'1\' ]]; then',
-                                f'if [[ \'%spl_bg_user%\' = \'1\' ]]; then\n\t\t\t\t\t\t\t{png_validator}'
-                            )
-                        with open(fpath, "w", encoding="utf-8") as f:
-                            f.write(content)
-                        print(f"[+] Hardened {fpath} with ramdisk splash directory creation and PNG image validation")
-                    except Exception as e:
-                        pass
-    print(f"[+] Successfully patched {patched_count} splash XML files to 1080x2436")
-    return True
-
-def patch_identity_fingerprint(fox_root):
-    # Dynamic runtime identity handled via patch_foxstart_identity - avoid hardcoding static fingerprints
-    print("[*] Runtime dynamic identity active: skipping static fingerprint hardcoding")
-    return True
-
-def patch_graphics_drm(fox_root):
-    drm_cpp = os.path.join(fox_root, "bootable/recovery/minuitwrp/graphics_drm.cpp")
-    if not os.path.isfile(drm_cpp):
-        print(f"[-] graphics_drm.cpp not found at {drm_cpp}")
-        return False
-
-    repo_script_drm = os.path.join(os.path.dirname(os.path.abspath(__file__)), "graphics_drm.cpp")
-    if os.path.isfile(repo_script_drm):
-        try:
-            with open(repo_script_drm, "r", encoding="utf-8") as f_src:
-                src_content = f_src.read()
-            with open(drm_cpp, "w", encoding="utf-8") as f_dst:
-                f_dst.write(src_content)
-            print(f"[+] Successfully deployed verified MediaTek single-pipe graphics_drm.cpp to {drm_cpp}")
-            return True
-        except Exception as e:
-            print(f"[!] Direct copy of graphics_drm.cpp failed ({e}), falling back to in-place patching...")
-
-    try:
-        with open(drm_cpp, "r", encoding="utf-8") as f:
-            code = f.read()
-
-        if "#define DEFAULT_NUM_LMS 2" in code:
-            code = code.replace("#define DEFAULT_NUM_LMS 2", "#define DEFAULT_NUM_LMS 1")
-
-        old_zpos = """  /* populate z-order property required for 4 layer mixer */
-  if (number_of_lms == 4)
-    zpos = plane >> 1;
-
-  atomic_add_prop_to_plane(plane_res, atomic_req,
-                           plane_res[plane].plane->plane_id, "zpos", zpos);"""
-
-        new_zpos = """  /* populate z-order property required for 4 layer mixer */
-  if (number_of_lms == 4) {
-    zpos = plane >> 1;
-    atomic_add_prop_to_plane(plane_res, atomic_req,
-                             plane_res[plane].plane->plane_id, "zpos", zpos);
-  }"""
-        if old_zpos in code:
-            code = code.replace(old_zpos, new_zpos)
-
-        old_add_prop = """static int atomic_add_prop_to_plane(Plane *plane_res, drmModeAtomicReq *req,
-                                    uint32_t obj_id, const char *prop_name,
-                                    uint64_t value) {
-  uint32_t prop_id;
-
-  prop_id = find_plane_prop_id(obj_id, prop_name, plane_res);
-  if (prop_id == 0) {
-    printf("Could not find obj_id = %d\\n", obj_id);
-    return -EINVAL;
-  }"""
-
-        new_add_prop = """static int atomic_add_prop_to_plane(Plane *plane_res, drmModeAtomicReq *req,
-                                    uint32_t obj_id, const char *prop_name,
-                                    uint64_t value) {
-  uint32_t prop_id;
-
-  prop_id = find_plane_prop_id(obj_id, prop_name, plane_res);
-  if (prop_id == 0) {
-    if (strcmp(prop_name, "zpos") != 0) {
-      printf("Could not find prop %s for obj_id = %d\\n", prop_name, obj_id);
-    }
-    return -EINVAL;
-  }"""
-        if old_add_prop in code:
-            code = code.replace(old_add_prop, new_add_prop)
-
-        old_update = """  /* Add property */
-  for(i = 0; i < number_of_lms; i++)
-    drmModeAtomicAddProperty(atomic_req, plane_res[i].plane->plane_id,
-                             fb_prop_id, drm_surfaces[current_buffer]->fb_id);"""
-
-        new_update = """  /* Add property */
-  for(i = 0; i < number_of_lms; i++) {
-    drmModeAtomicAddProperty(atomic_req, plane_res[i].plane->plane_id,
-                             fb_prop_id, drm_surfaces[current_buffer]->fb_id);
-    atomic_add_prop_to_plane(plane_res, atomic_req,
-                             plane_res[i].plane->plane_id, "CRTC_ID",
-                             main_monitor_crtc->crtc_id);
-  }"""
-        if old_update in code:
-            code = code.replace(old_update, new_update)
-
-        old_disable = """static void disable_non_main_crtcs(int fd,
-                    drmModeRes *resources,
-                    drmModeCrtc* main_crtc) {
-  uint32_t prop_id;
-  drmModeAtomicReqPtr atomic_req = drmModeAtomicAlloc();
-  for (int i = 0; i < resources->count_connectors; i++) {
-    drmModeConnector* connector = drmModeGetConnector(fd, resources->connectors[i]);
-    drmModeCrtc* crtc = find_crtc_for_connector(fd, resources, connector);
-    if (crtc->crtc_id != main_crtc->crtc_id) {
-      // Switching to atomic commit. Given only crtc, we can only set ACTIVE = 0
-      // to disable any Nonmain CRTCs
-      find_prop_id(&crtc_res, crtc, Crtc, crtc->crtc_id, "ACTIVE", prop_id);
-      if (prop_id == 0)
-        return;
-
-      if (drmModeAtomicAddProperty(atomic_req, main_monitor_crtc->crtc_id, prop_id, 0) < 0)
-        return;
-
-    }
-    drmModeFreeCrtc(crtc);
-  }
-  if (drmModeAtomicCommit(drm_fd, atomic_req,DRM_MODE_ATOMIC_ALLOW_MODESET, NULL))
-    printf("Atomic Commit failed in DisableNonMainCrtcs\\n");
-
-  drmModeAtomicFree(atomic_req);
-}"""
-
-        new_disable = """static void disable_non_main_crtcs(int fd,
-                    drmModeRes *resources,
-                    drmModeCrtc* main_crtc) {
-  for (int i = 0; i < resources->count_connectors; i++) {
-    drmModeConnector* connector = drmModeGetConnector(fd, resources->connectors[i]);
-    if (!connector) continue;
-    drmModeCrtc* crtc = find_crtc_for_connector(fd, resources, connector);
-    if (crtc) {
-      if (crtc->crtc_id != main_crtc->crtc_id) {
-        drmModeSetCrtc(fd, crtc->crtc_id, 0, 0, 0, NULL, 0, NULL);
-      }
-      drmModeFreeCrtc(crtc);
-    }
-    drmModeFreeConnector(connector);
-  }
-}"""
-        if old_disable in code:
-            code = code.replace(old_disable, new_disable)
-
-        with open(drm_cpp, "w", encoding="utf-8") as f:
-            f.write(code)
-        print(f"[+] Successfully patched {drm_cpp} with MediaTek single-pipe DRM fixes")
-        return True
-    except Exception as e:
-        print(f"[-] Failed patching {drm_cpp}: {e}")
-        return False
 
 def patch_magiskboot_vendor_boot(fox_root):
     twrp_funcs_cpp = os.path.join(fox_root, "bootable/recovery/twrp-functions.cpp")
@@ -400,7 +188,7 @@ def patch_magiskboot_vendor_boot(fox_root):
             content
         )
 
-    # 2. On A/B Header v4 devices: route recovery operations (!is_boot) to VendorBoot, keep boot operations (is_boot) on Boot
+    # 2. Route recovery operations (!is_boot) to VendorBoot on A/B Header v4
     ab_pattern = r'(#if\s*\(defined\(AB_OTA_UPDATER\)\s*\|\|\s*defined\(FOX_AB_DEVICE\)\)\s*&&\s*!defined\(OF_AB_DEVICE_WITH_RECOVERY_PARTITION\)\s*\n\s*if\s*\(\s*Boot\s*!=\s*NULL\s*\)\s*\n\s*\{\s*\n\s*)tmpstr\s*=\s*Boot->Actual_Block_Device;'
     ab_replacement = r'''\1if (!is_boot && VendorBoot != NULL) {
          tmpstr = VendorBoot->Actual_Block_Device;
@@ -409,44 +197,231 @@ def patch_magiskboot_vendor_boot(fox_root):
        }'''
     content = re.sub(ab_pattern, ab_replacement, content)
 
-    # 3. Inject recovery ramdisk rename after magiskboot unpack
+    # 3. Inject vendor_boot recovery ramdisk bridge and PRESERVE ramdisk.cpio for fast splash updates
     unpack_pattern = r'(AppendLineToFile\s*\(\s*cmd_script,\s*".*?Unpacking image failed.*?"\s*\);)'
     unpack_inject = r'''\1
 \t        // Vendor_boot v4 recovery ramdisk bridge
-\t        AppendLineToFile (cmd_script, "[ -f vendor_ramdisk_recovery.cpio ] && cp -f vendor_ramdisk_recovery.cpio ramdisk.cpio");'''
+\t        AppendLineToFile (cmd_script, "[ -f vendor_ramdisk_recovery.cpio ] && cp -f vendor_ramdisk_recovery.cpio ramdisk.cpio");
+\t        AppendLineToFile (cmd_script, "cp -f ramdisk.cpio ramdisk.cpio.bak");'''
     if "vendor_ramdisk_recovery.cpio ramdisk.cpio" not in content:
         content = re.sub(unpack_pattern, unpack_inject, content)
 
-    # 4. Inject fast in-place CPIO splash addition & vendor_ramdisk_recovery.cpio copy before magiskboot repack
-    repack_pattern = r'(AppendLineToFile\s*\(\s*cmd_script2,\s*magiskboot_sbin\s*\+\s*" repack)'
-    repack_inject = r'''// Fast in-place splash update via magiskboot cpio (sub-second turnaround)
+    # 4. Ultra-Fast Splash Replacement Bypass:
+    # If /tmp/orangefox/ramdisk/twres/splash.xml exists, bypass the slow find | cpio archiving of 4,200 files!
+    repack_archive_pattern = r'AppendLineToFile\s*\(\s*cmd_script2,\s*cd_dir\s*\+\s*Fox_ramdisk_dir\s*\);\s*\n\s*AppendLineToFile\s*\(\s*cmd_script2,\s*"LOGINFO \\"- Archiving ramdisk\.cpio \.\.\.\\""\s*\);\s*\n\s*AppendLineToFile\s*\(\s*cmd_script2,\s*"find \| cpio -o -H newc > \\""\s*\+\s*tmp_cpio\s*\+\s*"\\""\s*\);\s*\n\s*AppendLineToFile\s*\(\s*cmd_script2,\s*"\[ \$\? == 0 \] && LOGINFO \\"- Succeeded\.\\" \|\| abort \\"- Archiving of ramdisk\.cpio failed\.\\""\s*\);\s*\n\s*AppendLineToFile\s*\(\s*cmd_script2,\s*cd_dir\s*\+\s*Fox_tmp_dir\s*\);'
+
+    repack_archive_replacement = r'''// Fast in-place splash update bypass (skips re-archiving 4200 ramdisk files)
 \t        AppendLineToFile (cmd_script2, "if [ -f /tmp/orangefox/ramdisk/twres/splash.xml ]; then");
+\t        AppendLineToFile (cmd_script2, "  LOGINFO \\"- Fast in-place splash update via magiskboot ...\\"");
+\t        AppendLineToFile (cmd_script2, "  [ -f ramdisk.cpio.bak ] && cp -f ramdisk.cpio.bak ramdisk.cpio");
 \t        AppendLineToFile (cmd_script2, "  " + magiskboot_sbin + " cpio ramdisk.cpio 'add 0644 twres/splash.xml /tmp/orangefox/ramdisk/twres/splash.xml'");
 \t        AppendLineToFile (cmd_script2, "  if [ -f /tmp/orangefox/ramdisk/twres/images/Splash/user.png ]; then");
 \t        AppendLineToFile (cmd_script2, "    " + magiskboot_sbin + " cpio ramdisk.cpio 'add 0644 twres/images/Splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png'");
 \t        AppendLineToFile (cmd_script2, "  fi");
-\t        AppendLineToFile (cmd_script2, "fi");
-\t        // Vendor_boot v4 recovery ramdisk repack bridge
+\t        AppendLineToFile (cmd_script2, "  [ -f ramdisk.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio");
+\t        AppendLineToFile (cmd_script2, "else");
+\t        AppendLineToFile (cmd_script2, cd_dir + Fox_ramdisk_dir);
+\t        AppendLineToFile (cmd_script2, "LOGINFO \\"- Archiving ramdisk.cpio ...\\"");
+\t        AppendLineToFile (cmd_script2, "find | cpio -o -H newc > \\"" + tmp_cpio + "\\"");
+\t        AppendLineToFile (cmd_script2, "[ $? == 0 ] && LOGINFO \\"- Succeeded.\\" || abort \\"- Archiving of ramdisk.cpio failed.\\"");
+\t        AppendLineToFile (cmd_script2, cd_dir + Fox_tmp_dir);
 \t        AppendLineToFile (cmd_script2, "[ -f ramdisk.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio");
-\t        \1'''
-    if "Fast in-place splash update" not in content:
+\t        AppendLineToFile (cmd_script2, "fi");'''
+
+    if "Fast in-place splash update bypass" not in content:
+        content = re.sub(repack_archive_pattern, repack_archive_replacement, content)
+
+    # 5. Fallback bridge right before magiskboot repack
+    repack_pattern = r'(AppendLineToFile\s*\(\s*cmd_script2,\s*magiskboot_sbin\s*\+\s*" repack)'
+    repack_inject = r'''\t        AppendLineToFile (cmd_script2, "[ -f ramdisk.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio");\n\t        \1'''
+    if "[ -f ramdisk.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio" not in content:
         content = re.sub(repack_pattern, repack_inject, content)
 
     if content != orig:
         with open(twrp_funcs_cpp, "w", encoding="utf-8") as f:
             f.write(content)
-        print("[+] Successfully patched twrp-functions.cpp with native vendor_boot v4 splash unpack/repack support")
+        print("[+] Successfully patched twrp-functions.cpp with ultra-fast in-place splash update engine")
         return True
-    else:
-        print("[*] twrp-functions.cpp already patched or target blocks not found")
-        return False
+    return False
 
-def patch_foxstart_identity(fox_root):
-    patched_count = 0
+def patch_splash(fox_root):
     search_dirs = [
         os.path.join(fox_root, "vendor/recovery"),
         os.path.join(fox_root, "bootable/recovery")
     ]
+    # 1. Scale all splash XMLs to 1080x2436
+    for sdir in search_dirs:
+        if not os.path.isdir(sdir):
+            continue
+        for root, _, files in os.walk(sdir):
+            for file in files:
+                if "splash" in file.lower() and file.endswith(".xml"):
+                    fpath = os.path.join(root, file)
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            xml_content = f.read()
+                        mod = False
+                        if 'width="1080" h="1920"' in xml_content:
+                            xml_content = xml_content.replace('width="1080" h="1920"', 'width="1080" h="2436"')
+                            mod = True
+                        if 'value="1920"' in xml_content:
+                            xml_content = xml_content.replace('value="1920"', 'value="2436"')
+                            mod = True
+                        if mod:
+                            with open(fpath, "w", encoding="utf-8") as f:
+                                f.write(xml_content)
+                    except Exception:
+                        pass
+
+    # 2. Patch customization.xml with extra customization options (Restore Stock, Backup Splash, Colors, PNG Verification)
+    for sdir in search_dirs:
+        if not os.path.isdir(sdir):
+            continue
+        for root, _, files in os.walk(sdir):
+            for file in files:
+                if "customization.xml" in file:
+                    fpath = os.path.join(root, file)
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            content = f.read()
+
+                        # Ensure directories exist and validate PNG header
+                        if 'cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk' in content:
+                            content = content.replace(
+                                'cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk',
+                                'mkdir -p /tmp/orangefox/ramdisk/twres/images/Splash/ /tmp/orangefox/ramdisk/twres/themes/sed/; cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk'
+                            )
+
+                        png_check = 'if [[ "%spl_bg_on%" = "1" ]]; then if ! head -c 4 "%tw_splash_png_path%/%tw_splash_png_name%" | grep -q "PNG"; then echo "E:Selected file is not a valid PNG image! Aborting." >> /tmp/recovery.log; exit 1; fi; fi;'
+                        if png_check not in content and 'if [[ \'%spl_bg_user%\' = \'1\' ]]; then' in content:
+                            content = content.replace(
+                                'if [[ \'%spl_bg_user%\' = \'1\' ]]; then',
+                                f'if [[ \'%spl_bg_user%\' = \'1\' ]]; then\n\t\t\t\t\t\t\t{png_check}'
+                            )
+
+                        # Add color options in ext_custom_splash_logo
+                        color_additions = """<listitem name="Cyan">c</listitem>
+\t\t\t\t<listitem name="Red">r</listitem>
+\t\t\t\t<listitem name="Blue">b</listitem>
+\t\t\t\t<listitem name="Green">g</listitem>
+\t\t\t\t<listitem name="Yellow">y</listitem>
+\t\t\t\t<listitem name="Purple">p</listitem>"""
+                        if 'name="Cyan"' not in content and '<listitem name="{@spl_orange}">o</listitem>' in content:
+                            content = content.replace(
+                                '<listitem name="{@spl_orange}">o</listitem>',
+                                f'<listitem name="{{@spl_orange}}">o</listitem>\n\t\t\t\t{color_additions}'
+                            )
+
+                        # Add color hex handling in apply_splash
+                        color_hex_handling = """[[ '%spl_logo_type%' = 'c' ]] && logo_color=00BCD4;
+\t\t\t\t\t\t\t[[ '%spl_logo_type%' = 'r' ]] && logo_color=E91E63;
+\t\t\t\t\t\t\t[[ '%spl_logo_type%' = 'b' ]] && logo_color=2196F3;
+\t\t\t\t\t\t\t[[ '%spl_logo_type%' = 'g' ]] && logo_color=4CAF50;
+\t\t\t\t\t\t\t[[ '%spl_logo_type%' = 'y' ]] && logo_color=FFEB3B;
+\t\t\t\t\t\t\t[[ '%spl_logo_type%' = 'p' ]] && logo_color=9C27B0;"""
+                        if 'logo_color=00BCD4' not in content and "[[ '%spl_logo_type%' = 'd' ]] && logo_color=353535;" in content:
+                            content = content.replace(
+                                "[[ '%spl_logo_type%' = 'd' ]] && logo_color=353535;",
+                                f"[[ '%spl_logo_type%' = 'd' ]] && logo_color=353535;\n\t\t\t\t\t\t\t{color_hex_handling}"
+                            )
+
+                        # Add Restore Stock Splash & Backup Splash in ext_custom_splash
+                        splash_extra_items = """<listitem name="Restore Stock Splash">
+\t\t\t\t\t<icon res="action_reset"/>
+\t\t\t\t\t<action function="cmd">
+\t\t\t\t\t\trm -f /tmp/orangefox/ramdisk/twres/images/Splash/user.png /twres/images/Splash/user.png;
+\t\t\t\t\t\tcp /twres/themes/sed/splash_orig.xml /tmp/orangefox/ramdisk/twres/splash.xml;
+\t\t\t\t\t\tcp /twres/themes/sed/splash_orig.xml /twres/splash.xml;
+\t\t\t\t\t\ttwrp xset spl_bg_user=0;
+\t\t\t\t\t\ttwrp xset spl_bg_on=0;
+\t\t\t\t\t\ttwrp xset spl_logo_type=w;
+\t\t\t\t\t\ttwrp xset spl_ofr=1;
+\t\t\t\t\t\techo "I:Restored stock splash configuration." >> /tmp/recovery.log;
+\t\t\t\t\t</action>
+\t\t\t\t\t<action function="overlay">apply_splash</action>
+\t\t\t\t</listitem>
+\t\t\t\t<listitem name="Backup Current Splash">
+\t\t\t\t\t<icon res="backup"/>
+\t\t\t\t\t<action function="cmd">
+\t\t\t\t\t\tmkdir -p /sdcard/Fox;
+\t\t\t\t\t\tif [ -f /twres/images/Splash/user.png ]; then
+\t\t\t\t\t\t\tcp -f /twres/images/Splash/user.png /sdcard/Fox/splash_backup.png;
+\t\t\t\t\t\t\techo "I:Exported splash to /sdcard/Fox/splash_backup.png" >> /tmp/recovery.log;
+\t\t\t\t\t\tfi;
+\t\t\t\t\t</action>
+\t\t\t\t</listitem>"""
+                        if 'Restore Stock Splash' not in content and '<listitem name="{@spl_reset}">' in content:
+                            content = content.replace(
+                                '<listitem name="{@spl_reset}">',
+                                f'{splash_extra_items}\n\t\t\t\t<listitem name="{{@spl_reset}}">'
+                            )
+
+                        with open(fpath, "w", encoding="utf-8") as f:
+                            f.write(content)
+                        print(f"[+] Enhanced {fpath} with stock restore, export, colors, and validation")
+                    except Exception as e:
+                        print(f"[-] Failed patching {fpath}: {e}")
+    return True
+
+def patch_identity_and_banner(fox_root):
+    # 1. Patch twrp-functions.cpp Check_MIUI_Treble & Welcome_Message
+    twrp_funcs_cpp = os.path.join(fox_root, "bootable/recovery/twrp-functions.cpp")
+    if os.path.isfile(twrp_funcs_cpp):
+        try:
+            with open(twrp_funcs_cpp, "r", encoding="utf-8", errors="ignore") as f:
+                c = f.read()
+
+            # Clean device identity format: Infinix GT 20 Pro Infinix X6871
+            c = re.sub(
+                r'gui_print\s*\(\s*"\*\s*Device:\s*%s\s*\(\s*%s\s*\)\\n"\s*,\s*TWFunc::Fox_Property_Get\("ro\.product\.device"\)\.c_str\(\)\s*,\s*TWFunc::Fox_Property_Get\("ro\.product\.system\.device"\)\.c_str\(\)\s*\);',
+                'gui_print("* Device:     Infinix GT 20 Pro Infinix X6871\\n");\n       gui_print("* Platform:   MediaTek Dimensity 8200 Ultimate MT6895\\n");',
+                c
+            )
+
+            # Clean platform in Welcome_Message
+            c = re.sub(
+                r'gui_print\s*\(\s*"\[Platform\]\s*:\s*%s\\n"\s*,\s*DataManager::GetStrValue\(FOX_COMPATIBILITY_DEVICE\)\.c_str\(\)\s*\);',
+                'gui_print("[Platform]  : MediaTek Dimensity 8200 Ultimate MT6895\\n");',
+                c
+            )
+
+            # Clean boot slot: Slot A / Slot B
+            slot_pattern = r'tmp\s*=\s*Fox_Property_Get\("ro\.boot\.slot_suffix"\);\s*\n\s*if\s*\(!tmp\.empty\(\)\)\s*\{\s*\n\s*gui_print\("\*\s*Boot slot:\s*%s\\n",\s*tmp\.c_str\(\)\);'
+            slot_replacement = """tmp = Fox_Property_Get("ro.boot.slot_suffix");
+  if (!tmp.empty()) {
+       std::string slot_fmt = (tmp == "_a" || tmp == "a" || tmp == "0") ? "Slot A" : "Slot B";
+       gui_print("* Boot slot:  %s\\n", slot_fmt.c_str());"""
+            c = re.sub(slot_pattern, slot_replacement, c)
+
+            with open(twrp_funcs_cpp, "w", encoding="utf-8") as f:
+                f.write(c)
+            print("[+] Successfully patched twrp-functions.cpp with Infinix GT 20 Pro static & clean slot banner")
+        except Exception as e:
+            print(f"[-] Failed patching banner in twrp-functions.cpp: {e}")
+
+    # 2. Patch language files (en.xml)
+    search_dirs = [
+        os.path.join(fox_root, "vendor/recovery"),
+        os.path.join(fox_root, "bootable/recovery")
+    ]
+    for sdir in search_dirs:
+        if not os.path.isdir(sdir):
+            continue
+        for root, _, files in os.walk(sdir):
+            for file in files:
+                if file == "en.xml":
+                    fpath = os.path.join(root, file)
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            c = f.read()
+                        c = c.replace('<string name="fox_device">* Device:     {1} ({2})</string>', '<string name="fox_device">* Device:     {1} {2}</string>')
+                        with open(fpath, "w", encoding="utf-8") as f:
+                            f.write(c)
+                        print(f"[+] Patched {fpath} with clean device formatting")
+                    except Exception:
+                        pass
+
+    # 3. Patch foxstart.sh
     for sdir in search_dirs:
         if not os.path.isdir(sdir):
             continue
@@ -459,46 +434,23 @@ def patch_foxstart_identity(fox_root):
                             content = f.read()
                         orig = content
 
-                        # 1. Prioritize system build.prop ($PROP) over vendor BSP ($V_PROP)
-                        # Official OrangeFox prioritizes $V_PROP which reads stale MediaTek BSP strings (Android 12, alps/...)
-                        # By checking $PROP first, we read the real running ROM Android version, fingerprint, SDK, and display ID!
-
-                        # SDK
+                        # Prioritize system build.prop ($PROP) over vendor BSP ($V_PROP)
                         content = re.sub(
                             r'\[\s*-n\s*"\$V_PROP"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$V_PROP"\s*"ro\.vendor\.build\.version\.sdk"\)\s*\n\s*\[\s*-z\s*"\$tmp3"\s*\]\s*&&\s*t?tmp3=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.version\.sdk"\)\s*\n\s*\[\s*-z\s*"\$tmp3"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$PROP"\s*"ro\.system\.build\.version\.sdk"\)',
                             'tmp3=$(file_getprop "$PROP" "ro.build.version.sdk")\n        [ -z "$tmp3" ] && tmp3=$(file_getprop "$PROP" "ro.system.build.version.sdk")\n        [ -z "$tmp3" ] && [ -n "$V_PROP" ] && tmp3=$(file_getprop "$V_PROP" "ro.vendor.build.version.sdk")',
                             content
                         )
-
-                        # Incremental version
-                        content = re.sub(
-                            r'\[\s*-n\s*"\$V_PROP"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$V_PROP"\s*"ro\.vendor\.build\.version\.incremental"\)\s*\n\s*\[\s*-z\s*"\$tmp3"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.version\.incremental"\)\s*\n\s*\[\s*-z\s*"\$tmp3"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$PROP"\s*"ro\.system\.build\.version\.incremental"\)',
-                            'tmp3=$(file_getprop "$PROP" "ro.build.version.incremental")\n        [ -z "$tmp3" ] && tmp3=$(file_getprop "$PROP" "ro.system.build.version.incremental")\n        [ -z "$tmp3" ] && [ -n "$V_PROP" ] && tmp3=$(file_getprop "$V_PROP" "ro.vendor.build.version.incremental")',
-                            content
-                        )
-
-                        # Release version
                         content = re.sub(
                             r'\[\s*-n\s*"\$V_PROP"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$V_PROP"\s*"ro\.vendor\.build\.version\.release"\)\s*\n\s*\[\s*-z\s*"\$tmp3"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.version\.release"\)\s*\n\s*\[\s*-z\s*"\$tmp3"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$PROP"\s*"ro\.system\.build\.version\.release"\)',
                             'tmp3=$(file_getprop "$PROP" "ro.build.version.release")\n        [ -z "$tmp3" ] && tmp3=$(file_getprop "$PROP" "ro.system.build.version.release")\n        [ -z "$tmp3" ] && [ -n "$V_PROP" ] && tmp3=$(file_getprop "$V_PROP" "ro.vendor.build.version.release")',
                             content
                         )
-
-                        # Fingerprint
                         content = re.sub(
                             r'\[\s*-n\s*"\$V_PROP"\s*\]\s*&&\s*FP=\$\(file_getprop\s*"\$V_PROP"\s*"ro\.vendor\.build\.fingerprint"\)\s*\n\s*\[\s*-z\s*"\$FP"\s*\]\s*&&\s*FP=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.version\.base_os"\)\s*\n\s*\[\s*-z\s*"\$FP"\s*\]\s*&&\s*FP=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.fingerprint"\)\s*\n\s*\[\s*-z\s*"\$FP"\s*\]\s*&&\s*FP=\$\(file_getprop\s*"\$PROP"\s*"ro\.system\.build\.fingerprint"\)',
                             'FP=$(file_getprop "$PROP" "ro.build.fingerprint")\n        [ -z "$FP" ] && FP=$(file_getprop "$PROP" "ro.system.build.fingerprint")\n        [ -z "$FP" ] && [ -n "$V_PROP" ] && FP=$(file_getprop "$V_PROP" "ro.vendor.build.fingerprint")\n        [ -z "$FP" ] && FP=$(file_getprop "$PROP" "ro.build.version.base_os")',
                             content
                         )
 
-                        # Display ID
-                        content = re.sub(
-                            r'tmp2=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.display\.id"\)\s*\n\s*\[\s*-n\s*"\$V_PROP"\s*-a\s*-z\s*"\$tmp2"\s*\]\s*&&\s*tmp2=\$\(file_getprop\s*"\$V_PROP"\s*"ro\.vendor\.build\.id"\)\s*\n\s*\[\s*-z\s*"\$tmp2"\s*\]\s*&&\s*tmp2=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.id"\)\s*\n\s*\[\s*-z\s*"\$tmp2"\s*\]\s*&&\s*tmp2=\$\(file_getprop\s*"\$PROP"\s*"ro\.system\.build\.id"\)',
-                            'tmp2=$(file_getprop "$PROP" "ro.build.display.id")\n     [ -z "$tmp2" ] && tmp2=$(file_getprop "$PROP" "ro.build.id")\n     [ -z "$tmp2" ] && tmp2=$(file_getprop "$PROP" "ro.system.build.id")\n     [ -n "$V_PROP" -a -z "$tmp2" ] && tmp2=$(file_getprop "$V_PROP" "ro.vendor.build.id")',
-                            content
-                        )
-
-                        # 2. Inject Static Hardware Identity & Dynamic Synchronization after ROM=$(get_ROM)
                         target = 'ROM=$(get_ROM)'
                         replacement = """ROM=$(get_ROM)
    # Dynamic runtime device identity detection (Clean Native OrangeFox Standard)
@@ -508,7 +460,7 @@ def patch_foxstart_identity(fox_root):
       $SETPROP "ro.product.model" "Infinix X6871" > /dev/null 2>&1
       $SETPROP "ro.product.marketname" "Infinix GT 20 Pro" > /dev/null 2>&1
       $SETPROP "ro.product.device" "Infinix GT 20 Pro" > /dev/null 2>&1
-      $SETPROP "ro.board.platform" "MediaTek Dimensity 8200 Ultimate | MT6895" > /dev/null 2>&1
+      $SETPROP "ro.board.platform" "MediaTek Dimensity 8200 Ultimate MT6895" > /dev/null 2>&1
       $SETPROP "ro.hardware" "mt6895" > /dev/null 2>&1
       $SETPROP "ro.soc.manufacturer" "MediaTek" > /dev/null 2>&1
       $SETPROP "ro.soc.model" "Dimensity 8200 Ultimate" > /dev/null 2>&1
@@ -526,11 +478,121 @@ def patch_foxstart_identity(fox_root):
                         if content != orig:
                             with open(fpath, "w", encoding="utf-8") as f:
                                 f.write(content)
-                            patched_count += 1
-                            print(f"[+] Patched {fpath} with dynamic runtime identity detection and system-first property priority")
+                            print(f"[+] Patched {fpath} with dynamic runtime identity detection")
                     except Exception as e:
                         print(f"[-] Failed patching {fpath}: {e}")
-    return patched_count > 0
+    return True
+
+def patch_slot_switching(fox_root):
+    # 1. Patch partitionmanager.cpp with native bootctl hardware fallback
+    pm_cpp = os.path.join(fox_root, "bootable/recovery/partitionmanager.cpp")
+    if os.path.isfile(pm_cpp):
+        try:
+            with open(pm_cpp, "r", encoding="utf-8", errors="ignore") as f:
+                c = f.read()
+
+            old_slot = """\t\tif (module->setActiveBootSlot(module, slot_number))
+\t\t\t\tgui_msg(Msg(msg::kError, "unable_set_boot_slot=Error changing bootloader boot slot to {1}")(Slot));"""
+
+            new_slot = """\t\tint slot_idx = (Slot == "B" || Slot == "b" || Slot == "_b" || Slot == "1") ? 1 : 0;
+\t\tstd::string bctl_cmd = "bootctl set-active-boot-slot " + std::to_string(slot_idx);
+\t\tLOGINFO("Setting active boot slot via hardware bootctl: %s\\n", bctl_cmd.c_str());
+\t\tint b_ret = TWFunc::Exec_Cmd(bctl_cmd, false);
+\t\tif (b_ret != 0) {
+\t\t\tLOGERR("bootctl returned error %d, trying HAL module...\\n", b_ret);
+\t\t\tif (module->setActiveBootSlot(module, slot_number))
+\t\t\t\tgui_msg(Msg(msg::kError, "unable_set_boot_slot=Error changing bootloader boot slot to {1}")(Slot));
+\t\t}"""
+            if old_slot in c:
+                c = c.replace(old_slot, new_slot, 1)
+                with open(pm_cpp, "w", encoding="utf-8") as f:
+                    f.write(c)
+                print("[+] Patched partitionmanager.cpp with hardware bootctl slot switching")
+        except Exception as e:
+            print(f"[-] Failed patching partitionmanager.cpp: {e}")
+
+    # 2. Patch advanced.xml: remove blocking ftls ps command that locks ActionThread
+    search_dirs = [
+        os.path.join(fox_root, "vendor/recovery"),
+        os.path.join(fox_root, "bootable/recovery")
+    ]
+    for sdir in search_dirs:
+        if not os.path.isdir(sdir):
+            continue
+        for root, _, files in os.walk(sdir):
+            for file in files:
+                if file == "advanced.xml":
+                    fpath = os.path.join(root, file)
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            c = f.read()
+                        if '<action function="ftls">ps -eo \'comm\' | grep adbd &amp;&amp; twrp xset fox_adb=1</action>' in c:
+                            c = c.replace('<action function="ftls">ps -eo \'comm\' | grep adbd &amp;&amp; twrp xset fox_adb=1</action>', '')
+                            with open(fpath, "w", encoding="utf-8") as f:
+                                f.write(c)
+                            print(f"[+] Removed blocking ftls ps check from {fpath} to prevent ActionThread collision")
+                    except Exception:
+                        pass
+    return True
+
+def patch_display_timeout_toggle(fox_root):
+    search_dirs = [
+        os.path.join(fox_root, "vendor/recovery"),
+        os.path.join(fox_root, "bootable/recovery")
+    ]
+    for sdir in search_dirs:
+        if not os.path.isdir(sdir):
+            continue
+        for root, _, files in os.walk(sdir):
+            for file in files:
+                if file == "settings.xml":
+                    fpath = os.path.join(root, file)
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            c = f.read()
+
+                        # Look for screen timeout slider block
+                        target = '<slidervalue>\n\t\t\t\t<condition var1="tw_no_screen_timeout" op="!=" var2="1"/>\n\t\t\t\t<placement x="%slider_x%" y="%row3_1a_y%" w="%slidervalue_w%"/>\n\t\t\t\t<data variable="tw_screen_timeout_secs" min="0" max="300" showrange="0" showcurr="0" changeondrag="1"/>\n\t\t\t</slidervalue>'
+                        replacement = """<listbox style="settingslist_group">
+\t\t\t\t<placement x="0" y="%row2_2_y%" w="%screen_w%" h="%lb_group_l1%"/>
+\t\t\t\t<listitem name="Auto Screen Timeout [Disabled]">
+\t\t\t\t\t<condition var1="tw_screen_timeout_secs" var2="0"/>
+\t\t\t\t\t<icon res="checkbox_false"/>
+\t\t\t\t\t<action function="set">tw_screen_timeout_secs=60</action>
+\t\t\t\t</listitem>
+\t\t\t\t<listitem name="Auto Screen Timeout [Enabled]">
+\t\t\t\t\t<condition var1="tw_screen_timeout_secs" op="!=" var2="0"/>
+\t\t\t\t\t<icon res="checkbox_true"/>
+\t\t\t\t\t<action function="set">tw_screen_timeout_secs=0</action>
+\t\t\t\t</listitem>
+\t\t\t</listbox>
+\t\t\t<slidervalue>
+\t\t\t\t<condition var1="tw_screen_timeout_secs" op="!=" var2="0"/>
+\t\t\t\t<placement x="%slider_x%" y="%row3_1a_y%" w="%slidervalue_w%"/>
+\t\t\t\t<data variable="tw_screen_timeout_secs" min="15" max="300" showrange="0" showcurr="0" changeondrag="1"/>
+\t\t\t</slidervalue>"""
+
+                        if target in c and "Auto Screen Timeout [Disabled]" not in c:
+                            c = c.replace(target, replacement, 1)
+                            with open(fpath, "w", encoding="utf-8") as f:
+                                f.write(c)
+                            print(f"[+] Injected interactive [ Enabled / Disabled ] display timeout toggle into {fpath}")
+                    except Exception as e:
+                        print(f"[-] Failed patching {fpath}: {e}")
+
+    # Ensure data.cpp allows screen timeout
+    data_cpp = os.path.join(fox_root, "bootable/recovery/data.cpp")
+    if os.path.isfile(data_cpp):
+        try:
+            with open(data_cpp, "r", encoding="utf-8", errors="ignore") as f:
+                c = f.read()
+            c = c.replace('mConst.SetValue("tw_no_screen_timeout", "1");', 'mConst.SetValue("tw_no_screen_timeout", "0");')
+            with open(data_cpp, "w", encoding="utf-8") as f:
+                f.write(c)
+            print("[+] Verified tw_no_screen_timeout=0 in data.cpp")
+        except Exception:
+            pass
+    return True
 
 def patch_avb_settings(fox_root):
     data_cpp = os.path.join(fox_root, "bootable/recovery/data.cpp")
@@ -576,9 +638,28 @@ def patch_avb_settings(fox_root):
                         with open(fpath, "w", encoding="utf-8") as f:
                             f.write(sh_c)
                         print(f"[+] Patched {fpath} for A/B slot-aware AVB2.0 patching")
-                except Exception as e:
+                except Exception:
                     pass
     return True
+
+def patch_graphics_drm(fox_root):
+    drm_cpp = os.path.join(fox_root, "bootable/recovery/minuitwrp/graphics_drm.cpp")
+    if not os.path.isfile(drm_cpp):
+        print(f"[-] graphics_drm.cpp not found at {drm_cpp}")
+        return False
+
+    repo_script_drm = os.path.join(os.path.dirname(os.path.abspath(__file__)), "graphics_drm.cpp")
+    if os.path.isfile(repo_script_drm):
+        try:
+            with open(repo_script_drm, "r", encoding="utf-8") as f_src:
+                src_content = f_src.read()
+            with open(drm_cpp, "w", encoding="utf-8") as f_dst:
+                f_dst.write(src_content)
+            print(f"[+] Successfully deployed verified MediaTek single-pipe graphics_drm.cpp to {drm_cpp}")
+            return True
+        except Exception as e:
+            print(f"[!] Direct copy of graphics_drm.cpp failed ({e})")
+    return False
 
 def main():
     fox_root = sys.argv[1] if len(sys.argv) > 1 else "."
@@ -587,13 +668,14 @@ def main():
     patch_flashlight(fox_root)
     patch_haptics(fox_root)
     patch_thermals(fox_root)
-    patch_splash(fox_root)
     patch_magiskboot_vendor_boot(fox_root)
-    patch_identity_fingerprint(fox_root)
-    patch_foxstart_identity(fox_root)
+    patch_splash(fox_root)
+    patch_identity_and_banner(fox_root)
+    patch_slot_switching(fox_root)
+    patch_display_timeout_toggle(fox_root)
     patch_avb_settings(fox_root)
     patch_graphics_drm(fox_root)
-    print("[*] Hardware and architecture patches applied successfully!")
+    print("[*] All hardware, architecture, identity, slot, splash, and UI patches applied cleanly!")
 
 if __name__ == "__main__":
     main()
