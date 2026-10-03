@@ -148,9 +148,6 @@ jobs:
           export OF_USE_MAGISKBOOT_FOR_ALL_PATCHES=1
           export OF_PATCH_AVB20=1
           export OF_ADVANCED_SECURITY=1
-          export OF_AVB20_DECRYPTION=1
-          export OF_SUPPORT_ALL_BLOCK_OTA_UPDATES=1
-          export OF_DONT_PATCH_ON_FRESH_INSTALLATION=1
 
           export OF_USE_TWRP_SAR_DETECT=1
           export OF_SUPPORT_OZIP_DECRYPTION=1
@@ -205,8 +202,8 @@ jobs:
           echo "Bundling Root Suite (Magisk, KernelSU, APatch)..."
           mkdir -p $GITHUB_WORKSPACE/output/Root_Suite
           curl -sSL "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/Magisk-v28.1.zip || true
-          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v1.0.1/KernelSU_v1.0.1_11942-release.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/KernelSU-v1.0.1.apk || true
-          curl -sSL "https://github.com/bmax121/APatch/releases/download/10763/APatch_10763_10763-release.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/APatch-10763.apk || true
+          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.0/KernelSU_v3.3.0_32601-release.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/KernelSU-v3.3.0.apk || true
+          curl -sSL "https://github.com/bmax121/APatch/releases/download/11224/APatch_11224_9a63e0f_HEAD-release-signed.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/APatch-11224.apk || true
           cd $GITHUB_WORKSPACE/output/Root_Suite && zip -r ../OrangeFox-RootSuite-X6871.zip * || true
           rm -rf $GITHUB_WORKSPACE/output/Root_Suite
 
