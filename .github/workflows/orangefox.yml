@@ -120,6 +120,8 @@ jobs:
           export FOX_ENABLE_APP_MANAGER=1
           export FOX_RECOVERY_SYSTEM_PARTITION="/dev/block/mapper/system"
           export FOX_RECOVERY_VENDOR_PARTITION="/dev/block/mapper/vendor"
+          export FOX_RECOVERY_INSTALL_PARTITION="/dev/block/by-name/vendor_boot"
+          export FOX_RECOVERY_BOOT_PARTITION="/dev/block/by-name/boot"
           export FOX_USE_BASH_SHELL=1
           export FOX_ASH_IS_BASH=1
           export FOX_USE_TAR_BINARY=1
@@ -151,7 +153,8 @@ jobs:
           export OF_SUPPORT_OZIP_DECRYPTION=1
           export OF_FBE_METADATA_MOUNT_IGNORE=0
           export OF_SKIP_DECRYPTED_ADOPTED_STORAGE=1
-          export OF_SPLASH_MAX_SIZE=8388608
+          export OF_SPLASH_MAX_SIZE=8192
+          export OF_FAST_CHARGE_PATH="/sys/class/power_supply/charger/input_current_limit"
           export LC_ALL="C"
           export ALLOW_MISSING_DEPENDENCIES=true
           export USE_CCACHE=1

@@ -207,7 +207,60 @@ def patch_splash(fox_root):
                             patched_count += 1
                     except Exception as e:
                         print(f"[-] Failed patching {fpath}: {e}")
+
+    # Also patch customization.xml to ensure /tmp/orangefox directories exist before copy
+    for sdir in search_dirs:
+        if not os.path.isdir(sdir):
+            continue
+        for root, _, files in os.walk(sdir):
+            for file in files:
+                if "customization" in file.lower() and file.endswith(".xml"):
+                    fpath = os.path.join(root, file)
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            content = f.read()
+                        if 'cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk' in content:
+                            content = content.replace(
+                                'cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk',
+                                'mkdir -p /tmp/orangefox/ramdisk/twres/images/Splash/ /tmp/orangefox/ramdisk/twres/themes/sed/; cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk'
+                            )
+                            with open(fpath, "w", encoding="utf-8") as f:
+                                f.write(content)
+                            print(f"[+] Hardened {fpath} with ramdisk splash directory creation")
+                    except Exception as e:
+                        pass
     print(f"[+] Successfully patched {patched_count} splash XML files to 1080x2436")
+    return True
+
+def patch_identity_fingerprint(fox_root):
+    stock_fp = "Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys"
+    patched_count = 0
+    search_dirs = [
+        os.path.join(fox_root, "bootable/recovery"),
+        os.path.join(fox_root, "vendor/recovery")
+    ]
+    for sdir in search_dirs:
+        if not os.path.isdir(sdir):
+            continue
+        for root, _, files in os.walk(sdir):
+            for file in files:
+                if file.endswith((".cpp", ".c", ".h", ".hpp", ".sh", ".py")):
+                    fpath = os.path.join(root, file)
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            content = f.read()
+                        orig = content
+                        if "alps/hal_mgvi_64" in content:
+                            content = re.sub(r'alps/hal_mgvi_64[^\s"\';\)]+', stock_fp, content)
+                        if "ro.build.fingerprint" in content and "alps" in content:
+                            content = content.replace("alps", "Infinix")
+                        if content != orig:
+                            with open(fpath, "w", encoding="utf-8") as f:
+                                f.write(content)
+                            patched_count += 1
+                    except Exception as e:
+                        pass
+    print(f"[+] Successfully patched {patched_count} source files with stock device identity fingerprint")
     return True
 
 def patch_graphics_drm(fox_root):
@@ -355,6 +408,7 @@ def main():
     patch_haptics(fox_root)
     patch_thermals(fox_root)
     patch_splash(fox_root)
+    patch_identity_fingerprint(fox_root)
     patch_graphics_drm(fox_root)
     print("[*] Hardware and architecture patches applied successfully!")
 

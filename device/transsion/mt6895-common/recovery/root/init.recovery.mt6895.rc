@@ -44,12 +44,8 @@ on post-fs
     start vendor.gatekeeper-1-0
     start vendor.keymint-trustonic
 
-on post-fs-data
-    start health-hal-2-1
-
-on boot
-    setprop sys.usb.config adb
-    start mtk.plpath.utils.link
+    # Load MediaTek Dimensity 8200 Hardware CPUFreq / Performance Governor driver
+    insmod /lib/modules/mediatek-cpufreq-hw.ko
 
     # Load LVTS CPU thermal driver for real soc_max readings
     insmod /lib/modules/soc_temp_lvts.ko
@@ -64,6 +60,9 @@ on boot
 
     # Haptics legacy symlink for TWRP/OrangeFox UI (after driver load)
     symlink /sys/class/leds/vibrator_single /sys/class/leds/vibrator
+
+on post-fs-data
+    start health-hal-2-1
 
     # Rear camera flashlight permissions (MediaTek OCP81375)
     chmod 0666 /sys/class/torch/torch/torch_level
@@ -93,6 +92,11 @@ on boot
     chmod 0666 /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
     chmod 0666 /sys/devices/system/cpu/cpu7/cpufreq/scaling_governor
 
+    # Fast Charge permissions (MediaTek MT6375 / Charger)
+    chmod 0666 /sys/class/power_supply/charger/input_current_limit
+    chmod 0666 /sys/class/power_supply/charger/constant_charge_current
+    chmod 0666 /sys/class/power_supply/battery/current_now
+
     # Exact Stock Device Identity Overrides via resetprop
     exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.model "Infinix X6871"
     exec u:r:recovery:s0 -- /system/bin/resetprop ro.product.marketname "Infinix GT 20 Pro"
@@ -107,6 +111,11 @@ on boot
     exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.display.id "X6871-15.1.2.180SP05(OP001PF001AZ)"
     exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.version.incremental "180003"
     exec u:r:recovery:s0 -- /system/bin/resetprop ro.build.description "X6871-user 15 AP3A.240905.015.A2 release-keys"
+
+on boot
+    setprop sys.usb.config adb
+    start mtk.plpath.utils.link
+
 
 
 on property:persist.vendor.mtk.pl_lnk=1
@@ -142,6 +151,13 @@ service mtk.plpath.utils.link /system/bin/mtk_plpath_utils
     group root system
     oneshot
     disabled
+    seclabel u:r:recovery:s0
+
+service set_stock_identity /system/bin/resetprop -n ro.build.fingerprint "Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys"
+    class main
+    user root
+    group root
+    oneshot
     seclabel u:r:recovery:s0
 
 service vendor.gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-service
