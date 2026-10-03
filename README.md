@@ -1,4 +1,4 @@
-# OrangeFox Recovery for Infinix GT 20 Pro (X6871)
+# OrangeFox Recovery for Infinix GT 20 Pro (X6871) | Not Tested Yet!
 
 Custom OrangeFox R12.0 recovery built for the Infinix GT 20 Pro. Runs on the Dimensity 8200 Ultimate (mt6895), Android 15, Virtual A/B with dynamic partitions. Recovery lives in `vendor_boot` — the GKI boot image stays untouched.
 
@@ -87,3 +87,7 @@ prebuilt-images/       Old intermediate images (cleanup candidate)
 
 - Telegram Updates: https://t.me/Gt20ProINUpdates
 - Telegram Discussion: https://t.me/Gt20ProIN
+
+## Notes
+
+- Not Tested Yet
