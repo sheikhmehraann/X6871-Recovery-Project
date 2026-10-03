@@ -224,9 +224,16 @@ def patch_splash(fox_root):
                                 'cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk',
                                 'mkdir -p /tmp/orangefox/ramdisk/twres/images/Splash/ /tmp/orangefox/ramdisk/twres/themes/sed/; cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk'
                             )
-                            with open(fpath, "w", encoding="utf-8") as f:
-                                f.write(content)
-                            print(f"[+] Hardened {fpath} with ramdisk splash directory creation")
+                        # Validate PNG magic bytes 0x89 0x50 0x4e 0x47 to protect against corrupt/invalid images
+                        png_validator = 'if [[ "%spl_bg_on%" = "1" ]]; then if ! head -c 4 "%tw_splash_png_path%/%tw_splash_png_name%" | grep -q "PNG"; then echo "E:Selected file is not a valid PNG image! Aborting." >> /tmp/recovery.log; exit 1; fi; fi; '
+                        if 'if [[ \'%spl_bg_user%\' = \'1\' ]]; then' in content and 'head -c 4' not in content:
+                            content = content.replace(
+                                'if [[ \'%spl_bg_user%\' = \'1\' ]]; then',
+                                f'if [[ \'%spl_bg_user%\' = \'1\' ]]; then\n\t\t\t\t\t\t\t{png_validator}'
+                            )
+                        with open(fpath, "w", encoding="utf-8") as f:
+                            f.write(content)
+                        print(f"[+] Hardened {fpath} with ramdisk splash directory creation and PNG image validation")
                     except Exception as e:
                         pass
     print(f"[+] Successfully patched {patched_count} splash XML files to 1080x2436")
@@ -410,12 +417,19 @@ def patch_magiskboot_vendor_boot(fox_root):
     if "vendor_ramdisk_recovery.cpio ramdisk.cpio" not in content:
         content = re.sub(unpack_pattern, unpack_inject, content)
 
-    # 4. Inject vendor_ramdisk_recovery.cpio copy before magiskboot repack
+    # 4. Inject fast in-place CPIO splash addition & vendor_ramdisk_recovery.cpio copy before magiskboot repack
     repack_pattern = r'(AppendLineToFile\s*\(\s*cmd_script2,\s*magiskboot_sbin\s*\+\s*" repack)'
-    repack_inject = r'''// Vendor_boot v4 recovery ramdisk repack bridge
+    repack_inject = r'''// Fast in-place splash update via magiskboot cpio (sub-second turnaround)
+\t        AppendLineToFile (cmd_script2, "if [ -f /tmp/orangefox/ramdisk/twres/splash.xml ]; then");
+\t        AppendLineToFile (cmd_script2, "  " + magiskboot_sbin + " cpio ramdisk.cpio \\\"add 0644 twres/splash.xml /tmp/orangefox/ramdisk/twres/splash.xml\\\"");
+\t        AppendLineToFile (cmd_script2, "  if [ -f /tmp/orangefox/ramdisk/twres/images/Splash/user.png ]; then");
+\t        AppendLineToFile (cmd_script2, "    " + magiskboot_sbin + " cpio ramdisk.cpio \\\"add 0644 twres/images/Splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png\\\"");
+\t        AppendLineToFile (cmd_script2, "  fi");
+\t        AppendLineToFile (cmd_script2, "fi");
+\t        // Vendor_boot v4 recovery ramdisk repack bridge
 \t        AppendLineToFile (cmd_script2, "[ -f ramdisk.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio");
 \t        \1'''
-    if "ramdisk.cpio vendor_ramdisk_recovery.cpio" not in content:
+    if "Fast in-place splash update" not in content:
         content = re.sub(repack_pattern, repack_inject, content)
 
     if content != orig:
@@ -493,12 +507,18 @@ def patch_foxstart_identity(fox_root):
       $SETPROP "ro.product.brand" "Infinix" > /dev/null 2>&1
       $SETPROP "ro.product.model" "Infinix X6871" > /dev/null 2>&1
       $SETPROP "ro.product.marketname" "Infinix GT 20 Pro" > /dev/null 2>&1
-      $SETPROP "ro.product.device" "Infinix-X6871" > /dev/null 2>&1
-      $SETPROP "ro.board.platform" "mt6895" > /dev/null 2>&1
+      $SETPROP "ro.product.device" "Infinix GT 20 Pro" > /dev/null 2>&1
+      $SETPROP "ro.board.platform" "MediaTek Dimensity 8200 Ultimate | MT6895" > /dev/null 2>&1
+      $SETPROP "ro.hardware" "mt6895" > /dev/null 2>&1
+      $SETPROP "ro.soc.manufacturer" "MediaTek" > /dev/null 2>&1
+      $SETPROP "ro.soc.model" "Dimensity 8200 Ultimate" > /dev/null 2>&1
       [ -n "$ROM" ] && $SETPROP "ro.build.display.id" "$ROM" > /dev/null 2>&1
       [ -n "$FP" ] && $SETPROP "ro.build.fingerprint" "$FP" > /dev/null 2>&1
       [ -n "$RELEASE_VERSION" ] && $SETPROP "ro.build.version.release" "$RELEASE_VERSION" > /dev/null 2>&1
       [ -n "$ANDROID_SDK" ] && $SETPROP "ro.build.version.sdk" "$ANDROID_SDK" > /dev/null 2>&1
+      slot_raw=$(getprop "ro.boot.slot_suffix")
+      slot_clean=$(echo "$slot_raw" | tr -d '_' | tr '[:lower:]' '[:upper:]')
+      [ -n "$slot_clean" ] && $SETPROP "ro.boot.slot" "Slot $slot_clean" > /dev/null 2>&1
    }"""
                         if target in content and "Static Device Identity" not in content:
                             content = content.replace(target, replacement, 1)

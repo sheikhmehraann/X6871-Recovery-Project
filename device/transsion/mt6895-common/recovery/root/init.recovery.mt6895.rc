@@ -4,6 +4,8 @@ import /init.device.rc
 on early-init
     symlink /system/etc/recovery.fstab /etc/recovery.fstab
     symlink /system/etc/twrp.flags /etc/twrp.flags
+    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.vendor.build.security_patch 2026-07-01
+    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.build.version.security_patch 2026-07-01
 
 on init
     setprop sys.usb.configfs 1
@@ -23,12 +25,6 @@ on init
     setprop ro.product.board "Infinix-X6871"
     setprop ro.board.platform "mt6895"
     setprop ro.build.product "Infinix-X6871"
-
-    # KeyMint HAL Security Patch Level requirement
-    setprop ro.build.version.security_patch "2026-07-01"
-    setprop ro.vendor.build.security_patch "2026-07-01"
-    setprop ro.build.version.release "15"
-    setprop ro.build.version.release_or_codename "15"
 
 on fs
     wait /dev/block/platform/soc/112b0000.ufshci
@@ -141,13 +137,6 @@ service mtk.plpath.utils.link /system/bin/mtk_plpath_utils
     group root system
     oneshot
     disabled
-    seclabel u:r:recovery:s0
-
-service set_stock_identity /system/bin/resetprop -n ro.build.fingerprint "Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys"
-    class main
-    user root
-    group root
-    oneshot
     seclabel u:r:recovery:s0
 
 service vendor.gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-service

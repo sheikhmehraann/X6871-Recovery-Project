@@ -33,11 +33,12 @@ void vendor_load_properties()
     }
 
     property_override("ro.build.product", "Infinix-X6871");
-    property_override("ro.build.display.id", "X6871-15.1.2.180SP05(OP001PF001AZ)");
-    property_override("ro.build.version.incremental", "180003");
-    property_override("ro.build.fingerprint", "Infinix/X6871-OP/Infinix-X6871:16/BP2A.250605.031.A3/301550050:user/release-keys");
-    property_override("ro.vendor.build.fingerprint", "Infinix/X6871-OP/Infinix-X6871:16/BP2A.250605.031.A3/301550050:user/release-keys");
-    property_override("ro.system.build.fingerprint", "Infinix/X6871-OP/Infinix-X6871:16/BP2A.250605.031.A3/301550050:user/release-keys");
+    property_override("ro.board.platform", "mt6895");
+
+    // KeyMint HAL Security Patch Level requirement (Early injection before property freeze)
+    property_override("ro.vendor.build.security_patch", "2026-07-01");
+    property_override("ro.build.version.security_patch", "2026-07-01");
+
     property_override("ro.vendor.tran.vibrator.option", "single");
     property_override("ro.tran_vibrate_ontouch.support", "1");
     property_override("ro.tran_vibrate_ontouch2.0.support", "1");
