@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - 'screenshots/**'
+      - '.gitignore'
 
 jobs:
   build:
