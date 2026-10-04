@@ -190,43 +190,41 @@ def patch_magiskboot_vendor_boot(fox_root):
             content
         )
 
-    # 2. Select vendor_boot block device if present
-    content = re.sub(
-        r'std::string\s+b_dev\s*=\s*Boot->Actual_Block_Device;',
-        'std::string b_dev = (VendorBoot != nullptr) ? VendorBoot->Actual_Block_Device : Boot->Actual_Block_Device;',
-        content
-    )
+    # 2. On A/B Header v4 devices: route recovery operations (!is_boot) to VendorBoot, keep boot operations (is_boot) on Boot
+    ab_pattern = r'(#if\s*\(defined\(AB_OTA_UPDATER\)\s*\|\|\s*defined\(FOX_AB_DEVICE\)\)\s*&&\s*!defined\(OF_AB_DEVICE_WITH_RECOVERY_PARTITION\)\s*\n\s*if\s*\(\s*Boot\s*!=\s*NULL\s*\)\s*\n\s*\{\s*\n\s*)tmpstr\s*=\s*Boot->Actual_Block_Device;'
+    ab_replacement = r'''\1if (!is_boot && VendorBoot != NULL) {
+         tmpstr = VendorBoot->Actual_Block_Device;
+       } else {
+         tmpstr = Boot->Actual_Block_Device;
+       }'''
+    content = re.sub(ab_pattern, ab_replacement, content)
 
-    # 3. Enable in-place splash update via magiskboot cpio
-    fast_repack_block = """  // Ultra-Fast in-place splash update: update files directly in ramdisk.cpio
-  if (TWFunc::Path_Exists(Fox_ramdisk_dir + "twres/splash.xml") && TWFunc::Path_Exists(Fox_tmp_dir + "ramdisk.cpio")) {
-      gui_print("- Fast in-place splash update via magiskboot ...\\n");
-      std::string cpio_cmd = "cd " + Fox_tmp_dir + " && magiskboot cpio ramdisk.cpio 'add 0644 twres/splash.xml " + Fox_ramdisk_dir + "twres/splash.xml'";
-      TWFunc::Exec_Cmd(cpio_cmd);
-      if (TWFunc::Path_Exists(Fox_ramdisk_dir + "twres/images/Splash/user.png")) {
-          cpio_cmd = "cd " + Fox_tmp_dir + " && magiskboot cpio ramdisk.cpio 'add 0644 twres/images/Splash/user.png " + Fox_ramdisk_dir + "twres/images/Splash/user.png'";
-          TWFunc::Exec_Cmd(cpio_cmd);
-      }
-      gui_print("- Repacking boot/recovery image ...\\n");
-      cmd = "cd " + Fox_tmp_dir + " && magiskboot repack " + Fox_tmp_dir + "boot.img " + Fox_tmp_dir + "new-boot.img";
-      if (TWFunc::Exec_Cmd(cmd) == 0 && TWFunc::Path_Exists(Fox_tmp_dir + "new-boot.img")) {
-          gui_print("- Succeeded.\\n- Flashing repacked image ...\\n");
-          std::string flash_cmd = "dd if=" + Fox_tmp_dir + "new-boot.img of=" + b_dev + " bs=4096 2>/dev/null && sync";
-          if (TWFunc::Exec_Cmd(flash_cmd) == 0) {
-              gui_print("- Succeeded.\\n");
-              TWFunc::removeDir(Fox_tmp_dir, false);
-              return 0;
-          }
-      }
-  }"""
+    # 3. Inject recovery ramdisk rename after magiskboot unpack in cmd_script
+    unpack_pattern = r'(AppendLineToFile\s*\(\s*cmd_script,\s*".*?Unpacking image failed.*?"\s*\);)'
+    unpack_inject = r'''\1
+	        // Vendor_boot v4 recovery ramdisk bridge
+	        AppendLineToFile (cmd_script, "[ -f vendor_ramdisk_recovery.cpio ] && cp -f vendor_ramdisk_recovery.cpio ramdisk.cpio");'''
+    if "vendor_ramdisk_recovery.cpio ramdisk.cpio" not in content:
+        content = re.sub(unpack_pattern, unpack_inject, content)
 
-    target_repack_point = 'gui_print("- Repacking boot/recovery image ...\\n");'
-    if target_repack_point in content and "Fast in-place splash update" not in content:
-        content = content.replace(target_repack_point, fast_repack_block + "\n  " + target_repack_point, 1)
+    # 4. Inject fast in-place CPIO splash addition & vendor_ramdisk_recovery.cpio copy before magiskboot repack in cmd_script2
+    repack_pattern = r'(AppendLineToFile\s*\(\s*cmd_script2,\s*magiskboot_sbin\s*\+\s*" repack)'
+    repack_inject = r'''// Fast in-place splash update via magiskboot cpio (sub-second turnaround)
+	        AppendLineToFile (cmd_script2, "if [ -f /tmp/orangefox/ramdisk/twres/splash.xml ]; then");
+	        AppendLineToFile (cmd_script2, "  " + magiskboot_sbin + " cpio ramdisk.cpio 'add 0644 twres/splash.xml /tmp/orangefox/ramdisk/twres/splash.xml'");
+	        AppendLineToFile (cmd_script2, "  if [ -f /tmp/orangefox/ramdisk/twres/images/Splash/user.png ]; then");
+	        AppendLineToFile (cmd_script2, "    " + magiskboot_sbin + " cpio ramdisk.cpio 'add 0644 twres/images/Splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png'");
+	        AppendLineToFile (cmd_script2, "  fi");
+	        AppendLineToFile (cmd_script2, "fi");
+	        // Vendor_boot v4 recovery ramdisk repack bridge
+	        AppendLineToFile (cmd_script2, "[ -f ramdisk.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio");
+	        \1'''
+    if "Fast in-place splash update" not in content:
+        content = re.sub(repack_pattern, repack_inject, content)
 
     if content != orig:
         write_file_lf(twrp_funcs_cpp, content)
-        print("[+] Successfully patched twrp-functions.cpp with ultra-fast in-place splash update engine")
+        print("[+] Successfully patched twrp-functions.cpp with native vendor_boot v4 splash unpack/repack support")
         return True
     return False
 
@@ -282,29 +280,26 @@ def patch_splash(fox_root):
                     except Exception:
                         pass
 
-    # 3. Patch customization.xml with complete verified native suite (0 XML errors, 0 shell errors)
-    perf_cust_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools", "customization_perfect.xml")
-    perf_cust_content = None
-    if os.path.isfile(perf_cust_path):
-        try:
-            with open(perf_cust_path, "r", encoding="utf-8") as f:
-                perf_cust_content = f.read()
-        except Exception as e:
-            print(f"[-] Failed reading customization_perfect.xml: {e}")
-
+    # 3. In stock customization.xml: ensure ramdisk splash directory exists so cp succeeds
     for sdir in search_dirs:
         if not os.path.isdir(sdir):
             continue
         for root, _, files in os.walk(sdir):
             for file in files:
-                if "customization.xml" in file:
+                if "customization" in file.lower() and file.endswith(".xml"):
                     fpath = os.path.join(root, file)
                     try:
-                        if perf_cust_content:
-                            write_file_lf(fpath, perf_cust_content)
-                            print(f"[+] Replaced {fpath} with customization_perfect.xml (100% valid XML & native listbox)")
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            content = f.read()
+                        if 'cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk' in content:
+                            content = content.replace(
+                                'cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk',
+                                'mkdir -p /tmp/orangefox/ramdisk/twres/images/Splash/ /tmp/orangefox/ramdisk/twres/themes/sed/; cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk'
+                            )
+                            write_file_lf(fpath, content)
+                            print(f"[+] Verified stock {fpath} with ramdisk splash directory creation")
                     except Exception as e:
-                        print(f"[-] Failed patching customization.xml: {e}")
+                        print(f"[-] Failed patching stock customization.xml: {e}")
     return True
 
 def patch_identity_and_banner(fox_root):
@@ -420,21 +415,10 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
    echo "ROM_FINGERPRINT=Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys" >> $F
    echo "SDK=35" >> $F
 }"""
-                        splash_restore = r"""
-# OrangeFox Persistent Splash Restore Engine (Header v4 vendor_boot)
-if [ -f /sdcard/Fox/splash/splash.xml ]; then
-   mkdir -p /twres/images/Splash /tmp/orangefox/ramdisk/twres/images/Splash 2>/dev/null
-   cp -f /sdcard/Fox/splash/splash.xml /twres/splash.xml 2>/dev/null
-   [ -f /sdcard/Fox/splash/user.png ] && cp -f /sdcard/Fox/splash/user.png /twres/images/Splash/user.png 2>/dev/null
-   [ -f /sdcard/Fox/splash/user.png ] && cp -f /sdcard/Fox/splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png 2>/dev/null
-fi
-"""
                         if "get_ROM()" in sh_c:
                             sh_c = re.sub(r'get_ROM\(\)\s*\{.*?\n\}', lambda m: dynamic_stock_probe, sh_c, flags=re.DOTALL)
-                        if "Persistent Splash Restore" not in sh_c:
-                            sh_c += "\n" + splash_restore
                         write_file_lf(fpath, sh_c)
-                        print(f"[+] Patched {fpath} with dynamic stock Transsion partition & persistent splash engine")
+                        print(f"[+] Patched {fpath} with dynamic stock Transsion partition engine")
                     except Exception as e:
                         print(f"[-] Failed patching {fpath}: {e}")
     return True
@@ -608,6 +592,30 @@ def patch_graphics_drm(fox_root):
             print(f"[-] Failed copying graphics_drm.cpp: {e}")
     return False
 
+def patch_version(fox_root):
+    ofmk = os.path.join(fox_root, "bootable/recovery/orangefox.mk")
+    if os.path.isfile(ofmk):
+        try:
+            with open(ofmk, "r", encoding="utf-8") as f:
+                c = f.read()
+            c = c.replace("FOX_INTERNAL_RELEASE := R12.0", "FOX_INTERNAL_RELEASE := R12.1")
+            write_file_lf(ofmk, c)
+            print("[+] Patched bootable/recovery/orangefox.mk with R12.1")
+        except Exception as e:
+            print(f"[-] Failed patching orangefox.mk: {e}")
+
+    vend_sh = os.path.join(fox_root, "vendor/recovery/OrangeFox_vendor.sh")
+    if os.path.isfile(vend_sh):
+        try:
+            with open(vend_sh, "r", encoding="utf-8") as f:
+                c = f.read()
+            c = c.replace("export FOX_INTERNAL_RELEASE=R12.0", "export FOX_INTERNAL_RELEASE=R12.1")
+            write_file_lf(vend_sh, c)
+            print("[+] Patched vendor/recovery/OrangeFox_vendor.sh with R12.1")
+        except Exception as e:
+            print(f"[-] Failed patching OrangeFox_vendor.sh: {e}")
+    return True
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: patch_ofox.py <fox_source_root>")
@@ -630,7 +638,8 @@ def main():
     patch_display_timeout_toggle(fox_root)
     patch_avb_settings(fox_root)
     patch_graphics_drm(fox_root)
-    print("[*] All hardware, architecture, identity, slot, splash, and UI patches applied cleanly!")
+    patch_version(fox_root)
+    print("[*] All hardware, architecture, identity, slot, splash, version, and UI patches applied cleanly!")
 
 if __name__ == "__main__":
     main()
