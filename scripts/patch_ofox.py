@@ -326,11 +326,12 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
             c = re.sub(slot_pat, slot_repl, c)
 
             # Suppress raw dev-keys / AP3A build id lines from banner
-            rom_desc_pat = r'gui_print\s*\(\s*\"\*\s*%s\\n\"\s*,\s*rom_desc\.c_str\s*\(\s*\)\s*\);'
-            rom_desc_repl = """if (!rom_desc.empty() && rom_desc.find("dev-keys") == std::string::npos && rom_desc.find("AP3A") == std::string::npos && rom_desc.find("test-keys") == std::string::npos) {
+            old_print = 'gui_print("* %s\\n", rom_desc.c_str());'
+            new_print = '''if (!rom_desc.empty() && rom_desc.find("dev-keys") == std::string::npos && rom_desc.find("AP3A") == std::string::npos && rom_desc.find("test-keys") == std::string::npos) {
     gui_print("* %s\\n", rom_desc.c_str());
-}"""
-            c = re.sub(rom_desc_pat, rom_desc_repl, c)
+}'''
+            if old_print in c:
+                c = c.replace(old_print, new_print)
 
             write_file_lf(twrp_funcs_cpp, c)
             print("[+] Successfully patched twrp-functions.cpp with clean Dimensity 8200, slot banner & dev-keys suppression")
