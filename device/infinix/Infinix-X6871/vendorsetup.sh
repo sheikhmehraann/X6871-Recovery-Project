@@ -67,7 +67,7 @@ if [ "$1" = "$FDEVICE" -o "$FOX_BUILD_DEVICE" = "$FDEVICE" ]; then
 	export FOX_USE_NANO_EDITOR=1
 	export FOX_DELETE_AROMAFM=1
 	export FOX_MAINTAINER_PATCH_VERSION=$(date +"%Y%m%d")
-	export FOX_VERSION="R12.1"
+	unset FOX_VERSION
 	export FOX_BUILD_TYPE="Beta"
 	export FOX_VARIANT="16.0-Beta"
 	export OF_MAINTAINER="withmehraan"

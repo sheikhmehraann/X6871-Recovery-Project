@@ -598,9 +598,10 @@ def patch_version(fox_root):
         try:
             with open(ofmk, "r", encoding="utf-8") as f:
                 c = f.read()
-            c = c.replace("FOX_INTERNAL_RELEASE := R12.0", "FOX_INTERNAL_RELEASE := R12.1")
+            c = re.sub(r'FOX_INTERNAL_RELEASE\s*:=\s*R\d+\.\d+', 'FOX_INTERNAL_RELEASE := R12.1', c)
+            c = re.sub(r'\$\(error\s+\'FOX_VERSION\'\s+is\s+obsolete[^\)]*\)', '# FOX_VERSION check cleared', c)
             write_file_lf(ofmk, c)
-            print("[+] Patched bootable/recovery/orangefox.mk with R12.1")
+            print("[+] Patched bootable/recovery/orangefox.mk with R12.1 & cleared obsolete error")
         except Exception as e:
             print(f"[-] Failed patching orangefox.mk: {e}")
 
@@ -609,7 +610,7 @@ def patch_version(fox_root):
         try:
             with open(vend_sh, "r", encoding="utf-8") as f:
                 c = f.read()
-            c = c.replace("export FOX_INTERNAL_RELEASE=R12.0", "export FOX_INTERNAL_RELEASE=R12.1")
+            c = re.sub(r'export FOX_INTERNAL_RELEASE=R\d+\.\d+', 'export FOX_INTERNAL_RELEASE=R12.1', c)
             write_file_lf(vend_sh, c)
             print("[+] Patched vendor/recovery/OrangeFox_vendor.sh with R12.1")
         except Exception as e:
