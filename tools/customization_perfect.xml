@@ -1998,63 +1998,45 @@
 
 		<page name="apply_splash">
 			<template name="dialog_body"/>
-
 			<image>
 				<image resource="snackbar"/>
 				<placement x="0" y="%row_nav_y%" placement="2"/>
 			</image>
-			
 			<text style="text_body1">
 				<placement x="%snackbar_text_x%" y="%snackbar_text_y%"/>
 				<text>{@theme_apply}</text>
 			</text>
-			
 			<action>
-				<action function="wlfw"/>
 				<action function="cmd">
+						mkdir -p /sdcard/Fox/splash/ /twres/images/Splash/ /tmp/orangefox/ramdisk/twres/images/Splash/ 2>/dev/null;
 						if [[ '%spl_bg_user%' = '1' ]]; then
-							if [[ "%spl_bg_on%" = "1" ]]; then if ! head -c 4 "%tw_splash_png_path%/%tw_splash_png_name%" | grep -q "PNG"; then echo "E:Selected file is not a valid PNG image! Aborting." >> /tmp/recovery.log; exit 1; fi; fi; 
+							if [[ "%spl_bg_on%" = "1" ]]; then if ! head -c 4 "%tw_splash_png_path%/%tw_splash_png_name%" | grep -q "PNG"; then echo "E:Selected file is not a valid PNG image! Aborting." >> /tmp/recovery.log; exit 1; fi; fi;
 							[[ '%spl_logo_type%' = 'o' ]] &amp;&amp; logo_color=F86314;
 							[[ '%spl_logo_type%' = 'w' ]] &amp;&amp; logo_color=ffffff;
 							[[ '%spl_logo_type%' = 'd' ]] &amp;&amp; logo_color=353535;
-
-							if [[ '%spl_logo_type%' = '0' ]];
-								then logo_on=!--;
-								else logo_on=;
-							fi;
-							if [[ '%spl_ofr%' = '1' ]];
-								then logo_ofr=;
-								else logo_ofr=!--;
-							fi;
-
+							if [[ '%spl_logo_type%' = '0' ]]; then logo_on=!--; else logo_on=; fi;
+							if [[ '%spl_ofr%' = '1' ]]; then logo_ofr=; else logo_ofr=!--; fi;
 							[[ '%spl_logo_type%' = '0' ]] &amp;&amp; logo_ofr=!--;
-
-							if [[ '%spl_bg_on%' = '1' ]] &amp;&amp; [[ "$(du -s "%tw_splash_png_path%/%tw_splash_png_name%" | cut -f1)" -lt "%of_splash_max_size%" ]];
-									then bg_on=;
-										mkdir -p /tmp/orangefox/ramdisk/twres/images/Splash/ /tmp/orangefox/ramdisk/twres/themes/sed/; cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png";
-										cp "%tw_splash_png_path%/%tw_splash_png_name%" "/twres/images/Splash/user.png";
-									else bg_on=!--;
-										cp "/twres/images/Splash/empty.png" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png";
-										cp "/twres/images/Splash/empty.png" "/twres/images/Splash/user.png";
-										if [[ '%spl_bg_on%' = '1' ]] &amp;&amp; [[ "$(du -s "%tw_splash_png_path%/%tw_splash_png_name%" | cut -f1)" -gt "%of_splash_max_size%" ]];
-										   then echo "I:The splash image must not be bigger than %of_splash_max_size% Kb. The splash image will not be changed." >> /tmp/recovery.log;
-										fi;
+							if [[ '%spl_bg_on%' = '1' ]] &amp;&amp; [[ "$(du -s "%tw_splash_png_path%/%tw_splash_png_name%" | cut -f1)" -lt "%of_splash_max_size%" ]]; then
+								bg_on=;
+								cp -f "%tw_splash_png_path%/%tw_splash_png_name%" "/sdcard/Fox/splash/user.png" 2>/dev/null;
+								cp -f "%tw_splash_png_path%/%tw_splash_png_name%" "/twres/images/Splash/user.png" 2>/dev/null;
+								cp -f "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png" 2>/dev/null;
+							else
+								bg_on=!--;
+								cp -f "/twres/images/Splash/empty.png" "/sdcard/Fox/splash/user.png" 2>/dev/null;
+								cp -f "/twres/images/Splash/empty.png" "/twres/images/Splash/user.png" 2>/dev/null;
 							fi;
-							cat "/twres/themes/sed/splash.xml" | sed -e "
-							s/#SHOWOFR#/${logo_ofr}/g;
-							s/#TCOLOR#/${logo_color}/g;
-							s/#BG_COLOR#/%spl_bg_color%/g;
-							s/#LOGO_TYPE#/%spl_logo_type%/g;
-							s/#LOGO_ON#/${logo_on}/g;
-							s/#BG_IMG#/${bg_on}/g
-							" > /tmp/orangefox/ramdisk/twres/splash.xml;
+							cat "/twres/themes/sed/splash.xml" | sed -e "s/#SHOWOFR#/${logo_ofr}/g; s/#TCOLOR#/${logo_color}/g; s/#BG_COLOR#/%spl_bg_color%/g; s/#LOGO_TYPE#/%spl_logo_type%/g; s/#LOGO_ON#/${logo_on}/g; s/#BG_IMG#/${bg_on}/g" > /sdcard/Fox/splash/splash.xml;
+							cat "/sdcard/Fox/splash/splash.xml" > /twres/splash.xml;
+							echo "I:OrangeFox: Splash theme applied and saved to /sdcard/Fox/splash/" >> /tmp/recovery.log;
 						else
-							cat "/twres/themes/sed/splash_orig.xml" > /tmp/orangefox/ramdisk/twres/splash.xml;
+							rm -f /sdcard/Fox/splash/splash.xml /sdcard/Fox/splash/user.png 2>/dev/null;
+							cat "/twres/themes/sed/splash_orig.xml" > /twres/splash.xml;
+							echo "I:OrangeFox: Splash theme reset to stock default" >> /tmp/recovery.log;
 						fi;
-						cat "/tmp/orangefox/ramdisk/twres/splash.xml" > /twres/splash.xml;
 						twrp xset spl_parsed=0;
 				</action>
-				<action function="wlfx"/>
 				<action function="overlay"/>
 				<action function="page">ext_custom</action>
 			</action>

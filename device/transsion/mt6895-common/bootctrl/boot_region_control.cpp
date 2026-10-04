@@ -67,6 +67,12 @@ static bool ufs_set_active_boot_part(int boot)
         if (fn) {
             int ret = fn("/dev/ufs-bsg0", 0, 0, 0, boot);
             LOG(INFO) << "ioctrl_w_attr(/dev/ufs-bsg0, boot=" << boot << ") ret: " << ret;
+            FILE* flog = fopen("/tmp/recovery.log", "a");
+            if (flog) {
+                fprintf(flog, "I:OrangeFox: UFS BSG set active boot region to BootLU %s via /dev/ufs-bsg0 (ret=%d)\n",
+                        (boot == 2) ? "B" : "A", ret);
+                fclose(flog);
+            }
             dlclose(handle);
             if (ret == 0) {
                 return true;

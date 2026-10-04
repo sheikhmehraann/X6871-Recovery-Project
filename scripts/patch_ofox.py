@@ -420,10 +420,21 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
    echo "ROM_FINGERPRINT=Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys" >> $F
    echo "SDK=35" >> $F
 }"""
+                        splash_restore = r"""
+# OrangeFox Persistent Splash Restore Engine (Header v4 vendor_boot)
+if [ -f /sdcard/Fox/splash/splash.xml ]; then
+   mkdir -p /twres/images/Splash /tmp/orangefox/ramdisk/twres/images/Splash 2>/dev/null
+   cp -f /sdcard/Fox/splash/splash.xml /twres/splash.xml 2>/dev/null
+   [ -f /sdcard/Fox/splash/user.png ] && cp -f /sdcard/Fox/splash/user.png /twres/images/Splash/user.png 2>/dev/null
+   [ -f /sdcard/Fox/splash/user.png ] && cp -f /sdcard/Fox/splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png 2>/dev/null
+fi
+"""
                         if "get_ROM()" in sh_c:
                             sh_c = re.sub(r'get_ROM\(\)\s*\{.*?\n\}', lambda m: dynamic_stock_probe, sh_c, flags=re.DOTALL)
-                            write_file_lf(fpath, sh_c)
-                            print(f"[+] Patched {fpath} with dynamic stock Transsion partition engine")
+                        if "Persistent Splash Restore" not in sh_c:
+                            sh_c += "\n" + splash_restore
+                        write_file_lf(fpath, sh_c)
+                        print(f"[+] Patched {fpath} with dynamic stock Transsion partition & persistent splash engine")
                     except Exception as e:
                         print(f"[-] Failed patching {fpath}: {e}")
     return True
