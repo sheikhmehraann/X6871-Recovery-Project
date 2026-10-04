@@ -847,53 +847,61 @@ def patch_slot_switching(fox_root):
 
             # Fallback for null module
             null_pat = r'if\s*\(\s*module\s*==\s*nullptr\s*\)\s*\{\s*LOGERR\(\"Error getting bootctrl module\.\\n\"\);\s*\}'
-            null_repl = """if (module == nullptr) {
-			LOGINFO("Bootctrl HAL not available, falling back to hardware bootctl CLI...\\n");
-			int32_t slot_number = (Slot == "B") ? 1 : 0;
-			std::string bctl_cmd = "bootctl set-active-boot-slot " + std::to_string(slot_number);
-			std::string bctl_out;
-			int bctl_ret = TWFunc::Exec_Cmd(bctl_cmd, bctl_out);
-			TWFunc::Exec_Cmd("bootctl get-active-boot-slot", bctl_out);
-			if (bctl_ret != 0 || bctl_out.find(std::to_string(slot_number)) == std::string::npos) {
-				gui_msg(Msg(msg::kError, "unable_set_boot_slot=Error changing bootloader boot slot to {1}")(Slot));
-			} else {
-				LOGINFO("setActiveBootSlot succeeded via hardware bootctl CLI fallback to slot %d\\n", slot_number);
-			}
-		}"""
+            null_repl = (
+                "if (module == nullptr) {\n"
+                '\t\t\tLOGINFO("Bootctrl HAL not available, falling back to hardware bootctl CLI...\\n");\n'
+                '\t\t\tint32_t slot_number = (Slot == "B") ? 1 : 0;\n'
+                '\t\t\tstd::string bctl_cmd = "bootctl set-active-boot-slot " + std::to_string(slot_number);\n'
+                '\t\t\tstd::string bctl_out;\n'
+                '\t\t\tint bctl_ret = TWFunc::Exec_Cmd(bctl_cmd, bctl_out);\n'
+                '\t\t\tTWFunc::Exec_Cmd("bootctl get-active-boot-slot", bctl_out);\n'
+                '\t\t\tif (bctl_ret != 0 || bctl_out.find(std::to_string(slot_number)) == std::string::npos) {\n'
+                '\t\t\t\tgui_msg(Msg(msg::kError, "unable_set_boot_slot=Error changing bootloader boot slot to {1}")(Slot));\n'
+                '\t\t\t} else {\n'
+                '\t\t\t\tLOGINFO("setActiveBootSlot succeeded via hardware bootctl CLI fallback to slot %d\\n", slot_number);\n'
+                '\t\t\t}\n'
+                '\t\t}'
+            )
             if re.search(null_pat, c):
-                c = re.sub(null_pat, null_repl, c)
+                c = re.sub(null_pat, lambda m: null_repl, c)
 
             # Fallback for HIDL failure
             hidl_pat = r'(if\s*\(!ret\.isOk\(\)\s*\|\|\s*!result\.success\))\s*gui_msg\(Msg\(msg::kError,\s*\"unable_set_boot_slot=Error changing bootloader boot slot to \{1\}\"\)\(Slot\)\);'
-            hidl_repl = r'''\1 {
-				std::string bctl_cmd = "bootctl set-active-boot-slot " + std::to_string(slot_number);
-				std::string bctl_out;
-				int bctl_ret = TWFunc::Exec_Cmd(bctl_cmd, bctl_out);
-				TWFunc::Exec_Cmd("bootctl get-active-boot-slot", bctl_out);
-				if (bctl_ret != 0 || bctl_out.find(std::to_string(slot_number)) == std::string::npos) {
-					gui_msg(Msg(msg::kError, "unable_set_boot_slot=Error changing bootloader boot slot to {1}")(Slot));
-				} else {
-					LOGINFO("setActiveBootSlot succeeded via hardware bootctl fallback to slot %d\\n", slot_number);
-				}
-			}'''
+            def make_hidl_repl(m):
+                return m.group(1) + (
+                    " {\n"
+                    '\t\t\t\tstd::string bctl_cmd = "bootctl set-active-boot-slot " + std::to_string(slot_number);\n'
+                    '\t\t\t\tstd::string bctl_out;\n'
+                    '\t\t\t\tint bctl_ret = TWFunc::Exec_Cmd(bctl_cmd, bctl_out);\n'
+                    '\t\t\t\tTWFunc::Exec_Cmd("bootctl get-active-boot-slot", bctl_out);\n'
+                    '\t\t\t\tif (bctl_ret != 0 || bctl_out.find(std::to_string(slot_number)) == std::string::npos) {\n'
+                    '\t\t\t\t\tgui_msg(Msg(msg::kError, "unable_set_boot_slot=Error changing bootloader boot slot to {1}")(Slot));\n'
+                    '\t\t\t\t} else {\n'
+                    '\t\t\t\t\tLOGINFO("setActiveBootSlot succeeded via hardware bootctl fallback to slot %d\\n", slot_number);\n'
+                    '\t\t\t\t}\n'
+                    '\t\t\t}'
+                )
             if re.search(hidl_pat, c):
-                c = re.sub(hidl_pat, hidl_repl, c)
+                c = re.sub(hidl_pat, make_hidl_repl, c)
 
             # Fallback for AIDL failure
             aidl_pat = r'(if\s*\(!result\.success\))\s*gui_msg\(Msg\(msg::kError,\s*\"unable_set_boot_slot=Error changing bootloader boot slot to \{1\}\"\)\(Slot\)\);'
-            aidl_repl = r'''\1 {
-				std::string bctl_cmd = "bootctl set-active-boot-slot " + std::to_string(slot_number);
-				std::string bctl_out;
-				int bctl_ret = TWFunc::Exec_Cmd(bctl_cmd, bctl_out);
-				TWFunc::Exec_Cmd("bootctl get-active-boot-slot", bctl_out);
-				if (bctl_ret != 0 || bctl_out.find(std::to_string(slot_number)) == std::string::npos) {
-					gui_msg(Msg(msg::kError, "unable_set_boot_slot=Error changing bootloader boot slot to {1}")(Slot));
-				} else {
-					LOGINFO("SetActiveBootSlot succeeded via hardware bootctl fallback to slot %d\\n", slot_number);
-				}
-			}'''
+            def make_aidl_repl(m):
+                return m.group(1) + (
+                    " {\n"
+                    '\t\t\t\tstd::string bctl_cmd = "bootctl set-active-boot-slot " + std::to_string(slot_number);\n'
+                    '\t\t\t\tstd::string bctl_out;\n'
+                    '\t\t\t\tint bctl_ret = TWFunc::Exec_Cmd(bctl_cmd, bctl_out);\n'
+                    '\t\t\t\tTWFunc::Exec_Cmd("bootctl get-active-boot-slot", bctl_out);\n'
+                    '\t\t\t\tif (bctl_ret != 0 || bctl_out.find(std::to_string(slot_number)) == std::string::npos) {\n'
+                    '\t\t\t\t\tgui_msg(Msg(msg::kError, "unable_set_boot_slot=Error changing bootloader boot slot to {1}")(Slot));\n'
+                    '\t\t\t\t} else {\n'
+                    '\t\t\t\t\tLOGINFO("SetActiveBootSlot succeeded via hardware bootctl fallback to slot %d\\n", slot_number);\n'
+                    '\t\t\t\t}\n'
+                    '\t\t\t}'
+                )
             if re.search(aidl_pat, c):
-                c = re.sub(aidl_pat, aidl_repl, c)
+                c = re.sub(aidl_pat, make_aidl_repl, c)
 
             write_file_lf(pm_cpp, c)
             print("[+] Patched partitionmanager.cpp with comprehensive hardware bootctl slot switching")
