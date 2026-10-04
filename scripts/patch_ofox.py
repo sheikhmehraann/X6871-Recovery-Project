@@ -22,6 +22,13 @@ import os
 import sys
 import re
 
+def write_file_lf(filepath, content):
+    """Normalize line endings to Unix LF and write file."""
+    if isinstance(content, str):
+        content = content.replace("\r\n", "\n")
+    with open(filepath, "w", encoding="utf-8", newline="\n") as f:
+        f.write(content)
+
 def patch_envsetup(fox_root):
     envsetup_paths = [
         os.path.join(fox_root, "build/make/envsetup.sh"),
@@ -51,14 +58,12 @@ def patch_envsetup(fox_root):
         release="${{TARGET_RELEASE:-{avail_release}}}"
     fi"""
                     content = content.replace(target, replacement, 1)
-                    with open(path, "w", encoding="utf-8") as f:
-                        f.write(content)
+                    write_file_lf(path, content)
                     print(f"[+] Successfully patched {path} with 2-part lunch compatibility shim ({avail_release})")
                     patched = True
                 elif "TARGET_RELEASE:-" in content:
                     content = re.sub(r'release="\$\{TARGET_RELEASE:-[^}]+\}"', f'release="${{TARGET_RELEASE:-{avail_release}}}"', content)
-                    with open(path, "w", encoding="utf-8") as f:
-                        f.write(content)
+                    write_file_lf(path, content)
                     print(f"[+] Updated release shim in {path} to target: {avail_release}")
                     patched = True
             except Exception as e:
@@ -111,8 +116,7 @@ def patch_flashlight(fox_root):
         'TWFunc::write_to_file(bright_one, "0\\n");'
     )
 
-    with open(action_cpp, "w", encoding="utf-8") as f:
-        f.write(content)
+    write_file_lf(action_cpp, content)
     print("[+] Successfully hardened action.cpp with real camera flashlight controls")
     return True
 
@@ -139,8 +143,7 @@ def patch_haptics(fox_root):
                         content = content.replace("/sys/class/leds/vibrator/brightness", "/sys/class/leds/vibrator_single/brightness")
                         content = content.replace('"/sys/class/leds/vibrator"', '"/sys/class/leds/vibrator_single"')
                         if content != orig:
-                            with open(fpath, "w", encoding="utf-8") as f:
-                                f.write(content)
+                            write_file_lf(fpath, content)
                             patched_count += 1
                     except Exception:
                         pass
@@ -164,8 +167,7 @@ def patch_thermals(fox_root):
     content = re.sub(r'if\s*\(\s*TWFunc::read_file\s*\(\s*cpu_temp_file\s*,\s*results\s*\)\s*!=\s*0\s*\)',
                      'if (TWFunc::read_file(cpu_temp_file, results) != 0 && TWFunc::read_file("/sys/class/thermal/thermal_zone0/temp", results) != 0 && TWFunc::read_file("/sys/devices/virtual/thermal/thermal_zone0/temp", results) != 0)', content)
 
-    with open(data_cpp, "w", encoding="utf-8") as f:
-        f.write(content)
+    write_file_lf(data_cpp, content)
     print("[+] Successfully patched data.cpp with thermal zone 0 unlocked and status bar enabled")
     return True
 
@@ -188,63 +190,42 @@ def patch_magiskboot_vendor_boot(fox_root):
             content
         )
 
-    # 2. Route recovery operations (!is_boot) to VendorBoot on A/B Header v4
-    ab_pattern = r'(#if\s*\(defined\(AB_OTA_UPDATER\)\s*\|\|\s*defined\(FOX_AB_DEVICE\)\)\s*&&\s*!defined\(OF_AB_DEVICE_WITH_RECOVERY_PARTITION\)\s*\n\s*if\s*\(\s*Boot\s*!=\s*NULL\s*\)\s*\n\s*\{\s*\n\s*)tmpstr\s*=\s*Boot->Actual_Block_Device;'
-    ab_replacement = r'''\1if (!is_boot && VendorBoot != NULL) {
-         tmpstr = VendorBoot->Actual_Block_Device;
-       } else {
-         tmpstr = Boot->Actual_Block_Device;
-       }'''
-    content = re.sub(ab_pattern, ab_replacement, content)
+    # 2. Select vendor_boot block device if present
+    content = re.sub(
+        r'std::string\s+b_dev\s*=\s*Boot->Actual_Block_Device;',
+        'std::string b_dev = (VendorBoot != nullptr) ? VendorBoot->Actual_Block_Device : Boot->Actual_Block_Device;',
+        content
+    )
 
-    # 3. Inject vendor_boot recovery ramdisk bridge and PRESERVE ramdisk.cpio for fast splash updates
-    unpack_pattern = r'(AppendLineToFile\s*\(\s*cmd_script,\s*".*?Unpacking image failed.*?"\s*\);)'
-    unpack_inject = r'''\1
-\t        // Vendor_boot v4 recovery ramdisk bridge
-\t        AppendLineToFile (cmd_script, "[ -f vendor_ramdisk_recovery.cpio ] && cp -f vendor_ramdisk_recovery.cpio ramdisk.cpio");
-\t        AppendLineToFile (cmd_script, "cp -f ramdisk.cpio ramdisk.cpio.bak");'''
-    if "vendor_ramdisk_recovery.cpio ramdisk.cpio" not in content:
-        content = re.sub(unpack_pattern, unpack_inject, content)
+    # 3. Enable in-place splash update via magiskboot cpio
+    fast_repack_block = """  // Ultra-Fast in-place splash update: update files directly in ramdisk.cpio
+  if (TWFunc::Path_Exists(Fox_ramdisk_dir + "twres/splash.xml") && TWFunc::Path_Exists(Fox_tmp_dir + "ramdisk.cpio")) {
+      gui_print("- Fast in-place splash update via magiskboot ...\\n");
+      std::string cpio_cmd = "cd " + Fox_tmp_dir + " && magiskboot cpio ramdisk.cpio 'add 0644 twres/splash.xml " + Fox_ramdisk_dir + "twres/splash.xml'";
+      TWFunc::Exec_Cmd(cpio_cmd);
+      if (TWFunc::Path_Exists(Fox_ramdisk_dir + "twres/images/Splash/user.png")) {
+          cpio_cmd = "cd " + Fox_tmp_dir + " && magiskboot cpio ramdisk.cpio 'add 0644 twres/images/Splash/user.png " + Fox_ramdisk_dir + "twres/images/Splash/user.png'";
+          TWFunc::Exec_Cmd(cpio_cmd);
+      }
+      gui_print("- Repacking boot/recovery image ...\\n");
+      cmd = "cd " + Fox_tmp_dir + " && magiskboot repack " + Fox_tmp_dir + "boot.img " + Fox_tmp_dir + "new-boot.img";
+      if (TWFunc::Exec_Cmd(cmd) == 0 && TWFunc::Path_Exists(Fox_tmp_dir + "new-boot.img")) {
+          gui_print("- Succeeded.\\n- Flashing repacked image ...\\n");
+          std::string flash_cmd = "dd if=" + Fox_tmp_dir + "new-boot.img of=" + b_dev + " bs=4096 2>/dev/null && sync";
+          if (TWFunc::Exec_Cmd(flash_cmd) == 0) {
+              gui_print("- Succeeded.\\n");
+              TWFunc::removeDir(Fox_tmp_dir, false);
+              return 0;
+          }
+      }
+  }"""
 
-    # 4. Ultra-Fast Splash Replacement Bypass:
-    # If /tmp/orangefox/ramdisk/twres/splash.xml exists, bypass the slow find | cpio archiving of 4,200 files!
-    repack_archive_pattern = r'AppendLineToFile\s*\(\s*cmd_script2,\s*cd_dir\s*\+\s*Fox_ramdisk_dir\s*\);\s*\n\s*AppendLineToFile\s*\(\s*cmd_script2,\s*"LOGINFO \\"- Archiving ramdisk\.cpio \.\.\.\\""\s*\);\s*\n\s*AppendLineToFile\s*\(\s*cmd_script2,\s*"find \| cpio -o -H newc > \\""\s*\+\s*tmp_cpio\s*\+\s*"\\""\s*\);\s*\n\s*AppendLineToFile\s*\(\s*cmd_script2,\s*"\[ \$\? == 0 \] && LOGINFO \\"- Succeeded\.\\" \|\| abort \\"- Archiving of ramdisk\.cpio failed\.\\""\s*\);\s*\n\s*AppendLineToFile\s*\(\s*cmd_script2,\s*cd_dir\s*\+\s*Fox_tmp_dir\s*\);'
-
-    repack_archive_replacement = r'''// Fast in-place splash update bypass (skips re-archiving 4200 ramdisk files)
-\t        AppendLineToFile (cmd_script2, "if [ -f /tmp/orangefox/ramdisk/twres/splash.xml ]; then");
-\t        AppendLineToFile (cmd_script2, "  LOGINFO \\"- Fast in-place splash update via magiskboot ...\\"");
-\t        AppendLineToFile (cmd_script2, "  [ -f ramdisk.cpio.bak ] && cp -f ramdisk.cpio.bak ramdisk.cpio");
-\t        AppendLineToFile (cmd_script2, "  " + magiskboot_sbin + " cpio ramdisk.cpio 'add 0644 twres/splash.xml /tmp/orangefox/ramdisk/twres/splash.xml'");
-\t        AppendLineToFile (cmd_script2, "  if [ -f /tmp/orangefox/ramdisk/twres/images/Splash/user.png ]; then");
-\t        AppendLineToFile (cmd_script2, "    " + magiskboot_sbin + " cpio ramdisk.cpio 'add 0644 twres/images/Splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png'");
-\t        AppendLineToFile (cmd_script2, "  fi");
-\t        AppendLineToFile (cmd_script2, "  [ -f ramdisk.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio");
-\t        AppendLineToFile (cmd_script2, "else");
-\t        AppendLineToFile (cmd_script2, cd_dir + Fox_ramdisk_dir);
-\t        AppendLineToFile (cmd_script2, "LOGINFO \\"- Archiving ramdisk.cpio ...\\"");
-\t        AppendLineToFile (cmd_script2, "find | cpio -o -H newc > \\"" + tmp_cpio + "\\"");
-\t        AppendLineToFile (cmd_script2, "[ $? == 0 ] && LOGINFO \\"- Succeeded.\\" || abort \\"- Archiving of ramdisk.cpio failed.\\"");
-\t        AppendLineToFile (cmd_script2, cd_dir + Fox_tmp_dir);
-\t        AppendLineToFile (cmd_script2, "[ -f ramdisk.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio");
-\t        AppendLineToFile (cmd_script2, "fi");'''
-
-    if "Fast in-place splash update bypass" not in content:
-        content = re.sub(repack_archive_pattern, repack_archive_replacement, content)
-
-    # 5. Fallback bridge right before magiskboot repack
-    repack_pattern = r'(AppendLineToFile\s*\(\s*cmd_script2,\s*magiskboot_sbin\s*\+\s*" repack)'
-    repack_inject = r'''\t        AppendLineToFile (cmd_script2, "[ -f ramdisk.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio");\n\t        \1'''
-    if "[ -f ramdisk.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio" not in content:
-        content = re.sub(repack_pattern, repack_inject, content)
-
-    # 6. Bypass slow extraction of all 4200 ramdisk files when updating splash
-    cpio_unpack_pattern = r'AppendLineToFile\s*\(\s*cmd_script,\s*"/system/bin/cpio -idu < "\s*\+\s*tmp_cpio\s*\);'
-    cpio_unpack_replacement = r'AppendLineToFile (cmd_script, "[ ! -f /tmp/orangefox/ramdisk/twres/splash.xml ] && /system/bin/cpio -idu < " + tmp_cpio);'
-    content = re.sub(cpio_unpack_pattern, cpio_unpack_replacement, content)
+    target_repack_point = 'gui_print("- Repacking boot/recovery image ...\\n");'
+    if target_repack_point in content and "Fast in-place splash update" not in content:
+        content = content.replace(target_repack_point, fast_repack_block + "\n  " + target_repack_point, 1)
 
     if content != orig:
-        with open(twrp_funcs_cpp, "w", encoding="utf-8") as f:
-            f.write(content)
+        write_file_lf(twrp_funcs_cpp, content)
         print("[+] Successfully patched twrp-functions.cpp with ultra-fast in-place splash update engine")
         return True
     return False
@@ -276,8 +257,7 @@ def patch_splash(fox_root):
                             xml_content = xml_content.replace('<recovery>', '<recovery>\n\t<!-- SED Splash -->')
                             mod = True
                         if mod:
-                            with open(fpath, "w", encoding="utf-8") as f:
-                                f.write(xml_content)
+                            write_file_lf(fpath, xml_content)
                     except Exception:
                         pass
 
@@ -297,112 +277,136 @@ def patch_splash(fox_root):
                                 '<variables>',
                                 '<variables>\n\t\t<variable name="of_splash_max_size" value="10240"/>'
                             )
-                            with open(fpath, "w", encoding="utf-8") as f:
-                                f.write(v_content)
+                            write_file_lf(fpath, v_content)
                             print(f"[+] Injected of_splash_max_size into {fpath}")
                     except Exception:
                         pass
 
     # 3. Patch customization.xml with complete verified pages (0 XML errors, 0 shell errors)
     page_splash = '''		<page name="ext_custom_splash">
-			<template name="splash_preview"/>
-			<template name="base"/>
+			<template name="base_sub"/>
 
 			<text style="text_ab_title">
 				<placement x="%col1_x_indent%" y="%ab_bc_y%"/>
 				<text>{@sph_sph}</text>
 			</text>
-			
-			<button style="actionbar">
-				<condition var1="spl_bg_user" var2="1"/>
-				<placement x="%ab_btn1_x%" y="%ab_y%" placement="4"/>
+
+			<template name="splash_preview"/>
+
+			<image style="img_item">
+				<placement x="%center_x%" y="%row1_header_y%" placement="4"/>
+				<image resource="menu_restore"/>
+			</image>
+
+			<button style="btn_item_b">
+				<placement x="%col1_x%" y="%row1_header_y%" w="%col2_x_w%" h="%item_height%"/>
 				<action function="set">spl_bg_user=0</action>
 				<action function="set">spl_bg_on=0</action>
 				<action function="set">spl_logo_type=o</action>
+				<action function="set">spl_bg_color=#00000000</action>
 				<action function="set">spl_ofr=1</action>
-				<action function="set">spl_bg_color=#000000</action>
-				<action function="cmd">rm -f /twres/images/Splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png; cat /twres/themes/sed/splash_orig.xml &gt; /twres/splash.xml; cat /twres/themes/sed/splash_orig.xml &gt; /tmp/orangefox/ramdisk/twres/splash.xml; twrp xset spl_parsed=0;</action>
-				<action function="page">ext_custom_splash</action>
+				<action function="cmd">cp -f /twres/images/Splash/empty.png /twres/images/Splash/user.png 2>/dev/null; cp -f /twres/themes/sed/splash_orig.xml /twres/splash.xml 2>/dev/null; twrp xset spl_parsed=0</action>
+				<action function="set">of_reload_back=ext_custom_splash</action>
+				<action function="reload"/>
 			</button>
 
-			<image>
-				<condition var1="spl_bg_user" var2="1"/>
-				<placement x="%ab_btn1_x%" y="%ab_y%" placement="4"/>
-				<image resource="actionbar_reset"/>
+			<text style="text_item_title">
+				<placement x="%col1_x_indent%" y="%row1_header_y%" placement="2"/>
+				<text>{@sph_rst}</text>
+			</text>
+
+			<image style="img_item">
+				<placement x="%center_x%" y="%row2_1_y%" placement="4"/>
+				<image resource="fab_backup"/>
 			</image>
 
-			<listbox style="group_list">
-				<placement x="0" y="%row5_1_y%" w="%screen_w%" h="%spl_list_h%"/>
-				<listitem name="{@spl_image}">
-					<condition var1="spl_bg_on" var2="0"/>
-					<icon res="image"/>
-					<action function="set">tw_zip_location_tmp=%tw_file_location1%</action>
-					<action function="set">location_input_tmp=%tw_file_location1%</action>
-					<action function="set">sp_back=ext_custom_splash_select</action>
-					<action function="page">ext_custom_splash_select</action>
-				</listitem>
-				<listitem name="{@spl_del_img}">
-					<condition var1="spl_bg_on" var2="1"/>
-					<icon res="hide_image"/>
-					<action function="set">spl_bg_on=0</action>
-				</listitem>
-				<listitem name="{@spl_background}">
-					<icon res="format_color"/>
-					<action function="set">spl_bg_user=1</action>
-					<action function="page">ext_custom_splash_color</action>
-				</listitem>
-				<listitem name="{@spl_logo}">
-					<icon res="fox"/>
-					<action function="set">spl_bg_user=1</action>
-					<action function="page">ext_custom_splash_logo</action>
-				</listitem>
-				<listitem name="Backup Current Splash">
-					<icon res="storage"/>
-					<action function="cmd">mkdir -p /sdcard/Fox/Splash; [ -f /twres/images/Splash/user.png ] &amp;&amp; cp -f /twres/images/Splash/user.png /sdcard/Fox/Splash/splash_$(date +%Y%m%d_%H%M%S).png &amp;&amp; echo "I:Splash saved to /sdcard/Fox/Splash" &gt;&gt; /tmp/recovery.log;</action>
-				</listitem>
-				<listitem name="Reset to Default Splash">
-					<icon res="actionbar_reset"/>
-					<action function="set">spl_bg_user=0</action>
-					<action function="set">spl_bg_on=0</action>
-					<action function="set">spl_logo_type=o</action>
-					<action function="set">spl_ofr=1</action>
-					<action function="set">spl_bg_color=#000000</action>
-					<action function="cmd">rm -f /twres/images/Splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png; cat /twres/themes/sed/splash_orig.xml &gt; /twres/splash.xml; cat /twres/themes/sed/splash_orig.xml &gt; /tmp/orangefox/ramdisk/twres/splash.xml; twrp xset spl_parsed=0;</action>
-					<action function="page">ext_custom_splash</action>
-				</listitem>
-			</listbox>
+			<button style="btn_item_b">
+				<placement x="%col1_x%" y="%row2_1_y%" w="%col2_x_w%" h="%item_height%"/>
+				<action function="cmd">mkdir -p /sdcard/Fox/Splash; cp -f /twres/splash.xml /sdcard/Fox/Splash/splash_backup.xml 2>/dev/null; [ -f /twres/images/Splash/user.png ] &amp;&amp; cp -f /twres/images/Splash/user.png /sdcard/Fox/Splash/user_splash.png 2>/dev/null</action>
+				<action function="overlay">dialog_done</action>
+			</button>
 
-			<image>
-				<placement x="%btn_float_x%" y="%btn_float_y%" placement="4"/>
-				<image resource="fab_shadow"/>
+			<text style="text_item_title">
+				<placement x="%col1_x_indent%" y="%row2_1_y%" placement="2"/>
+				<text>{@sph_bak}</text>
+			</text>
+
+			<image style="img_item">
+				<placement x="%center_x%" y="%row3_1_y%" placement="4"/>
+				<image resource="menu_color"/>
 			</image>
 
-			<button style="floating_btn">
-				<placement x="%btn_float_x%" y="%btn_float_y%" placement="4"/>
+			<button style="btn_item_b">
+				<placement x="%col1_x%" y="%row3_1_y%" w="%col2_x_w%" h="%item_height%"/>
+				<action function="page">ext_custom_splash_logo</action>
+			</button>
+
+			<text style="text_item_title">
+				<placement x="%col1_x_indent%" y="%row3_1_y%" placement="2"/>
+				<text>{@sph_col_l}</text>
+			</text>
+
+			<image style="img_item">
+				<placement x="%center_x%" y="%row4_1_y%" placement="4"/>
+				<image resource="menu_theme"/>
+			</image>
+
+			<button style="btn_item_b">
+				<placement x="%col1_x%" y="%row4_1_y%" w="%col2_x_w%" h="%item_height%"/>
+				<action function="page">ext_custom_splash_color</action>
+			</button>
+
+			<text style="text_item_title">
+				<placement x="%col1_x_indent%" y="%row4_1_y%" placement="2"/>
+				<text>{@sph_col_bg}</text>
+			</text>
+
+			<image style="img_item">
+				<placement x="%center_x%" y="%row5_1_y%" placement="4"/>
+				<image resource="menu_files"/>
+			</image>
+
+			<button style="btn_item_b">
+				<placement x="%col1_x%" y="%row5_1_y%" w="%col2_x_w%" h="%item_height%"/>
+				<action function="page">ext_custom_splash_select</action>
+			</button>
+
+			<text style="text_item_title">
+				<placement x="%col1_x_indent%" y="%row5_1_y%" placement="2"/>
+				<text>{@sph_img_bg}</text>
+			</text>
+
+			<image style="img_item">
+				<placement x="%center_x%" y="%row6_1_y%" placement="4"/>
+				<image resource="menu_restore"/>
+			</image>
+
+			<button style="btn_item_b">
+				<placement x="%col1_x%" y="%row6_1_y%" w="%col2_x_w%" h="%item_height%"/>
+				<action function="set">spl_bg_user=0</action>
+				<action function="set">spl_bg_on=0</action>
+				<action function="set">spl_bg_color=#00000000</action>
+				<action function="cmd">cp -f /twres/images/Splash/empty.png /twres/images/Splash/user.png 2>/dev/null; twrp xset spl_parsed=0</action>
+				<action function="set">of_reload_back=ext_custom_splash</action>
+				<action function="reload"/>
+			</button>
+
+			<text style="text_item_title">
+				<placement x="%col1_x_indent%" y="%row6_1_y%" placement="2"/>
+				<text>{@sph_img_bg_rst}</text>
+			</text>
+
+			<button style="btn_flat">
+				<placement x="%fab_x%" y="%fab_y%" w="%fab_w%" h="%fab_h%"/>
+				<image resource="fab_apply"/>
 				<action function="overlay">apply_splash</action>
 			</button>
-			
-			<image>
-				<placement x="%btn_float_x%" y="%btn_float_y%" placement="4"/>
-				<image resource="fab_accept"/>
-			</image>
 
-			<action>
-				<condition var1="spl_bg_on" var2="0"/>
-				<condition var1="spl_logo_type" var2="0"/>
-				<action function="set">spl_logo_type=w</action>
-			</action>
+			<template name="gestures_sub"/>
 
-			<template name="gestures"/>
-			
 			<action>
 				<touch key="back"/>
 				<action function="page">ext_custom</action>
-			</action>
-
-			<action>
-				<touch key="home"/>
-				<action function="page">main</action>
 			</action>
 		</page>'''
 
@@ -448,22 +452,28 @@ def patch_splash(fox_root):
 				<placement x="%col1_x%" y="%row1_2_y%"/>
 				<text>%tw_zip_location_tmp%</text>
 			</text>
-				
+
 			<action>
 				<condition var1="tw_filename" op="modified"/>
-				<action function="set">tw_splash_png_path=%tw_zip_location_tmp%</action>
-				<action function="set">spl_bg_user=1</action>
-				<action function="set">spl_bg_on=1</action>
-				<action function="set">spl_bg_color=#00000000</action>
 				<action function="cmd">
-					png_pick="%tw_filename%";
-					[ ! -f "$png_pick" ] &amp;&amp; png_pick="%tw_zip_location_tmp%/%tw_splash_png_name%";
-					if [ -f "$png_pick" ]; then
-						mkdir -p /twres/images/Splash/ /tmp/orangefox/ramdisk/twres/images/Splash/ /tmp/orangefox/ramdisk/twres/themes/sed/;
-						cp -f "$png_pick" "/twres/images/Splash/user.png";
-						cp -f "$png_pick" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png";
-					fi;
+png_file="%tw_filename%"
+[ ! -f "$png_file" ] &amp;&amp; png_file="%tw_zip_location_tmp%/%tw_splash_png_name%"
+if [ -f "$png_file" ] &amp;&amp; head -c 4 "$png_file" | grep -q "PNG"; then
+    mkdir -p /twres/images/Splash/ /tmp/orangefox/ramdisk/twres/images/Splash/ /tmp/orangefox/ramdisk/twres/themes/sed/
+    cp -f "$png_file" /twres/images/Splash/user.png
+    cp -f "$png_file" /tmp/orangefox/ramdisk/twres/images/Splash/user.png
+    twrp xset spl_bg_user=1
+    twrp xset spl_bg_on=1
+    twrp xset spl_bg_color=#00000000
+    twrp xset tw_splash_png_path="%tw_zip_location_tmp%"
+    twrp xset tw_splash_selected=1
+fi
 				</action>
+			</action>
+
+			<action>
+				<condition var1="tw_splash_selected" var2="1"/>
+				<action function="set">tw_splash_selected=0</action>
 				<action function="set">of_reload_back=ext_custom_splash</action>
 				<action function="reload"/>
 			</action>
@@ -497,65 +507,49 @@ def patch_splash(fox_root):
 			<action>
 				<action function="wlfw"/>
 				<action function="cmd">
-						if [[ '%spl_bg_user%' = '1' ]]; then
-							[[ '%spl_logo_type%' = 'o' ]] &amp;&amp; logo_color=F86314;
-							[[ '%spl_logo_type%' = 'w' ]] &amp;&amp; logo_color=ffffff;
-							[[ '%spl_logo_type%' = 'd' ]] &amp;&amp; logo_color=353535;
-							[[ '%spl_logo_type%' = 'c' ]] &amp;&amp; logo_color=00BCD4;
-							[[ '%spl_logo_type%' = 'r' ]] &amp;&amp; logo_color=E91E63;
-							[[ '%spl_logo_type%' = 'b' ]] &amp;&amp; logo_color=2196F3;
-							[[ '%spl_logo_type%' = 'g' ]] &amp;&amp; logo_color=4CAF50;
-							[[ '%spl_logo_type%' = 'y' ]] &amp;&amp; logo_color=FFEB3B;
-							[[ '%spl_logo_type%' = 'p' ]] &amp;&amp; logo_color=9C27B0;
+					if [ -x /system/bin/fox_apply_splash.sh ]; then
+						/system/bin/fox_apply_splash.sh;
+					elif [ -x /sbin/fox_apply_splash.sh ]; then
+						/sbin/fox_apply_splash.sh;
+					else
+						logo_color="F86314";
+						[ "%spl_logo_type%" = "w" ] &amp;&amp; logo_color="ffffff";
+						[ "%spl_logo_type%" = "d" ] &amp;&amp; logo_color="353535";
+						[ "%spl_logo_type%" = "c" ] &amp;&amp; logo_color="00BCD4";
+						[ "%spl_logo_type%" = "r" ] &amp;&amp; logo_color="E91E63";
+						[ "%spl_logo_type%" = "b" ] &amp;&amp; logo_color="2196F3";
+						[ "%spl_logo_type%" = "g" ] &amp;&amp; logo_color="4CAF50";
+						[ "%spl_logo_type%" = "y" ] &amp;&amp; logo_color="FFEB3B";
+						[ "%spl_logo_type%" = "p" ] &amp;&amp; logo_color="9C27B0";
 
-							if [[ '%spl_logo_type%' = '0' ]];
-								then logo_on=!--;
-								else logo_on=;
-							fi;
-							if [[ '%spl_ofr%' = '1' ]];
-								then logo_ofr=;
-								else logo_ofr=!--;
-							fi;
+						logo_on="";
+						[ "%spl_logo_type%" = "0" ] &amp;&amp; logo_on="!--";
 
-							[[ '%spl_logo_type%' = '0' ]] &amp;&amp; logo_ofr=!--;
+						logo_ofr="!--";
+						[ "%spl_ofr%" = "1" ] &amp;&amp; logo_ofr="";
+						[ "%spl_logo_type%" = "0" ] &amp;&amp; logo_ofr="!--";
 
-							if [[ '%spl_bg_on%' = '1' ]]; then
-								src_png="%tw_filename%";
-								[ ! -f "$src_png" ] &amp;&amp; src_png="%tw_splash_png_path%/%tw_splash_png_name%";
-								[ ! -f "$src_png" ] &amp;&amp; src_png="/twres/images/Splash/user.png";
-								img_sz=$(du -k "$src_png" 2>/dev/null | cut -f1);
-								[ -z "$img_sz" ] &amp;&amp; img_sz=0;
-								max_sz="%of_splash_max_size%";
-								[[ -z "$max_sz" || "$max_sz" == "%"* ]] &amp;&amp; max_sz=10240;
-								if [ "$img_sz" -le "$max_sz" ]; then
-									bg_on=;
-									mkdir -p /tmp/orangefox/ramdisk/twres/images/Splash/ /tmp/orangefox/ramdisk/twres/themes/sed/;
-									cp -f "$src_png" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png";
-									cp -f "$src_png" "/twres/images/Splash/user.png";
-								else
-									bg_on=!--;
-									echo "E:The splash image exceeds maximum allowed size ($max_sz KB)." >> /tmp/recovery.log;
-								fi;
-							else
-								bg_on=!--;
-								if [[ '%spl_bg_user%' = '0' ]]; then
-									cp -f "/twres/images/Splash/empty.png" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png" 2>/dev/null;
-									cp -f "/twres/images/Splash/empty.png" "/twres/images/Splash/user.png" 2>/dev/null;
-								fi;
-							fi;
-							cat "/twres/themes/sed/splash.xml" | sed -e "
-							s/#SHOWOFR#/${logo_ofr}/g;
-							s/#TCOLOR#/${logo_color}/g;
-							s/#BG_COLOR#/%spl_bg_color%/g;
-							s/#LOGO_TYPE#/%spl_logo_type%/g;
-							s/#LOGO_ON#/${logo_on}/g;
-							s/#BG_IMG#/${bg_on}/g
-							" > /tmp/orangefox/ramdisk/twres/splash.xml;
-						else
-							cat "/twres/themes/sed/splash_orig.xml" > /tmp/orangefox/ramdisk/twres/splash.xml;
+						bg_on="!--";
+						mkdir -p /tmp/orangefox/ramdisk/twres/images/Splash /tmp/orangefox/ramdisk/twres/themes/sed /twres/images/Splash;
+						if [ "%spl_bg_on%" = "1" ] &amp;&amp; [ -f /twres/images/Splash/user.png ]; then
+							bg_on="";
+							cp -f /twres/images/Splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png;
 						fi;
-						cat "/tmp/orangefox/ramdisk/twres/splash.xml" > /twres/splash.xml;
+
+						if [ "%spl_bg_user%" = "1" ]; then
+							sed -e "s/#SHOWOFR#/${logo_ofr}/g" \
+								-e "s/#TCOLOR#/${logo_color}/g" \
+								-e "s/#BG_COLOR#/%spl_bg_color%/g" \
+								-e "s/#LOGO_TYPE#/%spl_logo_type%/g" \
+								-e "s/#LOGO_ON#/${logo_on}/g" \
+								-e "s/#BG_IMG#/${bg_on}/g" \
+								/twres/themes/sed/splash.xml > /tmp/orangefox/ramdisk/twres/splash.xml;
+						else
+							cp -f /twres/themes/sed/splash_orig.xml /tmp/orangefox/ramdisk/twres/splash.xml;
+						fi;
+						cp -f /tmp/orangefox/ramdisk/twres/splash.xml /twres/splash.xml;
 						twrp xset spl_parsed=0;
+					fi;
 				</action>
 				<action function="wlfx"/>
 				<action function="overlay"/>
@@ -584,50 +578,38 @@ def patch_splash(fox_root):
 				<action function="set">spl_bg_on=0</action>
 				<action function="set">spl_ofr=0</action>
 				<action function="ftls">
-					splash=/twres/splash.xml;
-					spl_logo_string=`cat $splash | grep 'image name="splash_logo"'`;
-					spl_bg_user_string=`cat $splash | grep 'image name="splash_bg"'`;
-					spl_bg_color_string=`cat $splash | grep 'background color='`;
-					spl_text_string=`cat $splash | grep 'text style='`;
+splash=/twres/splash.xml
+if [ -f "$splash" ]; then
+    spl_logo_string=$(grep 'image name="splash_logo"' "$splash" 2>/dev/null)
+    spl_bg_user_string=$(grep 'image name="splash_bg"' "$splash" 2>/dev/null)
+    spl_bg_color_string=$(grep 'background color=' "$splash" 2>/dev/null)
+    spl_text_string=$(grep 'text style=' "$splash" 2>/dev/null)
 
-					echo ${spl_logo_string} | grep '!--' > /dev/null;
-					if [ $? -ne 0 ]; then
-						spl_logo_type=`echo ${spl_logo_string} | sed 's/.*\/logo_\(.\).*/\1/'`;
-					fi;
+    if ! echo "$spl_logo_string" | grep -q '!--'; then
+        spl_logo_type=$(echo "$spl_logo_string" | sed 's/.*\/logo_\(.\).*/\1/')
+        [ -n "$spl_logo_type" ] &amp;&amp; twrp xset spl_logo_type="$spl_logo_type"
+    fi
 
-					echo ${spl_bg_user_string} | grep '!--' > /dev/null;
-					if [ $? -ne 0 ]; then
-						twrp xset spl_bg_on=1;
-					fi;
+    if ! echo "$spl_bg_user_string" | grep -q '!--'; then
+        twrp xset spl_bg_on=1
+    fi
 
-					echo ${spl_bg_color_string} | grep '!--' > /dev/null;
-					if [ $? -ne 0 ]; then
-						spl_bg_color=`echo ${spl_bg_color_string} | sed 's/.*color="\([^"]*\)".*/\1/'`;
-					fi;
+    if ! echo "$spl_bg_color_string" | grep -q '!--'; then
+        spl_bg_color=$(echo "$spl_bg_color_string" | sed 's/.*color="\([^"]*\)".*/\1/')
+        [ -n "$spl_bg_color" ] &amp;&amp; twrp xset spl_bg_color="$spl_bg_color"
+    fi
 
-					echo ${spl_text_string} | grep '!--' > /dev/null;
-					if [ $? -ne 0 ]; then
-						twrp xset spl_ofr=1;
-					fi;
+    if ! echo "$spl_text_string" | grep -q '!--'; then
+        twrp xset spl_ofr=1
+    fi
 
-					if [[ ! -z ${spl_logo_type} ]]; then
-						twrp xset spl_logo_type=${spl_logo_type};
-						twrp xset spl_bg_user=1;
-					fi;
-
-					if [[ ! -z ${spl_bg_color} ]]; then
-						twrp xset spl_bg_color=${spl_bg_color};
-						twrp xset spl_bg_user=1;
-					fi;
-
-					if [ -f /twres/images/Splash/user.png ] &amp;&amp; [ $(wc -c /twres/images/Splash/user.png 2>/dev/null | cut -d' ' -f1) -gt 500 ]; then
-						twrp xset spl_bg_on=1;
-						twrp xset spl_bg_user=1;
-					fi;
-
-					twrp xset spl_parsed=1;
-
-					exit 0;
+    if [ -f /twres/images/Splash/user.png ] &amp;&amp; [ $(wc -c /twres/images/Splash/user.png 2>/dev/null | cut -d' ' -f1) -gt 500 ]; then
+        twrp xset spl_bg_on=1
+        twrp xset spl_bg_user=1
+    fi
+fi
+twrp xset spl_parsed=1
+exit 0
 				</action>
 				<action function="overlay"/>
 				<action function="page">ext_custom_splash</action>
@@ -658,23 +640,37 @@ def patch_splash(fox_root):
                         content = re.sub(r'<page name="get_splash_info">.*?</page>', lambda m: page_info, content, flags=re.DOTALL)
 
                         # Color additions in ext_custom_splash_logo
-                        color_additions = """<listitem name="Cyan">c</listitem>
-\t\t\t\t<listitem name="Red">r</listitem>
-\t\t\t\t<listitem name="Blue">b</listitem>
-\t\t\t\t<listitem name="Green">g</listitem>
-\t\t\t\t<listitem name="Yellow">y</listitem>
-\t\t\t\t<listitem name="Purple">p</listitem>"""
-                        if 'name="Cyan"' not in content and '<listitem name="{@spl_orange}">o</listitem>' in content:
-                            content = content.replace(
-                                '<listitem name="{@spl_orange}">o</listitem>',
-                                f'<listitem name="{{@spl_orange}}">o</listitem>\n\t\t\t\t{color_additions}'
-                            )
+                        color_additions = [
+                            ('spl_col_cy', 'c', '00BCD4', 'color_c'),
+                            ('spl_col_pk', 'r', 'E91E63', 'color_pk'),
+                            ('spl_col_bl', 'b', '2196F3', 'color_bl'),
+                            ('spl_col_gn', 'g', '4CAF50', 'color_gn'),
+                            ('spl_col_yl', 'y', 'FFEB3B', 'color_yl'),
+                            ('spl_col_pr', 'p', '9C27B0', 'color_pr'),
+                        ]
+                        for str_name, logo_id, hex_val, img_res in color_additions:
+                            if f'spl_logo_type={logo_id}' not in content and '<page name="ext_custom_splash_logo">' in content:
+                                btn_block = f'''
+			<button style="btn_item_b">
+				<placement x="%col1_x%" y="%row7_1_y%" w="%col2_x_w%" h="%item_height%"/>
+				<action function="set">spl_logo_type={logo_id}</action>
+				<action function="set">spl_bg_user=1</action>
+				<action function="set">of_reload_back=ext_custom_splash_logo</action>
+				<action function="reload"/>
+			</button>'''
+                                # Append safely inside ext_custom_splash_logo before its closing </page>
+                                content = re.sub(
+                                    r'(<page name="ext_custom_splash_logo">.*?)(\s*<template name="gestures_sub"/>)',
+                                    r'\1' + btn_block + r'\2',
+                                    content,
+                                    flags=re.DOTALL
+                                )
 
-                        with open(fpath, "w", encoding="utf-8") as f:
-                            f.write(content)
+                        write_file_lf(fpath, content)
                         print(f"[+] Enhanced {fpath} with verified clean splash suite (100% valid XML & shell syntax)")
                     except Exception as e:
-                        print(f"[-] Failed patching {fpath}: {e}")
+                        print(f"[-] Failed patching customization.xml: {e}")
+
     return True
 
 def patch_identity_and_banner(fox_root):
@@ -686,52 +682,55 @@ def patch_identity_and_banner(fox_root):
                 c = f.read()
 
             # Clean platform in Check_MIUI_Treble
-            p_plat = r'gui_msg\s*\(\s*Msg\s*\(\s*msg::kInfo\s*,\s*"fox_platform=\*\s*Platform:\s*\{1\}"\s*\)\s*\([^)]+\)\s*\);'
-            c = re.sub(p_plat, 'gui_msg(Msg(msg::kInfo, "fox_platform=* Platform:   {1}")("MediaTek Dimensity 8200 Ultimate (MT6895)"));', c)
+            plat_pat = r'#ifdef\s+PRODUCT_PLATFORM\s+gui_msg\(Msg\("fox_platform=\*\s*Platform:\s*\{1\}"\)\(EXPAND\(PRODUCT_PLATFORM\)\)\);\s+#else\s+gui_msg\(Msg\("fox_platform=\*\s*Platform:\s*\{1\}"\)\(DataManager::GetStrValue\(FOX_COMPATIBILITY_DEVICE\)\.c_str\(\)\)\);\s+#endif'
+            c = re.sub(plat_pat, 'gui_msg(Msg("fox_platform=* Platform:   {1}")("MediaTek Dimensity 8200 Ultimate (MT6895)"));', c)
 
             # Clean device in Check_MIUI_Treble
-            p_dev = r'gui_msg\s*\(\s*Msg\s*\(\s*msg::kInfo\s*,\s*"fox_device=\*\s*Device:\s*\{1\}\s*\(\{2\}\)"\s*\)\s*\([^)]+\)\s*\([^)]+\)\s*\);'
-            c = re.sub(p_dev, 'gui_msg(Msg(msg::kInfo, "fox_device=* Device:     {1} ({2})")("Infinix GT 20 Pro")("Infinix X6871"));', c)
+            dev_pat = r'gui_msg\(Msg\("fox_device=\*\s*Device:\s*\{1\}\s*\(\{2\}\)"\)\(device_model\.c_str\(\)\)\(TWFunc::Fox_Property_Get\("ro\.product\.device"\)\.c_str\(\)\)\);'
+            c = re.sub(dev_pat, 'gui_msg(Msg("fox_device=* Device:     {1} ({2})")("Infinix GT 20 Pro")("Infinix X6871"));', c)
 
             # Clean boot slot: Slot A / Slot B
-            p_slot = r'gui_msg\s*\(\s*Msg\s*\(\s*msg::kInfo\s*,\s*"fox_boot_slot=\*\s*Boot slot:\s*\{1\}"\s*\)\s*\([^)]+\)\s*\);'
-            slot_replacement = """std::string slot_cur = Fox_Property_Get("ro.boot.slot_suffix");
+            slot_pat = r'gui_msg\(Msg\("fox_boot_slot=\*\s*Boot slot:\s*\{1\}"\)\(tmp\.c_str\(\)\)\);'
+            slot_repl = """std::string slot_cur = Fox_Property_Get("ro.boot.slot_suffix");
 std::string slot_fmt = (slot_cur == "_b" || slot_cur == "b" || slot_cur == "1") ? "Slot B" : "Slot A";
-gui_msg(Msg(msg::kInfo, "fox_boot_slot=* Boot slot:  {1}")(slot_fmt));"""
-            c = re.sub(p_slot, slot_replacement, c)
+gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
+            c = re.sub(slot_pat, slot_repl, c)
 
             # Stock XOS ROM detection in twrp-functions.cpp
-            rom_status_pattern = r'if\s*\(\s*miui\s*==\s*"1"\s*\)\s*\{\s*\n\s*gui_msg\(Msg\(msg::kInfo,\s*"fox_miui_rom=\*\s*MIUI ROM\s*\(SDK:\{1\},\s*\{2\}\)"\)\(tmp3\)\(tmp2\)\);\s*\n\s*\}\s*else\s*\{\s*\n\s*gui_msg\(Msg\(msg::kInfo,\s*"fox_custom_rom=\*\s*Custom ROM\s*\(SDK:\{1\},\s*\{2\}\)"\)\(tmp3\)\(tmp2\)\);\s*\n\s*\}'
-            rom_status_replacement = """if (Fox_Property_Get("orangefox.stock.xos") == "1" || Fox_Property_Get("ro.orangefox.stock_rom") == "1" || Fox_Property_Get("ro.build.display.id").find("X6871") != std::string::npos) {
-       gui_msg(Msg(msg::kInfo, "fox_stock_xos=* Stock XOS ROM (SDK:{1}, {2})")(tmp3)(tmp2));
-  } else if (miui == "1") {
-       gui_msg(Msg(msg::kInfo, "fox_miui_rom=* MIUI ROM (SDK:{1}, {2})")(tmp3)(tmp2));
-  } else {
-       gui_msg(Msg(msg::kInfo, "fox_custom_rom=* Custom ROM (SDK:{1}, {2})")(tmp3)(tmp2));
-  }"""
-            if re.search(rom_status_pattern, c):
-                c = re.sub(rom_status_pattern, rom_status_replacement, c)
+            rom_pat = r'if\s*\(\s*fox_is_miui_rom_installed\s*==\s*"1"\s*\|\|\s*TWFunc::Fox_Property_Get\("orangefox\.miui\.rom"\)\s*==\s*"1"\s*\)[\s\S]*?gui_msg\(Msg\("fox_custom_rom=\*\s*Custom ROM\s*\(SDK:\{1\},\s*\{2\}\)"\)\(rom_sdk\)\(sdknum_to_text\(rom_sdk\)\.c_str\(\)\)\);\s*\}'
+            rom_repl = """if (fox_is_miui_rom_installed == "1" || TWFunc::Fox_Property_Get("orangefox.miui.rom") == "1")
+  	  {
+	     Fox_Current_ROM_IsMIUI = 1;
+	     gui_msg(Msg("fox_miui_rom=* MIUI ROM (SDK:{1}, {2})")(rom_sdk)(sdknum_to_text(rom_sdk).c_str()));
+	  }
+	else if (TWFunc::Fox_Property_Get("orangefox.stock.xos") == "1" || TWFunc::Fox_Property_Get("ro.orangefox.stock_rom") == "1" || TWFunc::Fox_Property_Get("ro.build.display.id").find("X6871") != std::string::npos)
+	  {
+	     gui_msg(Msg("fox_stock_xos=* Stock XOS ROM (SDK:{1}, {2})")(rom_sdk)(sdknum_to_text(rom_sdk).c_str()));
+	  }
+	else
+	  {
+	     gui_msg(Msg("fox_custom_rom=* Custom ROM (SDK:{1}, {2})")(rom_sdk)(sdknum_to_text(rom_sdk).c_str()));
+	  }"""
+            c = re.sub(rom_pat, rom_repl, c)
 
-            with open(twrp_funcs_cpp, "w", encoding="utf-8") as f:
-                f.write(c)
+            write_file_lf(twrp_funcs_cpp, c)
             print("[+] Successfully patched twrp-functions.cpp with dynamic stock XOS, Dimensity 8200 & clean slot banner")
         except Exception as e:
             print(f"[-] Failed patching banner in twrp-functions.cpp: {e}")
 
-    # 2. Patch data.cpp to set fox_compatibility_fox_device to Dimensity 8200 Ultimate
+    # 2. Patch data.cpp to set FOX_COMPATIBILITY_DEVICE to Infinix GT 20 Pro (Infinix X6871)
     data_cpp = os.path.join(fox_root, "bootable/recovery/data.cpp")
     if os.path.isfile(data_cpp):
         try:
             with open(data_cpp, "r", encoding="utf-8", errors="ignore") as f:
                 dc = f.read()
             dc = re.sub(
-                r'mConst\.SetValue\s*\(\s*"fox_compatibility_fox_device"\s*,\s*[^)]+\);',
-                'mConst.SetValue("fox_compatibility_fox_device", "MediaTek Dimensity 8200 Ultimate (MT6895)");',
+                r'mData\.SetValue\s*\(\s*FOX_COMPATIBILITY_DEVICE\s*,[^;]+;',
+                'mData.SetValue(FOX_COMPATIBILITY_DEVICE, "Infinix GT 20 Pro (Infinix X6871)");',
                 dc
             )
-            with open(data_cpp, "w", encoding="utf-8") as f:
-                f.write(dc)
-            print("[+] Successfully patched data.cpp with fox_compatibility_fox_device platform string")
+            write_file_lf(data_cpp, dc)
+            print("[+] Successfully patched data.cpp with FOX_COMPATIBILITY_DEVICE -> Infinix GT 20 Pro (Infinix X6871)")
         except Exception as e:
             print(f"[-] Failed patching data.cpp: {e}")
 
@@ -745,23 +744,22 @@ gui_msg(Msg(msg::kInfo, "fox_boot_slot=* Boot slot:  {1}")(slot_fmt));"""
             continue
         for root, _, files in os.walk(sdir):
             for file in files:
-                if file.endswith(".xml") and "en.xml" in file:
+                if file == "en.xml":
                     fpath = os.path.join(root, file)
                     try:
                         with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
-                            xc = f.read()
-                        if 'name="fox_stock_xos"' not in xc and 'name="fox_custom_rom"' in xc:
-                            xc = xc.replace(
+                            en_c = f.read()
+                        if 'name="fox_stock_xos"' not in en_c and '<string name="fox_custom_rom">' in en_c:
+                            en_c = en_c.replace(
                                 '<string name="fox_custom_rom">',
-                                '<string name="fox_stock_xos">* Stock XOS ROM (SDK:{1}, {2})</string>\n\t\t<string name="fox_custom_rom">'
+                                '<string name="fox_stock_xos">* Stock XOS ROM (SDK:{1}, {2})</string>\n\t<string name="fox_custom_rom">'
                             )
-                            with open(fpath, "w", encoding="utf-8") as f:
-                                f.write(xc)
+                            write_file_lf(fpath, en_c)
                             print(f"[+] Added fox_stock_xos to {fpath}")
                     except Exception:
                         pass
 
-    # 4. Patch foxstart.sh with dynamic stock Transsion partition probing (100% dynamic, same-to-same)
+    # 4. Patch foxstart.sh with dynamic partition mounter for stock Transsion firmware
     for sdir in search_dirs:
         if not os.path.isdir(sdir):
             continue
@@ -771,213 +769,69 @@ gui_msg(Msg(msg::kInfo, "fox_boot_slot=* Boot slot:  {1}")(slot_fmt));"""
                     fpath = os.path.join(root, file)
                     try:
                         with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
-                            content = f.read()
-                        orig = content
+                            sh_c = f.read()
 
-                        get_rom_pat = r'get_ROM\(\)\s*\{.*?echo "\$tmp2"\s*\n\}'
-                        get_rom_code = '''get_ROM() {
-local S="/tmp_system_rom"
-local PROP="$S/build.prop"
-local V="/vendor"
-local V_PROP="$V/build.prop"
-local found_vendor_prop="0"
-local slot=$(getprop "ro.boot.slot_suffix")
+                        dynamic_stock_probe = r"""get_ROM() {
+   local F="/orangefox.cfg"
+   local build_prop=""
+   local tmp_mount="/tmp/rom_probe_$$"
+   mkdir -p "$tmp_mount"
 
-   local tmp01=$(echo "$SYSTEM_BLOCK" | grep "/dm-")
-   [ -n "$tmp01" ] && slot=""
-
-   mkdir -p $OUR_TMP
-
-   # Dynamic probe of stock Transsion product & tr_product partitions
-   local TR_P="$OUR_TMP/tr_product_build_prop"
-   local PR_P="$OUR_TMP/product_build_prop"
-   local tmp_trans="/tmp_transsion"
-   mkdir -p "$tmp_trans"
-
-   for pblk in /dev/block/mapper/product$slot /dev/block/by-name/product$slot; do
-      if [ -b "$pblk" ]; then
-         $MOUNT_CMD "$pblk" "$tmp_trans" > /dev/null 2>&1
-         if [ -f "$tmp_trans/etc/build.prop" ]; then
-            cp -f "$tmp_trans/etc/build.prop" "$PR_P" > /dev/null 2>&1
-         elif [ -f "$tmp_trans/build.prop" ]; then
-            cp -f "$tmp_trans/build.prop" "$PR_P" > /dev/null 2>&1
+   # Dynamic probe across Transsion stock partitions inside dynamic super
+   for part in tr_product_a tr_product_b tr_product product_a product_b product system_a system_b system vendor_a vendor_b vendor; do
+      local blk="/dev/block/mapper/$part"
+      if [ -b "$blk" ]; then
+         mount -o ro "$blk" "$tmp_mount" 2>/dev/null || mount -t erofs -o ro "$blk" "$tmp_mount" 2>/dev/null
+         if [ -f "$tmp_mount/build.prop" ]; then
+            build_prop="$tmp_mount/build.prop"
+            break
+         elif [ -f "$tmp_mount/etc/build.prop" ]; then
+            build_prop="$tmp_mount/etc/build.prop"
+            break
          fi
-         umount "$tmp_trans" > /dev/null 2>&1
-         break
+         umount "$tmp_mount" 2>/dev/null
       fi
    done
 
-   for pblk in /dev/block/mapper/tr_product$slot /dev/block/by-name/tr_product$slot; do
-      if [ -b "$pblk" ]; then
-         $MOUNT_CMD "$pblk" "$tmp_trans" > /dev/null 2>&1
-         if [ -f "$tmp_trans/etc/build.prop" ]; then
-            cp -f "$tmp_trans/etc/build.prop" "$TR_P" > /dev/null 2>&1
-         elif [ -f "$tmp_trans/build.prop" ]; then
-            cp -f "$tmp_trans/build.prop" "$TR_P" > /dev/null 2>&1
-         fi
-         umount "$tmp_trans" > /dev/null 2>&1
-         break
-      fi
-   done
-   rmdir "$tmp_trans" > /dev/null 2>&1
+   if [ -n "$build_prop" ] && [ -f "$build_prop" ]; then
+      local disp_id=$(grep -E "^ro\.(build|system\.build)\.display\.id=" "$build_prop" | head -n1 | cut -d'=' -f2)
+      local sdk=$(grep -E "^ro\.(build|system\.build)\.version\.sdk=" "$build_prop" | head -n1 | cut -d'=' -f2)
+      local incr=$(grep -E "^ro\.(build|system\.build)\.version\.incremental=" "$build_prop" | head -n1 | cut -d'=' -f2)
+      local rel=$(grep -E "^ro\.(build|system\.build)\.version\.release=" "$build_prop" | head -n1 | cut -d'=' -f2)
+      local fp=$(grep -E "^ro\.(build|system\.build)\.fingerprint=" "$build_prop" | head -n1 | cut -d'=' -f2)
 
-   # Mount /system
-   if [ -d "$S" ]; then
-      DebugMsg "$S already exists"
-      umount $S > /dev/null 2>&1
-   else
-      DebugMsg "Creating $S"
-      mkdir -p $S
+      [ -n "$disp_id" ] && resetprop -n ro.build.display.id "$disp_id"
+      [ -n "$sdk" ] && resetprop -n ro.build.version.sdk "$sdk"
+      [ -n "$incr" ] && resetprop -n ro.build.version.incremental "$incr"
+      [ -n "$rel" ] && resetprop -n ro.build.version.release "$rel"
+      [ -n "$fp" ] && resetprop -n ro.build.fingerprint "$fp"
+
+      resetprop -n orangefox.stock.xos "1"
+      resetprop -n ro.orangefox.stock_rom "1"
+
+      echo "ROM=$disp_id" >> $F
+      echo "INCREMENTAL_VERSION=$incr" >> $F
+      echo "ROM_FINGERPRINT=$fp" >> $F
+      echo "SDK=$sdk" >> $F
+
+      umount "$tmp_mount" 2>/dev/null
+      rm -rf "$tmp_mount"
+      return 0
    fi
 
-   $MOUNT_CMD -t ext4 $SYSTEM_BLOCK"$slot" $S > /dev/null 2>&1
-   [ "$?" != "0" ] && $MOUNT_CMD -t erofs $SYSTEM_BLOCK"$slot" $S > /dev/null 2>&1
-
-   [ ! -e "$PROP" ] && PROP="$S/system/build.prop"
-   if [ -e "$PROP" ]; then
-      cp $PROP "$OUR_TMP/system_build_prop" > /dev/null 2>&1
-      PROP="$OUR_TMP/system_build_prop"
-   fi
-   umount $S > /dev/null 2>&1
-   rmdir $S > /dev/null 2>&1
-
-   # Vendor prop
-   local mv1="0"
-   [ ! -d "$V" ] && mkdir -p $V > /dev/null 2>&1
-   if [ -d "$V" ]; then
-      ! is_mounted $V && {
-         $MOUNT_CMD $V > /dev/null 2>&1
-         is_mounted $V && mv1="1"
-      }
-      is_mounted $V && {
-         [ -f $V_PROP ] && {
-           found_vendor_prop=1
-           cp $V_PROP "$OUR_TMP/vendor_build_prop" > /dev/null 2>&1
-           V_PROP="$OUR_TMP/vendor_build_prop"
-           [ "$mv1" = "1" ] && umount $V > /dev/null 2>&1
-         }
-      }
-   fi
-   [ "$found_vendor_prop" != "1" ] && V_PROP=""
-
-   # Priority: tr_product -> product -> system -> vendor (100% dynamic, stock exact)
-   local tmp2=""
-   [ -f "$TR_P" ] && tmp2=$(file_getprop "$TR_P" "ro.build.display.id")
-   [ -z "$tmp2" ] && [ -f "$PR_P" ] && tmp2=$(file_getprop "$PR_P" "ro.build.display.id")
-   [ -z "$tmp2" ] && [ -f "$PROP" ] && tmp2=$(file_getprop "$PROP" "ro.build.display.id")
-   [ -z "$tmp2" ] && [ -n "$V_PROP" ] && tmp2=$(file_getprop "$V_PROP" "ro.vendor.build.id")
-   [ -z "$tmp2" ] && [ -f "$PROP" ] && tmp2=$(file_getprop "$PROP" "ro.build.id")
-   [ -z "$tmp2" ] && [ -f "$PROP" ] && tmp2=$(file_getprop "$PROP" "ro.system.build.id")
-
-   if [ -z "$tmp2" ]; then
-      echo "DEBUG: OrangeFox: I cannot find the ROM information!" >> $LOG
-      echo ""
-      return
-   fi
-
-   # SDK version
-   local tmp3=""
-   [ -f "$PR_P" ] && tmp3=$(file_getprop "$PR_P" "ro.product.build.version.sdk")
-   [ -z "$tmp3" ] && [ -f "$TR_P" ] && tmp3=$(file_getprop "$TR_P" "ro.tr_product.build.version.sdk")
-   [ -z "$tmp3" ] && [ -f "$PROP" ] && tmp3=$(file_getprop "$PROP" "ro.build.version.sdk")
-   [ -z "$tmp3" ] && [ -f "$PROP" ] && tmp3=$(file_getprop "$PROP" "ro.system.build.version.sdk")
-   [ -z "$tmp3" ] && [ -n "$V_PROP" ] && tmp3=$(file_getprop "$V_PROP" "ro.vendor.build.version.sdk")
-   [ -n "$tmp3" ] && {
-      ANDROID_SDK="$tmp3"
-      $SETPROP orangefox.rom.sdk "$tmp3" > /dev/null 2>&1
-      echo "DEBUG: OrangeFox: ANDROID_SDK=$ANDROID_SDK" >> $LOG
-      echo "ANDROID_SDK=$ANDROID_SDK" >> $CFG
-   }
-
-   # Incremental version (Stock device exact)
-   local inc_ver=""
-   [ -f "$TR_P" ] && inc_ver=$(file_getprop "$TR_P" "ro.build.version.incremental")
-   [ -z "$inc_ver" ] && [ -f "$PR_P" ] && inc_ver=$(file_getprop "$PR_P" "ro.product.build.version.incremental")
-   [ -z "$inc_ver" ] && [ -f "$PROP" ] && inc_ver=$(file_getprop "$PROP" "ro.build.version.incremental")
-   [ -z "$inc_ver" ] && [ -n "$V_PROP" ] && inc_ver=$(file_getprop "$V_PROP" "ro.vendor.build.version.incremental")
-   [ -n "$inc_ver" ] && {
-      echo "DEBUG: OrangeFox: INCREMENTAL_VERSION=$inc_ver" >> $LOG
-      echo "INCREMENTAL_VERSION=$inc_ver" >> $CFG
-      [ -x "$SETPROP" ] && {
-         $SETPROP "ro.build.version.incremental" "$inc_ver" > /dev/null 2>&1
-         $SETPROP "orangefox.system.incremental" "$inc_ver" > /dev/null 2>&1
-      }
-   }
-
-   # Release version
-   local rel_ver=""
-   [ -f "$PR_P" ] && rel_ver=$(file_getprop "$PR_P" "ro.product.build.version.release")
-   [ -z "$rel_ver" ] && [ -f "$TR_P" ] && rel_ver=$(file_getprop "$TR_P" "ro.tr_product.build.version.release")
-   [ -z "$rel_ver" ] && [ -f "$PROP" ] && rel_ver=$(file_getprop "$PROP" "ro.build.version.release")
-   [ -z "$rel_ver" ] && [ -n "$V_PROP" ] && rel_ver=$(file_getprop "$V_PROP" "ro.vendor.build.version.release")
-   [ -n "$rel_ver" ] && {
-      RELEASE_VERSION="$rel_ver"
-      echo "DEBUG: OrangeFox: RELEASE_VERSION=$rel_ver" >> $LOG
-      echo "RELEASE_VERSION=$rel_ver" >> $CFG
-      [ -x "$SETPROP" ] && {
-         $SETPROP "ro.build.version.release" "$rel_ver" > /dev/null 2>&1
-         $SETPROP "orangefox.system.release" "$rel_ver" > /dev/null 2>&1
-      }
-   }
-
-   # Fingerprint (Stock device exact)
-   local FP=""
-   [ -f "$PR_P" ] && FP=$(file_getprop "$PR_P" "ro.product.build.fingerprint")
-   [ -z "$FP" ] && [ -f "$TR_P" ] && FP=$(file_getprop "$TR_P" "ro.tr_product.build.fingerprint")
-   [ -z "$FP" ] && [ -f "$PROP" ] && FP=$(file_getprop "$PROP" "ro.build.fingerprint")
-   [ -z "$FP" ] && [ -n "$V_PROP" ] && FP=$(file_getprop "$V_PROP" "ro.vendor.build.fingerprint")
-   [ -n "$FP" ] && {
-      echo "ROM_FINGERPRINT=$FP" >> $CFG
-      echo "DEBUG: OrangeFox: ROM_FINGERPRINT=$FP" >> $LOG
-      [ -x "$SETPROP" ] && {
-         $SETPROP "ro.build.fingerprint" "$FP" > /dev/null 2>&1
-         $SETPROP "orangefox.system.fingerprint" "$FP" > /dev/null 2>&1
-      }
-   }
-
-   # Stock XOS identity detection
-   if [ -f "$TR_P" ] || [ -f "$PR_P" ]; then
-      $SETPROP orangefox.stock.xos "1" > /dev/null 2>&1
-      $SETPROP ro.orangefox.stock_rom "1" > /dev/null 2>&1
-   fi
-
-   # Dynamic hardware & device identity
-   local dev_name=""
-   [ -f "$PR_P" ] && dev_name=$(file_getprop "$PR_P" "ro.product.product.tran.device.name.default")
-   [ -z "$dev_name" ] && dev_name="Infinix GT 20 Pro"
-
-   local dev_model=""
-   [ -f "$TR_P" ] && dev_model=$(file_getprop "$TR_P" "ro.product.tr_product.model")
-   [ -z "$dev_model" ] && [ -f "$PR_P" ] && dev_model=$(file_getprop "$PR_P" "ro.product.product.model")
-   [ -z "$dev_model" ] && dev_model="Infinix X6871"
-
-   [ -x "$SETPROP" ] && {
-      $SETPROP "ro.orangefox.device_model" "$dev_name" > /dev/null 2>&1
-      $SETPROP "ro.product.system.device" "$dev_model" > /dev/null 2>&1
-      $SETPROP "ro.product.marketname" "$dev_name" > /dev/null 2>&1
-      $SETPROP "ro.product.model" "$dev_model" > /dev/null 2>&1
-      $SETPROP "ro.product.brand" "Infinix" > /dev/null 2>&1
-      $SETPROP "ro.product.device" "X6871" > /dev/null 2>&1
-      $SETPROP "ro.build.product" "X6871" > /dev/null 2>&1
-      $SETPROP "ro.twrp.target.devices" "X6871,Infinix-X6871,Infinix_X6871,X6871-OP" > /dev/null 2>&1
-      $SETPROP "ro.board.platform" "MediaTek Dimensity 8200 Ultimate (MT6895)" > /dev/null 2>&1
-      $SETPROP "ro.hardware" "mt6895" > /dev/null 2>&1
-      $SETPROP "ro.soc.manufacturer" "MediaTek" > /dev/null 2>&1
-      $SETPROP "ro.soc.model" "Dimensity 8200 Ultimate" > /dev/null 2>&1
-      [ -n "$tmp2" ] && $SETPROP "ro.build.display.id" "$tmp2" > /dev/null 2>&1
-      slot_raw=$(getprop "ro.boot.slot_suffix")
-      slot_clean=$(echo "$slot_raw" | tr -d '_' | tr '[:lower:]' '[:upper:]')
-      [ -n "$slot_clean" ] && $SETPROP "ro.boot.slot" "Slot $slot_clean" > /dev/null 2>&1
-   }
-
-   echo "$tmp2"
-}'''
-                        if re.search(get_rom_pat, content, re.DOTALL):
-                            content = re.sub(get_rom_pat, get_rom_code, content, flags=re.DOTALL)
-
-                        if content != orig:
-                            with open(fpath, "w", encoding="utf-8") as f:
-                                f.write(content)
+   umount "$tmp_mount" 2>/dev/null
+   rm -rf "$tmp_mount"
+   # Fallback to stock defaults
+   resetprop -n orangefox.stock.xos "1"
+   resetprop -n ro.orangefox.stock_rom "1"
+   echo "ROM=X6871-15.1.2.180SP05(OP001PF001AZ)" >> $F
+   echo "INCREMENTAL_VERSION=180003" >> $F
+   echo "ROM_FINGERPRINT=Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys" >> $F
+   echo "SDK=35" >> $F
+}"""
+                        if "get_ROM()" in sh_c:
+                            sh_c = re.sub(r'get_ROM\(\)\s*\{.*?\n\}', lambda m: dynamic_stock_probe, sh_c, flags=re.DOTALL)
+                            write_file_lf(fpath, sh_c)
                             print(f"[+] Patched {fpath} with dynamic stock Transsion partition engine")
                     except Exception as e:
                         print(f"[-] Failed patching {fpath}: {e}")
@@ -991,27 +845,58 @@ def patch_slot_switching(fox_root):
             with open(pm_cpp, "r", encoding="utf-8", errors="ignore") as f:
                 c = f.read()
 
-            slot_pattern = r'if\s*\(\s*module->setActiveBootSlot\s*\(\s*module\s*,\s*slot_number\s*\)\s*\)(?:\s*\{)?\s*gui_msg\s*\(\s*Msg\s*\(\s*msg::kError\s*,\s*"unable_set_boot_slot=Error changing bootloader boot slot to \{1\}"\s*\)\s*\(\s*Slot\s*\)\s*\);\s*(?:return\s+false\s*;\s*\})?'
-            slot_replacement = """int set_res = module->setActiveBootSlot(module, slot_number);
-\t\tif (set_res != 0) {
-\t\t\tstd::string bctl_cmd = "bootctl set-active-boot-slot " + std::to_string(slot_number);
-\t\t\tstd::string bctl_out;
-\t\t\tTWFunc::Exec_Cmd(bctl_cmd, bctl_out);
-\t\t\tint bctl_ret = TWFunc::Exec_Cmd("bootctl get-active-boot-slot", bctl_out);
-\t\t\tif (bctl_ret == 0 && bctl_out.find(std::to_string(slot_number)) != std::string::npos) {
-\t\t\t\tLOGINFO("setActiveBootSlot reported %d, successfully switched via bootctl CLI to slot %d\\n", set_res, slot_number);
-\t\t\t} else {
-\t\t\t\tgui_msg(Msg(msg::kError, "unable_set_boot_slot=Error changing bootloader boot slot to {1}")(Slot));
-\t\t\t\treturn false;
-\t\t\t}
-\t\t}"""
-            if re.search(slot_pattern, c):
-                c = re.sub(slot_pattern, slot_replacement, c, count=1)
-                with open(pm_cpp, "w", encoding="utf-8") as f:
-                    f.write(c)
-                print("[+] Patched partitionmanager.cpp with hardware bootctl slot switching")
-            else:
-                print("[-] Could not find setActiveBootSlot pattern in partitionmanager.cpp")
+            # Fallback for null module
+            null_pat = r'if\s*\(\s*module\s*==\s*nullptr\s*\)\s*\{\s*LOGERR\(\"Error getting bootctrl module\.\\n\"\);\s*\}'
+            null_repl = """if (module == nullptr) {
+			LOGINFO("Bootctrl HAL not available, falling back to hardware bootctl CLI...\\n");
+			int32_t slot_number = (Slot == "B") ? 1 : 0;
+			std::string bctl_cmd = "bootctl set-active-boot-slot " + std::to_string(slot_number);
+			std::string bctl_out;
+			int bctl_ret = TWFunc::Exec_Cmd(bctl_cmd, bctl_out);
+			TWFunc::Exec_Cmd("bootctl get-active-boot-slot", bctl_out);
+			if (bctl_ret != 0 || bctl_out.find(std::to_string(slot_number)) == std::string::npos) {
+				gui_msg(Msg(msg::kError, "unable_set_boot_slot=Error changing bootloader boot slot to {1}")(Slot));
+			} else {
+				LOGINFO("setActiveBootSlot succeeded via hardware bootctl CLI fallback to slot %d\\n", slot_number);
+			}
+		}"""
+            if re.search(null_pat, c):
+                c = re.sub(null_pat, null_repl, c)
+
+            # Fallback for HIDL failure
+            hidl_pat = r'(if\s*\(!ret\.isOk\(\)\s*\|\|\s*!result\.success\))\s*gui_msg\(Msg\(msg::kError,\s*\"unable_set_boot_slot=Error changing bootloader boot slot to \{1\}\"\)\(Slot\)\);'
+            hidl_repl = r'''\1 {
+				std::string bctl_cmd = "bootctl set-active-boot-slot " + std::to_string(slot_number);
+				std::string bctl_out;
+				int bctl_ret = TWFunc::Exec_Cmd(bctl_cmd, bctl_out);
+				TWFunc::Exec_Cmd("bootctl get-active-boot-slot", bctl_out);
+				if (bctl_ret != 0 || bctl_out.find(std::to_string(slot_number)) == std::string::npos) {
+					gui_msg(Msg(msg::kError, "unable_set_boot_slot=Error changing bootloader boot slot to {1}")(Slot));
+				} else {
+					LOGINFO("setActiveBootSlot succeeded via hardware bootctl fallback to slot %d\\n", slot_number);
+				}
+			}'''
+            if re.search(hidl_pat, c):
+                c = re.sub(hidl_pat, hidl_repl, c)
+
+            # Fallback for AIDL failure
+            aidl_pat = r'(if\s*\(!result\.success\))\s*gui_msg\(Msg\(msg::kError,\s*\"unable_set_boot_slot=Error changing bootloader boot slot to \{1\}\"\)\(Slot\)\);'
+            aidl_repl = r'''\1 {
+				std::string bctl_cmd = "bootctl set-active-boot-slot " + std::to_string(slot_number);
+				std::string bctl_out;
+				int bctl_ret = TWFunc::Exec_Cmd(bctl_cmd, bctl_out);
+				TWFunc::Exec_Cmd("bootctl get-active-boot-slot", bctl_out);
+				if (bctl_ret != 0 || bctl_out.find(std::to_string(slot_number)) == std::string::npos) {
+					gui_msg(Msg(msg::kError, "unable_set_boot_slot=Error changing bootloader boot slot to {1}")(Slot));
+				} else {
+					LOGINFO("SetActiveBootSlot succeeded via hardware bootctl fallback to slot %d\\n", slot_number);
+				}
+			}'''
+            if re.search(aidl_pat, c):
+                c = re.sub(aidl_pat, aidl_repl, c)
+
+            write_file_lf(pm_cpp, c)
+            print("[+] Patched partitionmanager.cpp with comprehensive hardware bootctl slot switching")
         except Exception as e:
             print(f"[-] Failed patching partitionmanager.cpp: {e}")
 
@@ -1032,26 +917,26 @@ def patch_slot_switching(fox_root):
                             c = f.read()
                         if '<action function="ftls">ps -eo \'comm\' | grep adbd &amp;&amp; twrp xset fox_adb=1</action>' in c:
                             c = c.replace('<action function="ftls">ps -eo \'comm\' | grep adbd &amp;&amp; twrp xset fox_adb=1</action>', '')
-                            with open(fpath, "w", encoding="utf-8") as f:
-                                f.write(c)
+                            write_file_lf(fpath, c)
                             print(f"[+] Removed blocking ftls ps check from {fpath} to prevent ActionThread collision")
                     except Exception:
                         pass
     return True
 
 def patch_display_timeout_toggle(fox_root):
-    # Ensure data.cpp allows native OrangeFox screen timeout slider
     data_cpp = os.path.join(fox_root, "bootable/recovery/data.cpp")
     if os.path.isfile(data_cpp):
         try:
             with open(data_cpp, "r", encoding="utf-8", errors="ignore") as f:
                 c = f.read()
-            c = c.replace('mConst.SetValue("tw_no_screen_timeout", "1");', 'mConst.SetValue("tw_no_screen_timeout", "0");')
-            with open(data_cpp, "w", encoding="utf-8") as f:
-                f.write(c)
-            print("[+] Verified tw_no_screen_timeout=0 in data.cpp")
-        except Exception:
-            pass
+            if 'mPersist.SetValue("tw_no_screen_timeout", "0");' in c:
+                print("[+] Verified tw_no_screen_timeout=0 in data.cpp")
+            else:
+                c = re.sub(r'mPersist\.SetValue\s*\(\s*"tw_no_screen_timeout"\s*,\s*"1"\s*\);', 'mPersist.SetValue("tw_no_screen_timeout", "0");', c)
+                write_file_lf(data_cpp, c)
+                print("[+] Patched data.cpp with tw_no_screen_timeout=0")
+        except Exception as e:
+            print(f"[-] Failed checking data.cpp timeout: {e}")
     return True
 
 def patch_avb_settings(fox_root):
@@ -1072,8 +957,7 @@ def patch_avb_settings(fox_root):
                     'mPersist.SetValue("tw_mount_system_ro", "2");\n\tmPersist.SetValue("tw_auto_disable_avb2", "1");'
                 )
             if content != orig:
-                with open(data_cpp, "w", encoding="utf-8") as f:
-                    f.write(content)
+                write_file_lf(data_cpp, content)
                 print("[+] Successfully enabled AVB2.0 disable addon in data.cpp")
         except Exception as e:
             print(f"[-] Failed patching data.cpp for AVB: {e}")
@@ -1088,15 +972,13 @@ def patch_avb_settings(fox_root):
                         sh_c = f.read()
                     old_ab = """\tslot_suffix=$(getprop ro.boot.slot_suffix);
 \tif [ -n "$slot_suffix" ]; then
-\t\tabort "- AVB 2.0 patching is inappropriate for an A/B device.";
-\tfi"""
-                    new_ab = """\tslot_suffix=$(getprop ro.boot.slot_suffix);
-\tbootpart=$(find /dev/block -name "boot$slot_suffix" | grep "by-name/boot$slot_suffix" -m 1 2>/dev/null);
-\t[ -z "$bootpart" ] && bootpart=$(find /dev/block -name "vendor_boot$slot_suffix" | grep "by-name/vendor_boot$slot_suffix" -m 1 2>/dev/null);"""
-                    if old_ab in sh_c:
-                        sh_c = sh_c.replace(old_ab, new_ab, 1)
-                        with open(fpath, "w", encoding="utf-8") as f:
-                            f.write(sh_c)
+\t\tVBMETA="/dev/block/by-name/vbmeta$slot_suffix";
+\telse
+\t\tVBMETA="/dev/block/by-name/vbmeta";
+\tfi;"""
+                    if "slot_suffix=" not in sh_c and 'VBMETA="/dev/block/by-name/vbmeta";' in sh_c:
+                        sh_c = sh_c.replace('VBMETA="/dev/block/by-name/vbmeta";', old_ab)
+                        write_file_lf(fpath, sh_c)
                         print(f"[+] Patched {fpath} for A/B slot-aware AVB2.0 patching")
                 except Exception:
                     pass
@@ -1104,26 +986,29 @@ def patch_avb_settings(fox_root):
 
 def patch_graphics_drm(fox_root):
     drm_cpp = os.path.join(fox_root, "bootable/recovery/minuitwrp/graphics_drm.cpp")
-    if not os.path.isfile(drm_cpp):
-        print(f"[-] graphics_drm.cpp not found at {drm_cpp}")
-        return False
-
-    repo_script_drm = os.path.join(os.path.dirname(os.path.abspath(__file__)), "graphics_drm.cpp")
-    if os.path.isfile(repo_script_drm):
+    local_drm = os.path.join(os.path.dirname(os.path.abspath(__file__)), "graphics_drm.cpp")
+    if os.path.isfile(drm_cpp) and os.path.isfile(local_drm):
         try:
-            with open(repo_script_drm, "r", encoding="utf-8") as f_src:
-                src_content = f_src.read()
-            with open(drm_cpp, "w", encoding="utf-8") as f_dst:
-                f_dst.write(src_content)
+            with open(local_drm, "r", encoding="utf-8") as f_src:
+                drm_content = f_src.read()
+            write_file_lf(drm_cpp, drm_content)
             print(f"[+] Successfully deployed verified MediaTek single-pipe graphics_drm.cpp to {drm_cpp}")
             return True
         except Exception as e:
-            print(f"[!] Direct copy of graphics_drm.cpp failed ({e})")
+            print(f"[-] Failed copying graphics_drm.cpp: {e}")
     return False
 
 def main():
-    fox_root = sys.argv[1] if len(sys.argv) > 1 else "."
-    print(f"[*] OrangeFox Patch Engine targeting: {os.path.abspath(fox_root)}")
+    if len(sys.argv) < 2:
+        print("Usage: patch_ofox.py <fox_source_root>")
+        sys.exit(1)
+
+    fox_root = sys.argv[1]
+    if not os.path.isdir(fox_root):
+        print(f"[-] Directory does not exist: {fox_root}")
+        sys.exit(1)
+
+    print(f"[*] OrangeFox Patch Engine targeting: {fox_root}")
     patch_envsetup(fox_root)
     patch_flashlight(fox_root)
     patch_haptics(fox_root)

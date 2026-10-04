@@ -29,12 +29,17 @@ void vendor_load_properties()
         property_override(string("ro.product.") + prop + string("model"), "Infinix X6871");
         property_override(string("ro.product.") + prop + string("brand"), "Infinix");
         property_override(string("ro.product.") + prop + string("manufacturer"), "INFINIX");
-        property_override(string("ro.product.") + prop + string("device"), "X6871");
+        property_override(string("ro.product.") + prop + string("device"), "Infinix-X6871");
     }
 
-    property_override("ro.build.product", "X6871");
+    property_override("ro.product.board", "Infinix-X6871");
+    property_override("ro.product.device", "Infinix-X6871");
+    property_override("ro.build.product", "Infinix-X6871");
     property_override("ro.twrp.target.devices", "X6871,Infinix-X6871,Infinix_X6871,X6871-OP");
-    property_override("ro.board.platform", "MediaTek Dimensity 8200 Ultimate (MT6895)");
+    property_override("ro.board.platform", "mt6895");
+    property_override("ro.hardware", "mt6895");
+    property_override("ro.soc.manufacturer", "Mediatek");
+    property_override("ro.soc.model", "MT6896");
 
     // KeyMint HAL Security Patch Level requirement (Early injection before property freeze)
     property_override("ro.vendor.build.security_patch", "2026-07-01");

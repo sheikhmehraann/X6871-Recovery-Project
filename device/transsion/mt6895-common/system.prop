@@ -3,11 +3,13 @@ ro.product.model=Infinix X6871
 ro.product.name=X6871-OP
 ro.product.brand=Infinix
 ro.product.manufacturer=INFINIX
-ro.product.device=X6871
+ro.product.device=Infinix-X6871
 ro.product.marketname=Infinix GT 20 Pro
 ro.orangefox.device_model=Infinix GT 20 Pro
-ro.board.platform=MediaTek Dimensity 8200 Ultimate (MT6895)
+ro.board.platform=mt6895
 ro.hardware=mt6895
+ro.soc.manufacturer=Mediatek
+ro.soc.model=MT6896
 ro.twrp.target.devices=X6871,Infinix-X6871,Infinix_X6871,X6871-OP
 
 
