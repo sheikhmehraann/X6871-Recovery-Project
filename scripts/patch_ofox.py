@@ -254,7 +254,7 @@ def patch_splash(fox_root):
         os.path.join(fox_root, "vendor/recovery"),
         os.path.join(fox_root, "bootable/recovery")
     ]
-    # 1. Scale all splash XMLs to 1080x2436
+    # 1. Scale all splash XMLs to 1080x2436 and ensure SED Splash marker is present
     for sdir in search_dirs:
         if not os.path.isdir(sdir):
             continue
@@ -271,6 +271,9 @@ def patch_splash(fox_root):
                             mod = True
                         if 'value="1920"' in xml_content:
                             xml_content = xml_content.replace('value="1920"', 'value="2436"')
+                            mod = True
+                        if '<!-- SED Splash -->' not in xml_content and '<recovery>' in xml_content:
+                            xml_content = xml_content.replace('<recovery>', '<recovery>\n\t<!-- SED Splash -->')
                             mod = True
                         if mod:
                             with open(fpath, "w", encoding="utf-8") as f:
@@ -300,7 +303,7 @@ def patch_splash(fox_root):
                     except Exception:
                         pass
 
-    # 3. Patch customization.xml with extra customization options and safe image handling
+    # 3. Patch customization.xml with extra customization options, robust PNG handling & instant copy
     for sdir in search_dirs:
         if not os.path.isdir(sdir):
             continue
@@ -312,40 +315,90 @@ def patch_splash(fox_root):
                         with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
                             content = f.read()
 
-                        # Ensure directories exist and validate PNG header
-                        if 'cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk' in content:
-                            content = content.replace(
-                                'cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk',
-                                'mkdir -p /tmp/orangefox/ramdisk/twres/images/Splash/ /tmp/orangefox/ramdisk/twres/themes/sed/; cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk'
+                        # Neutralize the broken legacy check that forces spl_bg_on=0
+                        legacy_sed_check = """\t\t\t\t\tcat $splash | grep "SED Splash";
+\t\t\t\t\tif [ $? -ne 0 ]; then
+\t\t\t\t\t\ttwrp xset spl_bg_user=0;
+\t\t\t\t\t\ttwrp xset spl_bg_on=0;
+\t\t\t\t\tfi;"""
+                        fixed_sed_check = """\t\t\t\t\tif [ -f /twres/images/Splash/user.png ] && [ $(wc -c < /twres/images/Splash/user.png 2>/dev/null || echo 0) -gt 500 ]; then
+\t\t\t\t\t\ttwrp xset spl_bg_on=1;
+\t\t\t\t\t\ttwrp xset spl_bg_user=1;
+\t\t\t\t\tfi;"""
+                        if legacy_sed_check in content:
+                            content = content.replace(legacy_sed_check, fixed_sed_check)
+
+                        # In ext_custom_splash_select, immediately copy picked PNG to user.png
+                        pick_target = '<condition var1="tw_filename" op="modified"/>'
+                        pick_replacement = """<condition var1="tw_filename" op="modified"/>
+\t\t\t\t<action function="set">tw_splash_png_path=%tw_zip_location_tmp%</action>
+\t\t\t\t<action function="set">spl_bg_user=1</action>
+\t\t\t\t<action function="set">spl_bg_on=1</action>
+\t\t\t\t<action function="set">spl_bg_color=#00000000</action>
+\t\t\t\t<action function="cmd">
+\t\t\t\t\tpng_pick="%tw_filename%";
+\t\t\t\t\t[ ! -f "$png_pick" ] &amp;&amp; png_pick="%tw_zip_location_tmp%/%tw_splash_png_name%";
+\t\t\t\t\tif [ -f "$png_pick" ]; then
+\t\t\t\t\t\tmkdir -p /twres/images/Splash/ /tmp/orangefox/ramdisk/twres/images/Splash/ /tmp/orangefox/ramdisk/twres/themes/sed/;
+\t\t\t\t\t\tcp -f "$png_pick" "/twres/images/Splash/user.png";
+\t\t\t\t\t\tcp -f "$png_pick" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png";
+\t\t\t\t\tfi;
+\t\t\t\t</action>"""
+
+                        old_pick_block = re.search(r'<action>\s*<condition var1="tw_filename" op="modified"/>.*?</action>', content, re.DOTALL)
+                        if old_pick_block:
+                            new_pick_full = f"""<action>
+\t\t\t\t{pick_replacement}
+\t\t\t\t<action function="set">of_reload_back=ext_custom_splash</action>
+\t\t\t\t<action function="reload"/>
+\t\t\t</action>"""
+                            content = content.replace(old_pick_block.group(0), new_pick_full)
+
+                        # Robust PNG magic check in apply_splash (tail -c 3 matches "PNG" cleanly)
+                        safe_png_check = """if [[ "%spl_bg_on%" = "1" ]]; then
+\t\t\t\t\t\t\t\timg_to_check="%tw_filename%";
+\t\t\t\t\t\t\t\t[ ! -f "$img_to_check" ] &amp;&amp; img_to_check="%tw_splash_png_path%/%tw_splash_png_name%";
+\t\t\t\t\t\t\t\t[ ! -f "$img_to_check" ] &amp;&amp; img_to_check="/twres/images/Splash/user.png";
+\t\t\t\t\t\t\t\tif [ -f "$img_to_check" ]; then
+\t\t\t\t\t\t\t\t\tpng_mag=$(head -c 4 "$img_to_check" 2>/dev/null | tail -c 3);
+\t\t\t\t\t\t\t\t\tif [ "$png_mag" != "PNG" ]; then
+\t\t\t\t\t\t\t\t\t\techo "E:Selected file is not a valid PNG image! Aborting." >> /tmp/recovery.log;
+\t\t\t\t\t\t\t\t\t\texit 1;
+\t\t\t\t\t\t\t\t\tfi;
+\t\t\t\t\t\t\t\tfi;
+\t\t\t\t\t\t\tfi;"""
+                        if 'if ! head -c 4 "%tw_splash_png_path%/%tw_splash_png_name%" | grep -q "PNG";' in content:
+                            content = re.sub(
+                                r'if \[\[ "%spl_bg_on%" = "1" \]\]; then if ! head -c 4 "%tw_splash_png_path%/%tw_splash_png_name%" \| grep -q "PNG"; then echo "E:Selected file is not a valid PNG image! Aborting." >> /tmp/recovery\.log; exit 1; fi; fi;',
+                                safe_png_check,
+                                content
                             )
 
-                        png_check = 'if [[ "%spl_bg_on%" = "1" ]]; then if ! head -c 4 "%tw_splash_png_path%/%tw_splash_png_name%" | grep -q "PNG"; then echo "E:Selected file is not a valid PNG image! Aborting." >> /tmp/recovery.log; exit 1; fi; fi;'
-                        if png_check not in content and 'if [[ \'%spl_bg_user%\' = \'1\' ]]; then' in content:
-                            content = content.replace(
-                                'if [[ \'%spl_bg_user%\' = \'1\' ]]; then',
-                                f'if [[ \'%spl_bg_user%\' = \'1\' ]]; then\n\t\t\t\t\t\t\t{png_check}'
-                            )
-
-                        # Fix splash size checking and ensure user.png is always preserved when valid
+                        # Fix splash size checking and ensure user.png is preserved
                         cust_size_pattern = r'if \[\[ \'%spl_bg_on%\' = \'1\' \]\] &amp;&amp; \[\[ \"\$\(du -s.*?fi;'
                         cust_size_replacement = """if [[ '%spl_bg_on%' = '1' ]]; then
-\t\t\t\t\t\t\t\timg_sz=$(du -k "%tw_splash_png_path%/%tw_splash_png_name%" 2>/dev/null | cut -f1);
+\t\t\t\t\t\t\t\tsrc_png="%tw_filename%";
+\t\t\t\t\t\t\t\t[ ! -f "$src_png" ] &amp;&amp; src_png="%tw_splash_png_path%/%tw_splash_png_name%";
+\t\t\t\t\t\t\t\t[ ! -f "$src_png" ] &amp;&amp; src_png="/twres/images/Splash/user.png";
+\t\t\t\t\t\t\t\timg_sz=$(du -k "$src_png" 2>/dev/null | cut -f1);
 \t\t\t\t\t\t\t\t[ -z "$img_sz" ] &amp;&amp; img_sz=0;
 \t\t\t\t\t\t\t\tmax_sz="%of_splash_max_size%";
 \t\t\t\t\t\t\t\t[[ -z "$max_sz" || "$max_sz" == "%"* ]] &amp;&amp; max_sz=10240;
 \t\t\t\t\t\t\t\tif [ "$img_sz" -le "$max_sz" ]; then
 \t\t\t\t\t\t\t\t\tbg_on=;
 \t\t\t\t\t\t\t\t\tmkdir -p /tmp/orangefox/ramdisk/twres/images/Splash/ /tmp/orangefox/ramdisk/twres/themes/sed/;
-\t\t\t\t\t\t\t\t\tcp -f "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png";
-\t\t\t\t\t\t\t\t\tcp -f "%tw_splash_png_path%/%tw_splash_png_name%" "/twres/images/Splash/user.png";
+\t\t\t\t\t\t\t\t\tcp -f "$src_png" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png";
+\t\t\t\t\t\t\t\t\tcp -f "$src_png" "/twres/images/Splash/user.png";
 \t\t\t\t\t\t\t\telse
 \t\t\t\t\t\t\t\t\tbg_on=!--;
 \t\t\t\t\t\t\t\t\techo "E:The splash image exceeds maximum allowed size ($max_sz KB)." >> /tmp/recovery.log;
 \t\t\t\t\t\t\t\tfi;
 \t\t\t\t\t\t\telse
 \t\t\t\t\t\t\t\tbg_on=!--;
-\t\t\t\t\t\t\t\tcp -f "/twres/images/Splash/empty.png" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png" 2>/dev/null;
-\t\t\t\t\t\t\t\tcp -f "/twres/images/Splash/empty.png" "/twres/images/Splash/user.png" 2>/dev/null;
+\t\t\t\t\t\t\t\tif [[ '%spl_bg_user%' = '0' ]]; then
+\t\t\t\t\t\t\t\t\tcp -f "/twres/images/Splash/empty.png" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png" 2>/dev/null;
+\t\t\t\t\t\t\t\t\tcp -f "/twres/images/Splash/empty.png" "/twres/images/Splash/user.png" 2>/dev/null;
+\t\t\t\t\t\t\t\tfi;
 \t\t\t\t\t\t\tfi;"""
                         if re.search(cust_size_pattern, content, re.DOTALL):
                             content = re.sub(cust_size_pattern, cust_size_replacement, content, flags=re.DOTALL)
@@ -409,7 +462,7 @@ def patch_splash(fox_root):
 
                         with open(fpath, "w", encoding="utf-8") as f:
                             f.write(content)
-                        print(f"[+] Enhanced {fpath} with stock restore, export, colors, and validation")
+                        print(f"[+] Enhanced {fpath} with stock restore, export, colors, and robust validation")
                     except Exception as e:
                         print(f"[-] Failed patching {fpath}: {e}")
     return True
@@ -422,41 +475,84 @@ def patch_identity_and_banner(fox_root):
             with open(twrp_funcs_cpp, "r", encoding="utf-8", errors="ignore") as f:
                 c = f.read()
 
-            # Clean device identity format: Infinix GT 20 Pro (Infinix X6871)
-            c = re.sub(
-                r'gui_print\s*\(\s*"\*\s*Device:\s*%s\s*\(\s*%s\s*\)\\n"\s*,\s*TWFunc::Fox_Property_Get\("ro\.product\.device"\)\.c_str\(\)\s*,\s*TWFunc::Fox_Property_Get\("ro\.product\.system\.device"\)\.c_str\(\)\s*\);',
-                'gui_print("* Device:     Infinix GT 20 Pro (Infinix X6871)\\n");\n       gui_print("* Platform:   MediaTek Dimensity 8200 Ultimate (MT6895)\\n");',
-                c
-            )
-
             # Clean platform in Welcome_Message
             c = re.sub(
-                r'gui_print\s*\(\s*"\[Platform\]\s*:\s*%s\\n"\s*,\s*DataManager::GetStrValue\(FOX_COMPATIBILITY_DEVICE\)\.c_str\(\)\s*\);',
+                r'gui_print\s*\(\s*"\[Platform\]\s*:\s*%s\\n"\s*,\s*DataManager::GetStrValue\([^)]+\)\.c_str\(\)\s*\);',
                 'gui_print("[Platform]  : MediaTek Dimensity 8200 Ultimate (MT6895)\\n");',
                 c
             )
 
             # Clean boot slot: Slot A / Slot B
-            slot_pattern = r'tmp\s*=\s*Fox_Property_Get\("ro\.boot\.slot_suffix"\);\s*\n\s*if\s*\(!tmp\.empty\(\)\)\s*\{\s*\n\s*gui_print\("\*\s*Boot slot:\s*%s\\n",\s*tmp\.c_str\(\)\);'
+            slot_pattern = r'tmp\s*=\s*Fox_Property_Get\("ro\.boot\.slot_suffix"\);\s*\n\s*if\s*\(!tmp\.empty\(\)\)\s*\{\s*\n\s*gui_msg\(Msg\(msg::kInfo,\s*"fox_boot_slot=\*\s*Boot slot:\s*\{1\}"\)\(tmp\)\);'
             slot_replacement = """tmp = Fox_Property_Get("ro.boot.slot_suffix");
   if (!tmp.empty()) {
        std::string slot_fmt = (tmp == "_a" || tmp == "a" || tmp == "0") ? "Slot A" : "Slot B";
-       gui_print("* Boot slot:  %s\\n", slot_fmt.c_str());"""
-            c = re.sub(slot_pattern, slot_replacement, c)
+       gui_msg(Msg(msg::kInfo, "fox_boot_slot=* Boot slot:  {1}")(slot_fmt));"""
+            if re.search(slot_pattern, c):
+                c = re.sub(slot_pattern, slot_replacement, c)
+
+            # Stock XOS ROM detection in twrp-functions.cpp
+            rom_status_pattern = r'if\s*\(\s*miui\s*==\s*"1"\s*\)\s*\{\s*\n\s*gui_msg\(Msg\(msg::kInfo,\s*"fox_miui_rom=\*\s*MIUI ROM\s*\(SDK:\{1\},\s*\{2\}\)"\)\(tmp3\)\(tmp2\)\);\s*\n\s*\}\s*else\s*\{\s*\n\s*gui_msg\(Msg\(msg::kInfo,\s*"fox_custom_rom=\*\s*Custom ROM\s*\(SDK:\{1\},\s*\{2\}\)"\)\(tmp3\)\(tmp2\)\);\s*\n\s*\}'
+            rom_status_replacement = """if (Fox_Property_Get("orangefox.stock.xos") == "1") {
+       gui_msg(Msg(msg::kInfo, "fox_stock_xos=* Stock XOS ROM (SDK:{1}, {2})")(tmp3)(tmp2));
+  } else if (miui == "1") {
+       gui_msg(Msg(msg::kInfo, "fox_miui_rom=* MIUI ROM (SDK:{1}, {2})")(tmp3)(tmp2));
+  } else {
+       gui_msg(Msg(msg::kInfo, "fox_custom_rom=* Custom ROM (SDK:{1}, {2})")(tmp3)(tmp2));
+  }"""
+            if re.search(rom_status_pattern, c):
+                c = re.sub(rom_status_pattern, rom_status_replacement, c)
 
             with open(twrp_funcs_cpp, "w", encoding="utf-8") as f:
                 f.write(c)
-            print("[+] Successfully patched twrp-functions.cpp with Infinix GT 20 Pro static & clean slot banner")
+            print("[+] Successfully patched twrp-functions.cpp with dynamic stock XOS & clean slot banner")
         except Exception as e:
             print(f"[-] Failed patching banner in twrp-functions.cpp: {e}")
 
-    # 2. Patch language files (en.xml) - preserve native {1} ({2}) format
+    # 2. Patch data.cpp to set fox_compatibility_fox_device to Dimensity 8200 Ultimate
+    data_cpp = os.path.join(fox_root, "bootable/recovery/data.cpp")
+    if os.path.isfile(data_cpp):
+        try:
+            with open(data_cpp, "r", encoding="utf-8", errors="ignore") as f:
+                dc = f.read()
+            dc = re.sub(
+                r'mConst\.SetValue\s*\(\s*"fox_compatibility_fox_device"\s*,\s*[^)]+\);',
+                'mConst.SetValue("fox_compatibility_fox_device", "MediaTek Dimensity 8200 Ultimate (MT6895)");',
+                dc
+            )
+            with open(data_cpp, "w", encoding="utf-8") as f:
+                f.write(dc)
+            print("[+] Successfully patched data.cpp with fox_compatibility_fox_device platform string")
+        except Exception as e:
+            print(f"[-] Failed patching data.cpp: {e}")
+
+    # 3. Patch language files (en.xml) - add fox_stock_xos string
     search_dirs = [
         os.path.join(fox_root, "vendor/recovery"),
         os.path.join(fox_root, "bootable/recovery")
     ]
+    for sdir in search_dirs:
+        if not os.path.isdir(sdir):
+            continue
+        for root, _, files in os.walk(sdir):
+            for file in files:
+                if file.endswith(".xml") and "en.xml" in file:
+                    fpath = os.path.join(root, file)
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            xc = f.read()
+                        if 'name="fox_stock_xos"' not in xc and 'name="fox_custom_rom"' in xc:
+                            xc = xc.replace(
+                                '<string name="fox_custom_rom">',
+                                '<string name="fox_stock_xos">* Stock XOS ROM (SDK:{1}, {2})</string>\n\t\t<string name="fox_custom_rom">'
+                            )
+                            with open(fpath, "w", encoding="utf-8") as f:
+                                f.write(xc)
+                            print(f"[+] Added fox_stock_xos to {fpath}")
+                    except Exception:
+                        pass
 
-    # 3. Patch foxstart.sh
+    # 4. Patch foxstart.sh with dynamic stock Transsion partition probing (100% dynamic, same-to-same)
     for sdir in search_dirs:
         if not os.path.isdir(sdir):
             continue
@@ -469,31 +565,189 @@ def patch_identity_and_banner(fox_root):
                             content = f.read()
                         orig = content
 
-                        # Prioritize system build.prop ($PROP) over vendor BSP ($V_PROP)
-                        content = re.sub(
-                            r'\[\s*-n\s*"\$V_PROP"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$V_PROP"\s*"ro\.vendor\.build\.version\.sdk"\)\s*\n\s*\[\s*-z\s*"\$tmp3"\s*\]\s*&&\s*t?tmp3=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.version\.sdk"\)\s*\n\s*\[\s*-z\s*"\$tmp3"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$PROP"\s*"ro\.system\.build\.version\.sdk"\)',
-                            'tmp3=$(file_getprop "$PROP" "ro.build.version.sdk")\n        [ -z "$tmp3" ] && tmp3=$(file_getprop "$PROP" "ro.system.build.version.sdk")\n        [ -z "$tmp3" ] && [ -n "$V_PROP" ] && tmp3=$(file_getprop "$V_PROP" "ro.vendor.build.version.sdk")',
-                            content
-                        )
-                        content = re.sub(
-                            r'\[\s*-n\s*"\$V_PROP"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$V_PROP"\s*"ro\.vendor\.build\.version\.release"\)\s*\n\s*\[\s*-z\s*"\$tmp3"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.version\.release"\)\s*\n\s*\[\s*-z\s*"\$tmp3"\s*\]\s*&&\s*tmp3=\$\(file_getprop\s*"\$PROP"\s*"ro\.system\.build\.version\.release"\)',
-                            'tmp3=$(file_getprop "$PROP" "ro.build.version.release")\n        [ -z "$tmp3" ] && tmp3=$(file_getprop "$PROP" "ro.system.build.version.release")\n        [ -z "$tmp3" ] && [ -n "$V_PROP" ] && tmp3=$(file_getprop "$V_PROP" "ro.vendor.build.version.release")',
-                            content
-                        )
-                        content = re.sub(
-                            r'\[\s*-n\s*"\$V_PROP"\s*\]\s*&&\s*FP=\$\(file_getprop\s*"\$V_PROP"\s*"ro\.vendor\.build\.fingerprint"\)\s*\n\s*\[\s*-z\s*"\$FP"\s*\]\s*&&\s*FP=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.version\.base_os"\)\s*\n\s*\[\s*-z\s*"\$FP"\s*\]\s*&&\s*FP=\$\(file_getprop\s*"\$PROP"\s*"ro\.build\.fingerprint"\)\s*\n\s*\[\s*-z\s*"\$FP"\s*\]\s*&&\s*FP=\$\(file_getprop\s*"\$PROP"\s*"ro\.system\.build\.fingerprint"\)',
-                            'FP=$(file_getprop "$PROP" "ro.build.fingerprint")\n        [ -z "$FP" ] && FP=$(file_getprop "$PROP" "ro.system.build.fingerprint")\n        [ -z "$FP" ] && [ -n "$V_PROP" ] && FP=$(file_getprop "$V_PROP" "ro.vendor.build.fingerprint")\n        [ -z "$FP" ] && FP=$(file_getprop "$PROP" "ro.build.version.base_os")',
-                            content
-                        )
+                        get_rom_pat = r'get_ROM\(\)\s*\{.*?echo "\$tmp2"\s*\n\}'
+                        get_rom_code = '''get_ROM() {
+local S="/tmp_system_rom"
+local PROP="$S/build.prop"
+local V="/vendor"
+local V_PROP="$V/build.prop"
+local found_vendor_prop="0"
+local slot=$(getprop "ro.boot.slot_suffix")
 
-                        target = 'ROM=$(get_ROM)'
-                        replacement = """ROM=$(get_ROM)
-   # Dynamic runtime device identity detection (Clean Native OrangeFox Standard)
-   # Static Device Identity (Infinix GT 20 Pro - X6871)
+   local tmp01=$(echo "$SYSTEM_BLOCK" | grep "/dm-")
+   [ -n "$tmp01" ] && slot=""
+
+   mkdir -p $OUR_TMP
+
+   # Dynamic probe of stock Transsion product & tr_product partitions
+   local TR_P="$OUR_TMP/tr_product_build_prop"
+   local PR_P="$OUR_TMP/product_build_prop"
+   local tmp_trans="/tmp_transsion"
+   mkdir -p "$tmp_trans"
+
+   for pblk in /dev/block/mapper/product$slot /dev/block/by-name/product$slot; do
+      if [ -b "$pblk" ]; then
+         $MOUNT_CMD "$pblk" "$tmp_trans" > /dev/null 2>&1
+         if [ -f "$tmp_trans/etc/build.prop" ]; then
+            cp -f "$tmp_trans/etc/build.prop" "$PR_P" > /dev/null 2>&1
+         elif [ -f "$tmp_trans/build.prop" ]; then
+            cp -f "$tmp_trans/build.prop" "$PR_P" > /dev/null 2>&1
+         fi
+         umount "$tmp_trans" > /dev/null 2>&1
+         break
+      fi
+   done
+
+   for pblk in /dev/block/mapper/tr_product$slot /dev/block/by-name/tr_product$slot; do
+      if [ -b "$pblk" ]; then
+         $MOUNT_CMD "$pblk" "$tmp_trans" > /dev/null 2>&1
+         if [ -f "$tmp_trans/etc/build.prop" ]; then
+            cp -f "$tmp_trans/etc/build.prop" "$TR_P" > /dev/null 2>&1
+         elif [ -f "$tmp_trans/build.prop" ]; then
+            cp -f "$tmp_trans/build.prop" "$TR_P" > /dev/null 2>&1
+         fi
+         umount "$tmp_trans" > /dev/null 2>&1
+         break
+      fi
+   done
+   rmdir "$tmp_trans" > /dev/null 2>&1
+
+   # Mount /system
+   if [ -d "$S" ]; then
+      DebugMsg "$S already exists"
+      umount $S > /dev/null 2>&1
+   else
+      DebugMsg "Creating $S"
+      mkdir -p $S
+   fi
+
+   $MOUNT_CMD -t ext4 $SYSTEM_BLOCK"$slot" $S > /dev/null 2>&1
+   [ "$?" != "0" ] && $MOUNT_CMD -t erofs $SYSTEM_BLOCK"$slot" $S > /dev/null 2>&1
+
+   [ ! -e "$PROP" ] && PROP="$S/system/build.prop"
+   if [ -e "$PROP" ]; then
+      cp $PROP "$OUR_TMP/system_build_prop" > /dev/null 2>&1
+      PROP="$OUR_TMP/system_build_prop"
+   fi
+   umount $S > /dev/null 2>&1
+   rmdir $S > /dev/null 2>&1
+
+   # Vendor prop
+   local mv1="0"
+   [ ! -d "$V" ] && mkdir -p $V > /dev/null 2>&1
+   if [ -d "$V" ]; then
+      ! is_mounted $V && {
+         $MOUNT_CMD $V > /dev/null 2>&1
+         is_mounted $V && mv1="1"
+      }
+      is_mounted $V && {
+         [ -f $V_PROP ] && {
+           found_vendor_prop=1
+           cp $V_PROP "$OUR_TMP/vendor_build_prop" > /dev/null 2>&1
+           V_PROP="$OUR_TMP/vendor_build_prop"
+           [ "$mv1" = "1" ] && umount $V > /dev/null 2>&1
+         }
+      }
+   fi
+   [ "$found_vendor_prop" != "1" ] && V_PROP=""
+
+   # Priority: tr_product -> product -> system -> vendor (100% dynamic, stock exact)
+   local tmp2=""
+   [ -f "$TR_P" ] && tmp2=$(file_getprop "$TR_P" "ro.build.display.id")
+   [ -z "$tmp2" ] && [ -f "$PR_P" ] && tmp2=$(file_getprop "$PR_P" "ro.build.display.id")
+   [ -z "$tmp2" ] && [ -f "$PROP" ] && tmp2=$(file_getprop "$PROP" "ro.build.display.id")
+   [ -z "$tmp2" ] && [ -n "$V_PROP" ] && tmp2=$(file_getprop "$V_PROP" "ro.vendor.build.id")
+   [ -z "$tmp2" ] && [ -f "$PROP" ] && tmp2=$(file_getprop "$PROP" "ro.build.id")
+   [ -z "$tmp2" ] && [ -f "$PROP" ] && tmp2=$(file_getprop "$PROP" "ro.system.build.id")
+
+   if [ -z "$tmp2" ]; then
+      echo "DEBUG: OrangeFox: I cannot find the ROM information!" >> $LOG
+      echo ""
+      return
+   fi
+
+   # SDK version
+   local tmp3=""
+   [ -f "$PR_P" ] && tmp3=$(file_getprop "$PR_P" "ro.product.build.version.sdk")
+   [ -z "$tmp3" ] && [ -f "$TR_P" ] && tmp3=$(file_getprop "$TR_P" "ro.tr_product.build.version.sdk")
+   [ -z "$tmp3" ] && [ -f "$PROP" ] && tmp3=$(file_getprop "$PROP" "ro.build.version.sdk")
+   [ -z "$tmp3" ] && [ -f "$PROP" ] && tmp3=$(file_getprop "$PROP" "ro.system.build.version.sdk")
+   [ -z "$tmp3" ] && [ -n "$V_PROP" ] && tmp3=$(file_getprop "$V_PROP" "ro.vendor.build.version.sdk")
+   [ -n "$tmp3" ] && {
+      ANDROID_SDK="$tmp3"
+      $SETPROP orangefox.rom.sdk "$tmp3" > /dev/null 2>&1
+      echo "DEBUG: OrangeFox: ANDROID_SDK=$ANDROID_SDK" >> $LOG
+      echo "ANDROID_SDK=$ANDROID_SDK" >> $CFG
+   }
+
+   # Incremental version (Stock device exact)
+   local inc_ver=""
+   [ -f "$TR_P" ] && inc_ver=$(file_getprop "$TR_P" "ro.build.version.incremental")
+   [ -z "$inc_ver" ] && [ -f "$PR_P" ] && inc_ver=$(file_getprop "$PR_P" "ro.product.build.version.incremental")
+   [ -z "$inc_ver" ] && [ -f "$PROP" ] && inc_ver=$(file_getprop "$PROP" "ro.build.version.incremental")
+   [ -z "$inc_ver" ] && [ -n "$V_PROP" ] && inc_ver=$(file_getprop "$V_PROP" "ro.vendor.build.version.incremental")
+   [ -n "$inc_ver" ] && {
+      echo "DEBUG: OrangeFox: INCREMENTAL_VERSION=$inc_ver" >> $LOG
+      echo "INCREMENTAL_VERSION=$inc_ver" >> $CFG
+      [ -x "$SETPROP" ] && {
+         $SETPROP "ro.build.version.incremental" "$inc_ver" > /dev/null 2>&1
+         $SETPROP "orangefox.system.incremental" "$inc_ver" > /dev/null 2>&1
+      }
+   }
+
+   # Release version
+   local rel_ver=""
+   [ -f "$PR_P" ] && rel_ver=$(file_getprop "$PR_P" "ro.product.build.version.release")
+   [ -z "$rel_ver" ] && [ -f "$TR_P" ] && rel_ver=$(file_getprop "$TR_P" "ro.tr_product.build.version.release")
+   [ -z "$rel_ver" ] && [ -f "$PROP" ] && rel_ver=$(file_getprop "$PROP" "ro.build.version.release")
+   [ -z "$rel_ver" ] && [ -n "$V_PROP" ] && rel_ver=$(file_getprop "$V_PROP" "ro.vendor.build.version.release")
+   [ -n "$rel_ver" ] && {
+      RELEASE_VERSION="$rel_ver"
+      echo "DEBUG: OrangeFox: RELEASE_VERSION=$rel_ver" >> $LOG
+      echo "RELEASE_VERSION=$rel_ver" >> $CFG
+      [ -x "$SETPROP" ] && {
+         $SETPROP "ro.build.version.release" "$rel_ver" > /dev/null 2>&1
+         $SETPROP "orangefox.system.release" "$rel_ver" > /dev/null 2>&1
+      }
+   }
+
+   # Fingerprint (Stock device exact)
+   local FP=""
+   [ -f "$PR_P" ] && FP=$(file_getprop "$PR_P" "ro.product.build.fingerprint")
+   [ -z "$FP" ] && [ -f "$TR_P" ] && FP=$(file_getprop "$TR_P" "ro.tr_product.build.fingerprint")
+   [ -z "$FP" ] && [ -f "$PROP" ] && FP=$(file_getprop "$PROP" "ro.build.fingerprint")
+   [ -z "$FP" ] && [ -n "$V_PROP" ] && FP=$(file_getprop "$V_PROP" "ro.vendor.build.fingerprint")
+   [ -n "$FP" ] && {
+      echo "ROM_FINGERPRINT=$FP" >> $CFG
+      echo "DEBUG: OrangeFox: ROM_FINGERPRINT=$FP" >> $LOG
+      [ -x "$SETPROP" ] && {
+         $SETPROP "ro.build.fingerprint" "$FP" > /dev/null 2>&1
+         $SETPROP "orangefox.system.fingerprint" "$FP" > /dev/null 2>&1
+      }
+   }
+
+   # Stock XOS identity detection
+   if [ -f "$TR_P" ] || [ -f "$PR_P" ]; then
+      $SETPROP orangefox.stock.xos "1" > /dev/null 2>&1
+      $SETPROP ro.orangefox.stock_rom "1" > /dev/null 2>&1
+   fi
+
+   # Dynamic hardware & device identity
+   local dev_name=""
+   [ -f "$PR_P" ] && dev_name=$(file_getprop "$PR_P" "ro.product.product.tran.device.name.default")
+   [ -z "$dev_name" ] && dev_name="Infinix GT 20 Pro"
+
+   local dev_model=""
+   [ -f "$TR_P" ] && dev_model=$(file_getprop "$TR_P" "ro.product.tr_product.model")
+   [ -z "$dev_model" ] && [ -f "$PR_P" ] && dev_model=$(file_getprop "$PR_P" "ro.product.product.model")
+   [ -z "$dev_model" ] && dev_model="Infinix X6871"
+
    [ -x "$SETPROP" ] && {
+      $SETPROP "ro.orangefox.device_model" "$dev_name" > /dev/null 2>&1
+      $SETPROP "ro.product.system.device" "$dev_model" > /dev/null 2>&1
+      $SETPROP "ro.product.marketname" "$dev_name" > /dev/null 2>&1
+      $SETPROP "ro.product.model" "$dev_model" > /dev/null 2>&1
       $SETPROP "ro.product.brand" "Infinix" > /dev/null 2>&1
-      $SETPROP "ro.product.model" "Infinix X6871" > /dev/null 2>&1
-      $SETPROP "ro.product.marketname" "Infinix GT 20 Pro" > /dev/null 2>&1
       $SETPROP "ro.product.device" "X6871" > /dev/null 2>&1
       $SETPROP "ro.build.product" "X6871" > /dev/null 2>&1
       $SETPROP "ro.twrp.target.devices" "X6871,Infinix-X6871,Infinix_X6871,X6871-OP" > /dev/null 2>&1
@@ -501,21 +755,21 @@ def patch_identity_and_banner(fox_root):
       $SETPROP "ro.hardware" "mt6895" > /dev/null 2>&1
       $SETPROP "ro.soc.manufacturer" "MediaTek" > /dev/null 2>&1
       $SETPROP "ro.soc.model" "Dimensity 8200 Ultimate" > /dev/null 2>&1
-      [ -n "$ROM" ] && $SETPROP "ro.build.display.id" "$ROM" > /dev/null 2>&1
-      [ -n "$FP" ] && $SETPROP "ro.build.fingerprint" "$FP" > /dev/null 2>&1
-      [ -n "$RELEASE_VERSION" ] && $SETPROP "ro.build.version.release" "$RELEASE_VERSION" > /dev/null 2>&1
-      [ -n "$ANDROID_SDK" ] && $SETPROP "ro.build.version.sdk" "$ANDROID_SDK" > /dev/null 2>&1
+      [ -n "$tmp2" ] && $SETPROP "ro.build.display.id" "$tmp2" > /dev/null 2>&1
       slot_raw=$(getprop "ro.boot.slot_suffix")
       slot_clean=$(echo "$slot_raw" | tr -d '_' | tr '[:lower:]' '[:upper:]')
       [ -n "$slot_clean" ] && $SETPROP "ro.boot.slot" "Slot $slot_clean" > /dev/null 2>&1
-   }"""
-                        if target in content and "Static Device Identity" not in content:
-                            content = content.replace(target, replacement, 1)
+   }
+
+   echo "$tmp2"
+}'''
+                        if re.search(get_rom_pat, content, re.DOTALL):
+                            content = re.sub(get_rom_pat, get_rom_code, content, flags=re.DOTALL)
 
                         if content != orig:
                             with open(fpath, "w", encoding="utf-8") as f:
                                 f.write(content)
-                            print(f"[+] Patched {fpath} with dynamic runtime identity detection")
+                            print(f"[+] Patched {fpath} with dynamic stock Transsion partition engine")
                     except Exception as e:
                         print(f"[-] Failed patching {fpath}: {e}")
     return True
@@ -531,10 +785,12 @@ def patch_slot_switching(fox_root):
             slot_pattern = r'if\s*\(\s*module->setActiveBootSlot\s*\(\s*module\s*,\s*slot_number\s*\)\s*\)(?:\s*\{)?\s*gui_msg\s*\(\s*Msg\s*\(\s*msg::kError\s*,\s*"unable_set_boot_slot=Error changing bootloader boot slot to \{1\}"\s*\)\s*\(\s*Slot\s*\)\s*\);\s*(?:return\s+false\s*;\s*\})?'
             slot_replacement = """int set_res = module->setActiveBootSlot(module, slot_number);
 \t\tif (set_res != 0) {
+\t\t\tstd::string bctl_cmd = "bootctl set-active-boot-slot " + std::to_string(slot_number);
 \t\t\tstd::string bctl_out;
+\t\t\tTWFunc::Exec_Cmd(bctl_cmd, bctl_out);
 \t\t\tint bctl_ret = TWFunc::Exec_Cmd("bootctl get-active-boot-slot", bctl_out);
 \t\t\tif (bctl_ret == 0 && bctl_out.find(std::to_string(slot_number)) != std::string::npos) {
-\t\t\t\tLOGINFO("setActiveBootSlot reported error %d, but bootctl verified active slot is %d\\n", set_res, slot_number);
+\t\t\t\tLOGINFO("setActiveBootSlot reported %d, successfully switched via bootctl CLI to slot %d\\n", set_res, slot_number);
 \t\t\t} else {
 \t\t\t\tgui_msg(Msg(msg::kError, "unable_set_boot_slot=Error changing bootloader boot slot to {1}")(Slot));
 \t\t\t\treturn false;
