@@ -407,7 +407,32 @@ def patch_splash(fox_root):
 		</page>'''
 
     page_select = '''		<page name="ext_custom_splash_select">
-			<template name="dialog_base"/>
+			<fileselector style="fileselector_b">
+				<condition var1="list_font" var2="1"/>
+				<placement x="0" y="%row_ab_ex_y%" w="%fileselector_width%" h="%fileselector_terminal_height%"/>
+				<sort name="tw_gui_sort_order"/>
+				<icon folder="folder_icon" file="file_icon" />
+				<filter folders="1" files="1" extn=".png"/>
+				<path name="tw_zip_location_tmp" default="/sdcard"/>
+				<data name="tw_filename"/>
+				<selection name="tw_splash_png_name"/>
+			</fileselector>
+
+			<fileselector style="fileselector_s">
+				<condition var1="list_font" op="!=" var2="1"/>
+				<placement x="0" y="%row_ab_ex_y%" w="%fileselector_width%" h="%fileselector_terminal_height%"/>
+				<sort name="tw_gui_sort_order"/>
+				<icon folder="folder_icon_small" file="file_icon_small" />
+				<filter folders="1" files="1" extn=".png"/>
+				<path name="tw_zip_location_tmp" default="/sdcard"/>
+				<data name="tw_filename"/>
+				<selection name="tw_splash_png_name"/>
+			</fileselector>
+
+			<template name="base_ex"/>
+
+			<template name="actionbar_sort"/>
+			<template name="actionbar_storage"/>
 
 			<text style="text_ab_title">
 				<placement x="%col1_x_indent%" y="%ab_bc_y%"/>
@@ -423,16 +448,7 @@ def patch_splash(fox_root):
 				<placement x="%col1_x%" y="%row1_2_y%"/>
 				<text>%tw_zip_location_tmp%</text>
 			</text>
-
-			<fileselector style="fileselector_full">
-				<placement x="0" y="%row2_1_y%" w="%screen_w%" h="%fileselector_h%"/>
-				<sort name="tw_gui_sort_order"/>
-				<filter extn=".png"/>
-				<path name="tw_zip_location_tmp" default="/sdcard"/>
-				<data name="tw_filename"/>
-				<selection name="tw_splash_png_name"/>
-			</fileselector>
-
+				
 			<action>
 				<condition var1="tw_filename" op="modified"/>
 				<action function="set">tw_splash_png_path=%tw_zip_location_tmp%</action>
@@ -669,25 +685,24 @@ def patch_identity_and_banner(fox_root):
             with open(twrp_funcs_cpp, "r", encoding="utf-8", errors="ignore") as f:
                 c = f.read()
 
-            # Clean platform in Welcome_Message
-            c = re.sub(
-                r'gui_print\s*\(\s*"\[Platform\]\s*:\s*%s\\n"\s*,\s*DataManager::GetStrValue\([^)]+\)\.c_str\(\)\s*\);',
-                'gui_print("[Platform]  : MediaTek Dimensity 8200 Ultimate (MT6895)\\n");',
-                c
-            )
+            # Clean platform in Check_MIUI_Treble
+            p_plat = r'gui_msg\s*\(\s*Msg\s*\(\s*msg::kInfo\s*,\s*"fox_platform=\*\s*Platform:\s*\{1\}"\s*\)\s*\([^)]+\)\s*\);'
+            c = re.sub(p_plat, 'gui_msg(Msg(msg::kInfo, "fox_platform=* Platform:   {1}")("MediaTek Dimensity 8200 Ultimate (MT6895)"));', c)
+
+            # Clean device in Check_MIUI_Treble
+            p_dev = r'gui_msg\s*\(\s*Msg\s*\(\s*msg::kInfo\s*,\s*"fox_device=\*\s*Device:\s*\{1\}\s*\(\{2\}\)"\s*\)\s*\([^)]+\)\s*\([^)]+\)\s*\);'
+            c = re.sub(p_dev, 'gui_msg(Msg(msg::kInfo, "fox_device=* Device:     {1} ({2})")("Infinix GT 20 Pro")("Infinix X6871"));', c)
 
             # Clean boot slot: Slot A / Slot B
-            slot_pattern = r'tmp\s*=\s*Fox_Property_Get\("ro\.boot\.slot_suffix"\);\s*\n\s*if\s*\(!tmp\.empty\(\)\)\s*\{\s*\n\s*gui_msg\(Msg\(msg::kInfo,\s*"fox_boot_slot=\*\s*Boot slot:\s*\{1\}"\)\(tmp\)\);'
-            slot_replacement = """tmp = Fox_Property_Get("ro.boot.slot_suffix");
-  if (!tmp.empty()) {
-       std::string slot_fmt = (tmp == "_a" || tmp == "a" || tmp == "0") ? "Slot A" : "Slot B";
-       gui_msg(Msg(msg::kInfo, "fox_boot_slot=* Boot slot:  {1}")(slot_fmt));"""
-            if re.search(slot_pattern, c):
-                c = re.sub(slot_pattern, slot_replacement, c)
+            p_slot = r'gui_msg\s*\(\s*Msg\s*\(\s*msg::kInfo\s*,\s*"fox_boot_slot=\*\s*Boot slot:\s*\{1\}"\s*\)\s*\([^)]+\)\s*\);'
+            slot_replacement = """std::string slot_cur = Fox_Property_Get("ro.boot.slot_suffix");
+std::string slot_fmt = (slot_cur == "_b" || slot_cur == "b" || slot_cur == "1") ? "Slot B" : "Slot A";
+gui_msg(Msg(msg::kInfo, "fox_boot_slot=* Boot slot:  {1}")(slot_fmt));"""
+            c = re.sub(p_slot, slot_replacement, c)
 
             # Stock XOS ROM detection in twrp-functions.cpp
             rom_status_pattern = r'if\s*\(\s*miui\s*==\s*"1"\s*\)\s*\{\s*\n\s*gui_msg\(Msg\(msg::kInfo,\s*"fox_miui_rom=\*\s*MIUI ROM\s*\(SDK:\{1\},\s*\{2\}\)"\)\(tmp3\)\(tmp2\)\);\s*\n\s*\}\s*else\s*\{\s*\n\s*gui_msg\(Msg\(msg::kInfo,\s*"fox_custom_rom=\*\s*Custom ROM\s*\(SDK:\{1\},\s*\{2\}\)"\)\(tmp3\)\(tmp2\)\);\s*\n\s*\}'
-            rom_status_replacement = """if (Fox_Property_Get("orangefox.stock.xos") == "1") {
+            rom_status_replacement = """if (Fox_Property_Get("orangefox.stock.xos") == "1" || Fox_Property_Get("ro.orangefox.stock_rom") == "1" || Fox_Property_Get("ro.build.display.id").find("X6871") != std::string::npos) {
        gui_msg(Msg(msg::kInfo, "fox_stock_xos=* Stock XOS ROM (SDK:{1}, {2})")(tmp3)(tmp2));
   } else if (miui == "1") {
        gui_msg(Msg(msg::kInfo, "fox_miui_rom=* MIUI ROM (SDK:{1}, {2})")(tmp3)(tmp2));
@@ -699,7 +714,7 @@ def patch_identity_and_banner(fox_root):
 
             with open(twrp_funcs_cpp, "w", encoding="utf-8") as f:
                 f.write(c)
-            print("[+] Successfully patched twrp-functions.cpp with dynamic stock XOS & clean slot banner")
+            print("[+] Successfully patched twrp-functions.cpp with dynamic stock XOS, Dimensity 8200 & clean slot banner")
         except Exception as e:
             print(f"[-] Failed patching banner in twrp-functions.cpp: {e}")
 
