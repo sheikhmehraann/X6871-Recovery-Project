@@ -48,3 +48,11 @@ ro.hardware.gatekeeper=trustonic
 ro.vendor.mtk_tee_gp_support=1
 ro.vendor.mtk_trustonic_tee_support=1
 
+# Virtual A/B & Snapshot OTA properties for AOSP update_engine
+ro.virtual_ab.enabled=true
+ro.virtual_ab.compression.enabled=true
+ro.virtual_ab.io_uring.enabled=true
+ro.virtual_ab.retrofit=false
+ro.boot.dynamic_partitions=true
+ro.boot.dynamic_partitions_retrofit=false
+

@@ -207,20 +207,35 @@ def patch_magiskboot_vendor_boot(fox_root):
     if "vendor_ramdisk_recovery.cpio ramdisk.cpio" not in content:
         content = re.sub(unpack_pattern, unpack_inject, content)
 
-    # 4. Inject fast in-place CPIO splash addition & vendor_ramdisk_recovery.cpio copy before magiskboot repack in cmd_script2
+    # 4. Inject fast in-place CPIO splash addition & dual-slot vendor_boot sync in cmd_script2
     repack_pattern = r'(AppendLineToFile\s*\(\s*cmd_script2,\s*magiskboot_sbin\s*\+\s*" repack)'
     repack_inject = r'''// Fast in-place splash update via magiskboot cpio (sub-second turnaround)
 	        AppendLineToFile (cmd_script2, "if [ -f /tmp/orangefox/ramdisk/twres/splash.xml ]; then");
-	        AppendLineToFile (cmd_script2, "  " + magiskboot_sbin + " cpio ramdisk.cpio 'add 0644 twres/splash.xml /tmp/orangefox/ramdisk/twres/splash.xml'");
-	        AppendLineToFile (cmd_script2, "  if [ -f /tmp/orangefox/ramdisk/twres/images/Splash/user.png ]; then");
-	        AppendLineToFile (cmd_script2, "    " + magiskboot_sbin + " cpio ramdisk.cpio 'add 0644 twres/images/Splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png'");
-	        AppendLineToFile (cmd_script2, "  fi");
+	        AppendLineToFile (cmd_script2, "  for cpio_file in vendor_ramdisk_recovery.cpio ramdisk.cpio; do");
+	        AppendLineToFile (cmd_script2, "    if [ -f \"$cpio_file\" ]; then");
+	        AppendLineToFile (cmd_script2, "      " + magiskboot_sbin + " cpio \"$cpio_file\" 'add 0644 twres/splash.xml /tmp/orangefox/ramdisk/twres/splash.xml'");
+	        AppendLineToFile (cmd_script2, "      if [ -f /tmp/orangefox/ramdisk/twres/images/Splash/user.png ]; then");
+	        AppendLineToFile (cmd_script2, "        " + magiskboot_sbin + " cpio \"$cpio_file\" 'add 0644 twres/images/Splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png'");
+	        AppendLineToFile (cmd_script2, "      fi");
+	        AppendLineToFile (cmd_script2, "    fi");
+	        AppendLineToFile (cmd_script2, "  done");
 	        AppendLineToFile (cmd_script2, "fi");
 	        // Vendor_boot v4 recovery ramdisk repack bridge
-	        AppendLineToFile (cmd_script2, "[ -f ramdisk.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio");
+	        AppendLineToFile (cmd_script2, "[ -f ramdisk.cpio ] && [ ! -f vendor_ramdisk_recovery.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio");
 	        \1'''
     if "Fast in-place splash update" not in content:
         content = re.sub(repack_pattern, repack_inject, content)
+
+    # 5. Inject alternate slot vendor_boot sync after magiskboot repack
+    post_repack_pattern = r'(AppendLineToFile\s*\(\s*cmd_script2,\s*magiskboot_sbin\s*\+\s*" repack.*?\);)'
+    post_repack_inject = r'''\1
+	        // Double-slot vendor_boot splash update safeguard
+	        AppendLineToFile (cmd_script2, "if [ -f new-boot.img ]; then");
+	        AppendLineToFile (cmd_script2, "  ALT_SLOT=\"b\"; [ \"$(getprop ro.boot.slot_suffix)\" = \"_b\" ] && ALT_SLOT=\"a\"");
+	        AppendLineToFile (cmd_script2, "  [ -b /dev/block/by-name/vendor_boot_${ALT_SLOT} ] && dd if=new-boot.img of=/dev/block/by-name/vendor_boot_${ALT_SLOT} bs=4096 2>/dev/null || true");
+	        AppendLineToFile (cmd_script2, "fi");'''
+    if "Double-slot vendor_boot splash update safeguard" not in content:
+        content = re.sub(post_repack_pattern, post_repack_inject, content)
 
     if content != orig:
         write_file_lf(twrp_funcs_cpp, content)
@@ -333,6 +348,13 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
             if old_print in c:
                 c = c.replace(old_print, new_print)
 
+            # Suppress Support link, OrangeFox websites, Downloads, Guides/FAQ
+            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_support[^;]*?\)\s*\)\s*;', '// fox_support suppressed', c, flags=re.DOTALL)
+            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_nosupport[^;]*?\)\s*\)\s*;', '// fox_nosupport suppressed', c, flags=re.DOTALL)
+            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_websites[^;]*?\)\s*\)\s*;', '// fox_websites suppressed', c, flags=re.DOTALL)
+            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_downloads[^;]*?\)\s*\)\s*;', '// fox_downloads suppressed', c, flags=re.DOTALL)
+            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_faq[^;]*?\)\s*\)\s*;', '// fox_faq suppressed', c, flags=re.DOTALL)
+
             write_file_lf(twrp_funcs_cpp, c)
             print("[+] Successfully patched twrp-functions.cpp with clean Dimensity 8200, slot banner & dev-keys suppression")
         except Exception as e:
@@ -375,6 +397,18 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
    local build_prop=""
    local tmp_mount="/tmp/rom_probe_$$"
    mkdir -p "$tmp_mount"
+
+   # Ensure all dynamic super sub-partitions are symlinked
+   local cur_slot=$(getprop ro.boot.slot_suffix)
+   [ -z "$cur_slot" ] && cur_slot="_a"
+   for dyn_part in system vendor product system_ext vendor_dlkm odm_dlkm tr_carrier tr_company tr_mi tr_overlayfs tr_preload tr_product tr_region tr_theme; do
+      if [ -b "/dev/block/mapper/${dyn_part}${cur_slot}" ]; then
+         ln -sf "/dev/block/mapper/${dyn_part}${cur_slot}" "/dev/block/mapper/${dyn_part}" 2>/dev/null || true
+         mkdir -p /dev/block/bootdevice/by-name /dev/block/by-name 2>/dev/null || true
+         ln -sf "/dev/block/mapper/${dyn_part}${cur_slot}" "/dev/block/bootdevice/by-name/${dyn_part}" 2>/dev/null || true
+         ln -sf "/dev/block/mapper/${dyn_part}${cur_slot}" "/dev/block/by-name/${dyn_part}" 2>/dev/null || true
+      fi
+   done
 
    # Dynamic probe across Transsion stock partitions inside dynamic super
    for part in tr_product_a tr_product_b tr_product product_a product_b product system_a system_b system vendor_a vendor_b vendor; do
@@ -627,6 +661,61 @@ def patch_version(fox_root):
             print(f"[-] Failed patching OrangeFox_vendor.sh: {e}")
     return True
 
+def patch_super_partitions(fox_root):
+    pm_cpp = os.path.join(fox_root, "bootable/recovery/partitionmanager.cpp")
+    if not os.path.isfile(pm_cpp):
+        print(f"[-] partitionmanager.cpp not found at {pm_cpp}")
+        return False
+
+    try:
+        with open(pm_cpp, "r", encoding="utf-8", errors="ignore") as f:
+            c = f.read()
+
+        orig = c
+
+        # 1. In Prepare_Super_Volume: add /dev/block/mapper/<part> symlink and update image partitions
+        sym_pat = r'(TWFunc::Create_Symlink\s*\(\s*dev\s*,\s*\"/dev/block/by-name/\"\s*\+\s*part_name\s*\)\s*;)'
+        sym_inject = r'''\1
+		TWFunc::Create_Symlink(dev, "/dev/block/mapper/" + part_name);
+		TWPartition* imgPart = Find_Partition_By_Path("/" + part_name + "_image");
+		if (imgPart) {
+			imgPart->Is_Present = true;
+			imgPart->Actual_Block_Device = dev;
+			imgPart->Set_Can_Be_Backed_Up(true);
+			imgPart->Set_Can_Flash_Img(true);
+		}'''
+        if 'dev/block/mapper/" + part_name' not in c:
+            c = re.sub(sym_pat, sym_inject, c)
+
+        # 2. In Get_Partition_List: dynamically ensure block devices on disk refresh Is_Present
+        list_pat = r'(if\s*\(\s*\(\*iter\)->Can_Flash_Img\s*&&\s*\(\*iter\)->Is_Present\s*\))'
+        list_inject = r'''if ((*iter)->Can_Flash_Img) {
+			if (!(*iter)->Is_Present && !(*iter)->Actual_Block_Device.empty() && TWFunc::Path_Exists((*iter)->Actual_Block_Device)) {
+				(*iter)->Is_Present = true;
+			}
+		}
+		\1'''
+        if "Can_Flash_Img) {\n\t\t\tif (!(*iter)->Is_Present" not in c:
+            c = re.sub(list_pat, list_inject, c)
+
+        list_bak_pat = r'(if\s*\(\s*\(\*iter\)->Can_Be_Backed_Up\s*&&\s*\(\*iter\)->Is_Present\s*\))'
+        list_bak_inject = r'''if ((*iter)->Can_Be_Backed_Up) {
+			if (!(*iter)->Is_Present && !(*iter)->Actual_Block_Device.empty() && TWFunc::Path_Exists((*iter)->Actual_Block_Device)) {
+				(*iter)->Is_Present = true;
+			}
+		}
+		\1'''
+        if "Can_Be_Backed_Up) {\n\t\t\tif (!(*iter)->Is_Present" not in c:
+            c = re.sub(list_bak_pat, list_bak_inject, c)
+
+        if c != orig:
+            write_file_lf(pm_cpp, c)
+            print("[+] Successfully patched partitionmanager.cpp with dynamic super partition flash & backup engine")
+            return True
+    except Exception as e:
+        print(f"[-] Failed patching partitionmanager.cpp for super partitions: {e}")
+    return False
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: patch_ofox.py <fox_source_root>")
@@ -650,6 +739,7 @@ def main():
     patch_avb_settings(fox_root)
     patch_graphics_drm(fox_root)
     patch_version(fox_root)
+    patch_super_partitions(fox_root)
     print("[*] All hardware, architecture, identity, slot, splash, version, and UI patches applied cleanly!")
 
 if __name__ == "__main__":

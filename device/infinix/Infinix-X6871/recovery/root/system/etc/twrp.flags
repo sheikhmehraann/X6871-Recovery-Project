@@ -16,6 +16,7 @@
 /lk					emmc		/dev/block/by-name/lk											flags=display="Bootloader (lk)";slotselect;backup=1;flashimg=1
 /logo				emmc		/dev/block/by-name/logo											flags=display="Boot Logo";slotselect;backup=1;flashimg=1
 /md1img				emmc		/dev/block/by-name/md1img										flags=display="Modem (md1img)";slotselect;backup=1;flashimg=1
+/preloader_raw		emmc		/dev/block/by-name/preloader_raw								flags=display="Preloader";slotselect;backup=1;flashimg=1
 /spmfw				emmc		/dev/block/by-name/spmfw										flags=display="SPMFW";slotselect;backup=1;flashimg=1
 /scp				emmc		/dev/block/by-name/scp											flags=display="SCP";slotselect;backup=1;flashimg=1
 /sspm				emmc		/dev/block/by-name/sspm											flags=display="SSPM";slotselect;backup=1;flashimg=1
@@ -63,27 +64,27 @@
 
 # Super & Logical Flashable Image Partitions
 /super				emmc		/dev/block/by-name/super										flags=display="Super (Dynamic Partitions)";backup=1;flashimg=1
-/system_image		emmc		/dev/block/mapper/system										flags=display="System Image";backup=1;flashimg=1
-/vendor_image		emmc		/dev/block/mapper/vendor										flags=display="Vendor Image";backup=1;flashimg=1
-/product_image		emmc		/dev/block/mapper/product										flags=display="Product Image";backup=1;flashimg=1
-/system_ext_image	emmc		/dev/block/mapper/system_ext									flags=display="System_EXT Image";backup=1;flashimg=1
-/vendor_dlkm_image	emmc		/dev/block/mapper/vendor_dlkm									flags=display="VendorDLKM Image";backup=1;flashimg=1
-/odm_dlkm_image		emmc		/dev/block/mapper/odm_dlkm										flags=display="OdmDLKM Image";backup=1;flashimg=1
-/tr_product_image	emmc		/dev/block/mapper/tr_product									flags=display="tr_product Image";backup=1;flashimg=1
-/tr_preload_image	emmc		/dev/block/mapper/tr_preload									flags=display="tr_preload Image";backup=1;flashimg=1
-/tr_carrier_image	emmc		/dev/block/mapper/tr_carrier									flags=display="tr_carrier Image";backup=1;flashimg=1
-/tr_company_image	emmc		/dev/block/mapper/tr_company									flags=display="tr_company Image";backup=1;flashimg=1
-/tr_mi_image		emmc		/dev/block/mapper/tr_mi											flags=display="tr_mi Image";backup=1;flashimg=1
-/tr_overlayfs_image	emmc		/dev/block/mapper/tr_overlayfs									flags=display="tr_overlayfs Image";backup=1;flashimg=1
-/tr_region_image	emmc		/dev/block/mapper/tr_region										flags=display="tr_region Image";backup=1;flashimg=1
-/tr_theme_image		emmc		/dev/block/mapper/tr_theme										flags=display="tr_theme Image";backup=1;flashimg=1
+/system_image		emmc		/dev/block/bootdevice/by-name/system		/dev/block/by-name/system			flags=display="System Image";backup=1;flashimg=1
+/vendor_image		emmc		/dev/block/bootdevice/by-name/vendor		/dev/block/by-name/vendor			flags=display="Vendor Image";backup=1;flashimg=1
+/product_image		emmc		/dev/block/bootdevice/by-name/product		/dev/block/by-name/product			flags=display="Product Image";backup=1;flashimg=1
+/system_ext_image	emmc		/dev/block/bootdevice/by-name/system_ext	/dev/block/by-name/system_ext		flags=display="System EXT Image";backup=1;flashimg=1
+/vendor_dlkm_image	emmc		/dev/block/bootdevice/by-name/vendor_dlkm	/dev/block/by-name/vendor_dlkm		flags=display="Vendor DLKM Image";backup=1;flashimg=1
+/odm_dlkm_image		emmc		/dev/block/bootdevice/by-name/odm_dlkm		/dev/block/by-name/odm_dlkm			flags=display="ODM DLKM Image";backup=1;flashimg=1
+/tr_product_image	emmc		/dev/block/bootdevice/by-name/tr_product	/dev/block/by-name/tr_product		flags=display="TR Product Image";backup=1;flashimg=1
+/tr_preload_image	emmc		/dev/block/bootdevice/by-name/tr_preload	/dev/block/by-name/tr_preload		flags=display="TR Preload Image";backup=1;flashimg=1
+/tr_carrier_image	emmc		/dev/block/bootdevice/by-name/tr_carrier	/dev/block/by-name/tr_carrier		flags=display="TR Carrier Image";backup=1;flashimg=1
+/tr_company_image	emmc		/dev/block/bootdevice/by-name/tr_company	/dev/block/by-name/tr_company		flags=display="TR Company Image";backup=1;flashimg=1
+/tr_mi_image		emmc		/dev/block/bootdevice/by-name/tr_mi			/dev/block/by-name/tr_mi			flags=display="TR MI Image";backup=1;flashimg=1
+/tr_overlayfs_image	emmc		/dev/block/bootdevice/by-name/tr_overlayfs	/dev/block/by-name/tr_overlayfs		flags=display="TR OverlayFS Image";backup=1;flashimg=1
+/tr_region_image	emmc		/dev/block/bootdevice/by-name/tr_region		/dev/block/by-name/tr_region		flags=display="TR Region Image";backup=1;flashimg=1
+/tr_theme_image		emmc		/dev/block/bootdevice/by-name/tr_theme		/dev/block/by-name/tr_theme			flags=display="TR Theme Image";backup=1;flashimg=1
 
 # Transsion Mount Partitions
-/tr_product			auto		/dev/block/mapper/tr_product									flags=display="TR Product";logical
-/tr_preload			auto		/dev/block/mapper/tr_preload									flags=display="TR Preload";logical
-/tr_carrier			auto		/dev/block/mapper/tr_carrier									flags=display="TR Carrier";logical
-/tr_company			auto		/dev/block/mapper/tr_company									flags=display="TR Company";logical
-/tr_mi				auto		/dev/block/mapper/tr_mi											flags=display="TR MI";logical
-/tr_overlayfs		auto		/dev/block/mapper/tr_overlayfs									flags=display="TR OverlayFS";logical
-/tr_region			auto		/dev/block/mapper/tr_region										flags=display="TR Region";logical
-/tr_theme			auto		/dev/block/mapper/tr_theme										flags=display="TR Theme";logical
+/tr_product			auto		/dev/block/bootdevice/by-name/tr_product	/dev/block/by-name/tr_product		flags=display="TR Product";logical
+/tr_preload			auto		/dev/block/bootdevice/by-name/tr_preload	/dev/block/by-name/tr_preload		flags=display="TR Preload";logical
+/tr_carrier			auto		/dev/block/bootdevice/by-name/tr_carrier	/dev/block/by-name/tr_carrier		flags=display="TR Carrier";logical
+/tr_company			auto		/dev/block/bootdevice/by-name/tr_company	/dev/block/by-name/tr_company		flags=display="TR Company";logical
+/tr_mi				auto		/dev/block/bootdevice/by-name/tr_mi			/dev/block/by-name/tr_mi			flags=display="TR MI";logical
+/tr_overlayfs		auto		/dev/block/bootdevice/by-name/tr_overlayfs	/dev/block/by-name/tr_overlayfs		flags=display="TR OverlayFS";logical
+/tr_region			auto		/dev/block/bootdevice/by-name/tr_region		/dev/block/by-name/tr_region		flags=display="TR Region";logical
+/tr_theme			auto		/dev/block/bootdevice/by-name/tr_theme		/dev/block/by-name/tr_theme			flags=display="TR Theme";logical

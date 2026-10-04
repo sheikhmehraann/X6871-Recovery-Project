@@ -36,7 +36,33 @@ AB_OTA_PARTITIONS += \
     vbmeta_vendor \
     vendor \
     vendor_boot \
-    vendor_dlkm
+    vendor_dlkm \
+    tr_carrier \
+    tr_company \
+    tr_mi \
+    tr_overlayfs \
+    tr_preload \
+    tr_product \
+    tr_region \
+    tr_theme \
+    preloader_raw \
+    logo \
+    md1img \
+    spmfw \
+    scp \
+    sspm \
+    gz \
+    dpm \
+    mcupm \
+    vcp \
+    gpueb \
+    apusys \
+    ccu \
+    mvpu_algo \
+    pi_img \
+    mcf_ota \
+    tee \
+    tkv
 
 AB_OTA_POSTINSTALL_CONFIG += \
     RUN_POSTINSTALL_system=true \
