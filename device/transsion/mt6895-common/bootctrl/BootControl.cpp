@@ -52,13 +52,12 @@ Return<void> BootControl::clearAvbbctlFlag() {
   std::string err;
   std::string device = get_bootloader_message_blk_device(&err);
   if (device.empty()) {
-    LOG(ERROR) << "Could not find bootloader message block device: " << err;
-    return Void();
+    device = "/dev/block/by-name/misc";
   }
 
   bootloader_control boot_ctrl;
   if (!LoadBootloaderControl(device, &boot_ctrl)) {
-    LOG(ERROR) << "Failed to load bootloader control block";
+    LOG(ERROR) << "Failed to load bootloader control block from " << device;
     return Void();
   }
 
@@ -87,7 +86,32 @@ Return<void> BootControl::markBootSuccessful(markBootSuccessful_cb _hidl_cb) {
 
 Return<void> BootControl::setActiveBootSlot(uint32_t slot, setActiveBootSlot_cb _hidl_cb) {
     struct CommandResult cr;
-    if (impl_.SetActiveBootSlot(slot) && implext_.SetBootRegionSlot(slot)) {
+    bool ok = impl_.SetActiveBootSlot(slot);
+    if (!ok) {
+        std::string err;
+        std::string device = get_bootloader_message_blk_device(&err);
+        if (device.empty()) {
+            device = "/dev/block/by-name/misc";
+        }
+        bootloader_control boot_ctrl;
+        if (LoadBootloaderControl(device, &boot_ctrl)) {
+            if (slot < 2) {
+                boot_ctrl.slot_info[slot].priority = 15;
+                boot_ctrl.slot_info[slot].tries_remaining = 7;
+                boot_ctrl.slot_info[slot].successful_boot = 1;
+                uint32_t other = (slot == 0) ? 1 : 0;
+                if (boot_ctrl.slot_info[other].priority >= 15) {
+                    boot_ctrl.slot_info[other].priority = 14;
+                }
+                if (UpdateAndSaveBootloaderControl(device, &boot_ctrl)) {
+                    ok = true;
+                    LOG(INFO) << "setActiveBootSlot direct fallback succeeded for slot " << slot;
+                }
+            }
+        }
+    }
+    implext_.SetBootRegionSlot(slot);
+    if (ok) {
         cr.success = true;
         cr.errMsg = "Success";
     } else {
@@ -145,7 +169,6 @@ Return<MergeStatus> BootControl::getSnapshotMergeStatus() {
 
 // Methods from ::android::hardware::boot::V1_2::IBootControl follow.
 Return<uint32_t> BootControl::getActiveBootSlot() {
-    if (!impl_.GetActiveBootSlot()) return 0;
     return impl_.GetActiveBootSlot();
 }
 

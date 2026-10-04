@@ -3,6 +3,10 @@ import /init.device.rc
 
 on early-init
     symlink /system/etc/recovery.fstab /etc/recovery.fstab
+    symlink /system/etc/recovery.fstab /fstab.mt6895
+    symlink /system/etc/recovery.fstab /fstab.default
+    symlink /system/etc/recovery.fstab /vendor/etc/fstab.mt6895
+    symlink /system/etc/recovery.fstab /odm/etc/fstab.mt6895
     symlink /system/etc/twrp.flags /etc/twrp.flags
     exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.vendor.build.security_patch 2026-07-01
     exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.build.version.security_patch 2026-07-01
@@ -30,6 +34,7 @@ on init
 on fs
     wait /dev/block/platform/soc/112b0000.ufshci
     symlink /dev/block/platform/soc/112b0000.ufshci /dev/block/bootdevice
+    symlink /dev/block/by-name /dev/block/bootdevice/by-name
     wait /dev/block/by-name/metadata
     mount ext4 /dev/block/by-name/metadata /metadata noatime nosuid nodev discard
     wait /dev/block/by-name/persist
@@ -69,6 +74,7 @@ on post-fs
 on boot
     setprop sys.usb.config adb
     start mtk.plpath.utils.link
+    chmod 0755 /system/bin/fox_apply_splash.sh
 
     # Rear camera flashlight permissions (MediaTek OCP81375)
     chmod 0666 /sys/class/torch/torch/torch_level

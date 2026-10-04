@@ -282,6 +282,25 @@ def patch_splash(fox_root):
                     except Exception:
                         pass
 
+    # 2b. Inject btn_item_b style into styles.xml
+    for sdir in search_dirs:
+        if not os.path.isdir(sdir):
+            continue
+        for root, _, files in os.walk(sdir):
+            for file in files:
+                if file == "styles.xml":
+                    fpath = os.path.join(root, file)
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            st_content = f.read()
+                        if 'name="btn_item_b"' not in st_content and '</styles>' in st_content:
+                            btn_style = '\t\t<style name="btn_item_b">\n\t\t\t<highlight color="%highlight_color%"/>\n\t\t\t<fill color="%transparent%"/>\n\t\t</style>\n'
+                            st_content = st_content.replace('</styles>', btn_style + '\t</styles>')
+                            write_file_lf(fpath, st_content)
+                            print(f"[+] Injected btn_item_b style into {fpath}")
+                    except Exception as e:
+                        pass
+
     # 3. Patch customization.xml with complete verified pages (0 XML errors, 0 shell errors)
     page_splash = '''		<page name="ext_custom_splash">
 			<template name="base_sub"/>
@@ -300,6 +319,7 @@ def patch_splash(fox_root):
 
 			<button style="btn_item_b">
 				<placement x="%col1_x%" y="%row1_header_y%" w="%col2_x_w%" h="%item_height%"/>
+				<fill color="%transparent%"/>
 				<action function="set">spl_bg_user=0</action>
 				<action function="set">spl_bg_on=0</action>
 				<action function="set">spl_logo_type=o</action>
@@ -322,6 +342,7 @@ def patch_splash(fox_root):
 
 			<button style="btn_item_b">
 				<placement x="%col1_x%" y="%row2_1_y%" w="%col2_x_w%" h="%item_height%"/>
+				<fill color="%transparent%"/>
 				<action function="cmd">mkdir -p /sdcard/Fox/Splash; cp -f /twres/splash.xml /sdcard/Fox/Splash/splash_backup.xml 2>/dev/null; [ -f /twres/images/Splash/user.png ] &amp;&amp; cp -f /twres/images/Splash/user.png /sdcard/Fox/Splash/user_splash.png 2>/dev/null</action>
 				<action function="overlay">dialog_done</action>
 			</button>
@@ -338,6 +359,7 @@ def patch_splash(fox_root):
 
 			<button style="btn_item_b">
 				<placement x="%col1_x%" y="%row3_1_y%" w="%col2_x_w%" h="%item_height%"/>
+				<fill color="%transparent%"/>
 				<action function="page">ext_custom_splash_logo</action>
 			</button>
 
@@ -353,6 +375,7 @@ def patch_splash(fox_root):
 
 			<button style="btn_item_b">
 				<placement x="%col1_x%" y="%row4_1_y%" w="%col2_x_w%" h="%item_height%"/>
+				<fill color="%transparent%"/>
 				<action function="page">ext_custom_splash_color</action>
 			</button>
 
@@ -368,6 +391,7 @@ def patch_splash(fox_root):
 
 			<button style="btn_item_b">
 				<placement x="%col1_x%" y="%row5_1_y%" w="%col2_x_w%" h="%item_height%"/>
+				<fill color="%transparent%"/>
 				<action function="page">ext_custom_splash_select</action>
 			</button>
 
@@ -383,6 +407,7 @@ def patch_splash(fox_root):
 
 			<button style="btn_item_b">
 				<placement x="%col1_x%" y="%row6_1_y%" w="%col2_x_w%" h="%item_height%"/>
+				<fill color="%transparent%"/>
 				<action function="set">spl_bg_user=0</action>
 				<action function="set">spl_bg_on=0</action>
 				<action function="set">spl_bg_color=#00000000</action>
@@ -639,33 +664,6 @@ exit 0
                         content = re.sub(r'<page name="apply_splash">.*?</page>', lambda m: page_apply, content, flags=re.DOTALL)
                         content = re.sub(r'<page name="get_splash_info">.*?</page>', lambda m: page_info, content, flags=re.DOTALL)
 
-                        # Color additions in ext_custom_splash_logo
-                        color_additions = [
-                            ('spl_col_cy', 'c', '00BCD4', 'color_c'),
-                            ('spl_col_pk', 'r', 'E91E63', 'color_pk'),
-                            ('spl_col_bl', 'b', '2196F3', 'color_bl'),
-                            ('spl_col_gn', 'g', '4CAF50', 'color_gn'),
-                            ('spl_col_yl', 'y', 'FFEB3B', 'color_yl'),
-                            ('spl_col_pr', 'p', '9C27B0', 'color_pr'),
-                        ]
-                        for str_name, logo_id, hex_val, img_res in color_additions:
-                            if f'spl_logo_type={logo_id}' not in content and '<page name="ext_custom_splash_logo">' in content:
-                                btn_block = f'''
-			<button style="btn_item_b">
-				<placement x="%col1_x%" y="%row7_1_y%" w="%col2_x_w%" h="%item_height%"/>
-				<action function="set">spl_logo_type={logo_id}</action>
-				<action function="set">spl_bg_user=1</action>
-				<action function="set">of_reload_back=ext_custom_splash_logo</action>
-				<action function="reload"/>
-			</button>'''
-                                # Append safely inside ext_custom_splash_logo before its closing </page>
-                                content = re.sub(
-                                    r'(<page name="ext_custom_splash_logo">.*?)(\s*<template name="gestures_sub"/>)',
-                                    r'\1' + btn_block + r'\2',
-                                    content,
-                                    flags=re.DOTALL
-                                )
-
                         write_file_lf(fpath, content)
                         print(f"[+] Enhanced {fpath} with verified clean splash suite (100% valid XML & shell syntax)")
                     except Exception as e:
@@ -696,25 +694,8 @@ std::string slot_fmt = (slot_cur == "_b" || slot_cur == "b" || slot_cur == "1") 
 gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
             c = re.sub(slot_pat, slot_repl, c)
 
-            # Stock XOS ROM detection in twrp-functions.cpp
-            rom_pat = r'if\s*\(\s*fox_is_miui_rom_installed\s*==\s*"1"\s*\|\|\s*TWFunc::Fox_Property_Get\("orangefox\.miui\.rom"\)\s*==\s*"1"\s*\)[\s\S]*?gui_msg\(Msg\("fox_custom_rom=\*\s*Custom ROM\s*\(SDK:\{1\},\s*\{2\}\)"\)\(rom_sdk\)\(sdknum_to_text\(rom_sdk\)\.c_str\(\)\)\);\s*\}'
-            rom_repl = """if (fox_is_miui_rom_installed == "1" || TWFunc::Fox_Property_Get("orangefox.miui.rom") == "1")
-  	  {
-	     Fox_Current_ROM_IsMIUI = 1;
-	     gui_msg(Msg("fox_miui_rom=* MIUI ROM (SDK:{1}, {2})")(rom_sdk)(sdknum_to_text(rom_sdk).c_str()));
-	  }
-	else if (TWFunc::Fox_Property_Get("orangefox.stock.xos") == "1" || TWFunc::Fox_Property_Get("ro.orangefox.stock_rom") == "1" || TWFunc::Fox_Property_Get("ro.build.display.id").find("X6871") != std::string::npos)
-	  {
-	     gui_msg(Msg("fox_stock_xos=* Stock XOS ROM (SDK:{1}, {2})")(rom_sdk)(sdknum_to_text(rom_sdk).c_str()));
-	  }
-	else
-	  {
-	     gui_msg(Msg("fox_custom_rom=* Custom ROM (SDK:{1}, {2})")(rom_sdk)(sdknum_to_text(rom_sdk).c_str()));
-	  }"""
-            c = re.sub(rom_pat, rom_repl, c)
-
             write_file_lf(twrp_funcs_cpp, c)
-            print("[+] Successfully patched twrp-functions.cpp with dynamic stock XOS, Dimensity 8200 & clean slot banner")
+            print("[+] Successfully patched twrp-functions.cpp with clean Dimensity 8200 & slot banner")
         except Exception as e:
             print(f"[-] Failed patching banner in twrp-functions.cpp: {e}")
 
@@ -734,32 +715,11 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
         except Exception as e:
             print(f"[-] Failed patching data.cpp: {e}")
 
-    # 3. Patch language files (en.xml) - add fox_stock_xos string
+    # 3. Patch foxstart.sh with dynamic partition mounter for stock Transsion firmware
     search_dirs = [
         os.path.join(fox_root, "vendor/recovery"),
         os.path.join(fox_root, "bootable/recovery")
     ]
-    for sdir in search_dirs:
-        if not os.path.isdir(sdir):
-            continue
-        for root, _, files in os.walk(sdir):
-            for file in files:
-                if file == "en.xml":
-                    fpath = os.path.join(root, file)
-                    try:
-                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
-                            en_c = f.read()
-                        if 'name="fox_stock_xos"' not in en_c and '<string name="fox_custom_rom">' in en_c:
-                            en_c = en_c.replace(
-                                '<string name="fox_custom_rom">',
-                                '<string name="fox_stock_xos">* Stock XOS ROM (SDK:{1}, {2})</string>\n\t<string name="fox_custom_rom">'
-                            )
-                            write_file_lf(fpath, en_c)
-                            print(f"[+] Added fox_stock_xos to {fpath}")
-                    except Exception:
-                        pass
-
-    # 4. Patch foxstart.sh with dynamic partition mounter for stock Transsion firmware
     for sdir in search_dirs:
         if not os.path.isdir(sdir):
             continue
