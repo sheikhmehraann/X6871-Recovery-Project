@@ -402,9 +402,6 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
       [ -n "$rel" ] && resetprop -n ro.build.version.release "$rel"
       [ -n "$fp" ] && resetprop -n ro.build.fingerprint "$fp"
 
-      resetprop -n orangefox.stock.xos "1"
-      resetprop -n ro.orangefox.stock_rom "1"
-
       echo "ROM=$disp_id" >> $F
       echo "INCREMENTAL_VERSION=$incr" >> $F
       echo "ROM_FINGERPRINT=$fp" >> $F
@@ -417,9 +414,7 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
 
    umount "$tmp_mount" 2>/dev/null
    rm -rf "$tmp_mount"
-   # Fallback to stock defaults
-   resetprop -n orangefox.stock.xos "1"
-   resetprop -n ro.orangefox.stock_rom "1"
+   # Fallback defaults
    echo "ROM=X6871-15.1.2.180SP05(OP001PF001AZ)" >> $F
    echo "INCREMENTAL_VERSION=180003" >> $F
    echo "ROM_FINGERPRINT=Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys" >> $F

@@ -38,8 +38,7 @@
 /nvcfg				ext4		/dev/block/by-name/nvcfg										flags=display="NVCFG";backup=1
 /nvdata				ext4		/dev/block/by-name/nvdata										flags=display="NVDATA";backup=1
 /nvram				emmc		/dev/block/by-name/nvram										flags=display="NVRAM (IMEI/Calibration)";backup=1
-/persist			ext4		/dev/block/by-name/persist										flags=display="Persist";backup=1
-/persist_image		emmc		/dev/block/by-name/persist										flags=display="Persist Image";backup=1;flashimg=1
+/persist_image		emmc		/dev/block/by-name/persist										flags=display="Persist";backup=1;flashimg=1
 /proinfo			emmc		/dev/block/by-name/proinfo										flags=display="Proinfo";backup=1
 /protect_f			ext4		/dev/block/by-name/protect1										flags=display="Protect_F";backup=1
 /protect_s			ext4		/dev/block/by-name/protect2										flags=display="Protect_S";backup=1
@@ -51,7 +50,7 @@
 /flashinfo			emmc		/dev/block/by-name/flashinfo									flags=display="FlashInfo";backup=1
 /dram_para			emmc		/dev/block/by-name/dram_para									flags=display="DRAM Para";backup=1
 /efuse				emmc		/dev/block/by-name/efuse										flags=display="Efuse";backup=1
-/tranfs				ext4		/dev/block/by-name/tranfs										flags=display="TranFS";backup=1
+/tranfs_image		emmc		/dev/block/by-name/tranfs										flags=display="Transsion Storage (tranfs)";backup=1;flashimg=1
 /tdfs				emmc		/dev/block/by-name/tdfs											flags=display="TDFS";backup=1
 /transec			emmc		/dev/block/by-name/transec										flags=display="TranSec";backup=1
 /boot_para			emmc		/dev/block/by-name/boot_para									flags=display="Boot Para";backup=1

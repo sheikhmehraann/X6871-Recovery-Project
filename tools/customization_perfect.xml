@@ -1633,7 +1633,7 @@
 		</page>
 
 		<!-- Splash -->
-				<page name="ext_custom_splash">
+		<page name="ext_custom_splash">
 			<template name="splash_preview"/>
 			<template name="base"/>
 
@@ -1650,7 +1650,6 @@
 				<action function="set">spl_logo_type=o</action>
 				<action function="set">spl_ofr=1</action>
 				<action function="set">spl_bg_color=#000000</action>
-				<action function="cmd">rm -f /twres/images/Splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png; cat /twres/themes/sed/splash_orig.xml &gt; /twres/splash.xml; cat /twres/themes/sed/splash_orig.xml &gt; /tmp/orangefox/ramdisk/twres/splash.xml; twrp xset spl_parsed=0;</action>
 				<action function="page">ext_custom_splash</action>
 			</button>
 
@@ -1685,20 +1684,6 @@
 					<action function="set">spl_bg_user=1</action>
 					<action function="page">ext_custom_splash_logo</action>
 				</listitem>
-				<listitem name="Backup Current Splash">
-					<icon res="storage"/>
-					<action function="cmd">mkdir -p /sdcard/Fox/Splash; [ -f /twres/images/Splash/user.png ] &amp;&amp; cp -f /twres/images/Splash/user.png /sdcard/Fox/Splash/splash_$(date +%Y%m%d_%H%M%S).png &amp;&amp; echo "I:Splash saved to /sdcard/Fox/Splash" &gt;&gt; /tmp/recovery.log;</action>
-				</listitem>
-				<listitem name="Reset to Default Splash">
-					<icon res="actionbar_reset"/>
-					<action function="set">spl_bg_user=0</action>
-					<action function="set">spl_bg_on=0</action>
-					<action function="set">spl_logo_type=o</action>
-					<action function="set">spl_ofr=1</action>
-					<action function="set">spl_bg_color=#000000</action>
-					<action function="cmd">rm -f /twres/images/Splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png; cat /twres/themes/sed/splash_orig.xml &gt; /twres/splash.xml; cat /twres/themes/sed/splash_orig.xml &gt; /tmp/orangefox/ramdisk/twres/splash.xml; twrp xset spl_parsed=0;</action>
-					<action function="page">ext_custom_splash</action>
-				</listitem>
 			</listbox>
 
 			<image>
@@ -1721,6 +1706,7 @@
 				<condition var1="spl_logo_type" var2="0"/>
 				<action function="set">spl_logo_type=w</action>
 			</action>
+
 
 			<template name="gestures"/>
 			
@@ -1812,12 +1798,6 @@
 				<listitem name="{@spl_white}">w</listitem>
 				<listitem name="{@spl_black}">d</listitem>
 				<listitem name="{@spl_orange}">o</listitem>
-				<listitem name="Cyan">c</listitem>
-				<listitem name="Red">r</listitem>
-				<listitem name="Blue">b</listitem>
-				<listitem name="Green">g</listitem>
-				<listitem name="Yellow">y</listitem>
-				<listitem name="Purple">p</listitem>
 			</listbox>
 
 			<template name="gestures"/>
@@ -1833,7 +1813,7 @@
 			</action>
 		</page>
 		
-				<page name="ext_custom_splash_select">
+		<page name="ext_custom_splash_select">
 			<fileselector style="fileselector_b">
 				<condition var1="list_font" var2="1"/>
 				<placement x="0" y="%row_ab_ex_y%" w="%fileselector_width%" h="%fileselector_terminal_height%"/>
@@ -1883,13 +1863,7 @@
 				<action function="set">spl_bg_on=1</action>
 				<action function="set">spl_bg_color=#00000000</action>
 				<action function="cmd">
-					png_pick="%tw_filename%";
-					[ ! -f "$png_pick" ] &amp;&amp; png_pick="%tw_zip_location_tmp%/%tw_splash_png_name%";
-					if [ -f "$png_pick" ]; then
-						mkdir -p /twres/images/Splash/ /tmp/orangefox/ramdisk/twres/images/Splash/ /tmp/orangefox/ramdisk/twres/themes/sed/;
-						cp -f "$png_pick" "/twres/images/Splash/user.png";
-						cp -f "$png_pick" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png";
-					fi;
+						cp "%tw_splash_png_path%/%tw_splash_png_name%" "/twres/images/Splash/user.png";
 				</action>
 				<action function="set">of_reload_back=ext_custom_splash</action>
 				<action function="reload"/>
@@ -2022,32 +1996,27 @@
 			</text>
 		</page>
 
-				<page name="apply_splash">
+		<page name="apply_splash">
 			<template name="dialog_body"/>
 
 			<image>
 				<image resource="snackbar"/>
 				<placement x="0" y="%row_nav_y%" placement="2"/>
 			</image>
-
+			
 			<text style="text_body1">
 				<placement x="%snackbar_text_x%" y="%snackbar_text_y%"/>
 				<text>{@theme_apply}</text>
 			</text>
-
+			
 			<action>
 				<action function="wlfw"/>
 				<action function="cmd">
 						if [[ '%spl_bg_user%' = '1' ]]; then
+							if [[ "%spl_bg_on%" = "1" ]]; then if ! head -c 4 "%tw_splash_png_path%/%tw_splash_png_name%" | grep -q "PNG"; then echo "E:Selected file is not a valid PNG image! Aborting." >> /tmp/recovery.log; exit 1; fi; fi; 
 							[[ '%spl_logo_type%' = 'o' ]] &amp;&amp; logo_color=F86314;
 							[[ '%spl_logo_type%' = 'w' ]] &amp;&amp; logo_color=ffffff;
 							[[ '%spl_logo_type%' = 'd' ]] &amp;&amp; logo_color=353535;
-							[[ '%spl_logo_type%' = 'c' ]] &amp;&amp; logo_color=00BCD4;
-							[[ '%spl_logo_type%' = 'r' ]] &amp;&amp; logo_color=E91E63;
-							[[ '%spl_logo_type%' = 'b' ]] &amp;&amp; logo_color=2196F3;
-							[[ '%spl_logo_type%' = 'g' ]] &amp;&amp; logo_color=4CAF50;
-							[[ '%spl_logo_type%' = 'y' ]] &amp;&amp; logo_color=FFEB3B;
-							[[ '%spl_logo_type%' = 'p' ]] &amp;&amp; logo_color=9C27B0;
 
 							if [[ '%spl_logo_type%' = '0' ]];
 								then logo_on=!--;
@@ -2060,29 +2029,16 @@
 
 							[[ '%spl_logo_type%' = '0' ]] &amp;&amp; logo_ofr=!--;
 
-							if [[ '%spl_bg_on%' = '1' ]]; then
-								src_png="%tw_filename%";
-								[ ! -f "$src_png" ] &amp;&amp; src_png="%tw_splash_png_path%/%tw_splash_png_name%";
-								[ ! -f "$src_png" ] &amp;&amp; src_png="/twres/images/Splash/user.png";
-								img_sz=$(du -k "$src_png" 2>/dev/null | cut -f1);
-								[ -z "$img_sz" ] &amp;&amp; img_sz=0;
-								max_sz="%of_splash_max_size%";
-								[[ -z "$max_sz" || "$max_sz" == "%"* ]] &amp;&amp; max_sz=10240;
-								if [ "$img_sz" -le "$max_sz" ]; then
-									bg_on=;
-									mkdir -p /tmp/orangefox/ramdisk/twres/images/Splash/ /tmp/orangefox/ramdisk/twres/themes/sed/;
-									cp -f "$src_png" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png";
-									cp -f "$src_png" "/twres/images/Splash/user.png";
-								else
-									bg_on=!--;
-									echo "E:The splash image exceeds maximum allowed size ($max_sz KB)." >> /tmp/recovery.log;
-								fi;
-							else
-								bg_on=!--;
-								if [[ '%spl_bg_user%' = '0' ]]; then
-									cp -f "/twres/images/Splash/empty.png" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png" 2>/dev/null;
-									cp -f "/twres/images/Splash/empty.png" "/twres/images/Splash/user.png" 2>/dev/null;
-								fi;
+							if [[ '%spl_bg_on%' = '1' ]] &amp;&amp; [[ "$(du -s "%tw_splash_png_path%/%tw_splash_png_name%" | cut -f1)" -lt "%of_splash_max_size%" ]];
+									then bg_on=;
+										mkdir -p /tmp/orangefox/ramdisk/twres/images/Splash/ /tmp/orangefox/ramdisk/twres/themes/sed/; cp "%tw_splash_png_path%/%tw_splash_png_name%" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png";
+										cp "%tw_splash_png_path%/%tw_splash_png_name%" "/twres/images/Splash/user.png";
+									else bg_on=!--;
+										cp "/twres/images/Splash/empty.png" "/tmp/orangefox/ramdisk/twres/images/Splash/user.png";
+										cp "/twres/images/Splash/empty.png" "/twres/images/Splash/user.png";
+										if [[ '%spl_bg_on%' = '1' ]] &amp;&amp; [[ "$(du -s "%tw_splash_png_path%/%tw_splash_png_name%" | cut -f1)" -gt "%of_splash_max_size%" ]];
+										   then echo "I:The splash image must not be bigger than %of_splash_max_size% Kb. The splash image will not be changed." >> /tmp/recovery.log;
+										fi;
 							fi;
 							cat "/twres/themes/sed/splash.xml" | sed -e "
 							s/#SHOWOFR#/${logo_ofr}/g;
@@ -2104,7 +2060,7 @@
 			</action>
 		</page>
 
-				<page name="get_splash_info">
+		<page name="get_splash_info">
 			<template name="dialog_body"/>
 
 			<image>
@@ -2161,9 +2117,10 @@
 						twrp xset spl_bg_user=1;
 					fi;
 
-					if [ -f /twres/images/Splash/user.png ] &amp;&amp; [ $(wc -c /twres/images/Splash/user.png 2>/dev/null | cut -d' ' -f1) -gt 500 ]; then
-						twrp xset spl_bg_on=1;
-						twrp xset spl_bg_user=1;
+					cat $splash | grep "SED Splash";
+					if [ $? -ne 0 ]; then
+						twrp xset spl_bg_user=0;
+						twrp xset spl_bg_on=0;
 					fi;
 
 					twrp xset spl_parsed=1;

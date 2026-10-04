@@ -43,6 +43,7 @@
 #include <mmc-mtk-ioctl.h>
 #include <ufs-mtk-ioctl.h>
 #include <sys/ioctl.h>
+#include <dlfcn.h>
 #endif
 
 #include "boot_region_control_private.h"
@@ -52,13 +53,40 @@ namespace bootable {
 #if !defined(ARCH_X86)
 static bool ufs_set_active_boot_part(int boot)
 {
+    // 1. Try modern UFS BSG query via libmtk_bsg.so (required on Dimensity 8200 / MT6895 Linux 5.10)
+    typedef int (*ioctrl_w_attr_fn)(const char*, int, int, int, int);
+    void* handle = dlopen("libmtk_bsg.so", RTLD_NOW);
+    if (!handle) {
+        handle = dlopen("/vendor/lib64/libmtk_bsg.so", RTLD_NOW);
+    }
+    if (!handle) {
+        handle = dlopen("/system/lib64/libmtk_bsg.so", RTLD_NOW);
+    }
+    if (handle) {
+        ioctrl_w_attr_fn fn = (ioctrl_w_attr_fn)dlsym(handle, "ioctrl_w_attr");
+        if (fn) {
+            int ret = fn("/dev/ufs-bsg0", 0, 0, 0, boot);
+            LOG(INFO) << "ioctrl_w_attr(/dev/ufs-bsg0, boot=" << boot << ") ret: " << ret;
+            dlclose(handle);
+            if (ret == 0) {
+                return true;
+            }
+        } else {
+            dlclose(handle);
+        }
+    }
+
+    // 2. Fallback to block ioctl
     struct ufs_ioctl_query_data idata;
     unsigned char buf[1];
     int fd, ret = true;
 
     fd = open("/dev/block/sdc", O_RDWR);
     if (fd < 0) {
-        printf("%s: open device failed, err: %d\n", __func__, fd);
+        fd = open("/dev/block/by-name/boot_a", O_RDWR);
+    }
+    if (fd < 0) {
+        LOG(ERROR) << "ufs_set_active_boot_part: open device failed";
         return false;
     }
 
