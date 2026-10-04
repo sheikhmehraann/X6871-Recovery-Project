@@ -96,6 +96,10 @@ Return<void> BootControl::setActiveBootSlot(uint32_t slot, setActiveBootSlot_cb 
         bootloader_control boot_ctrl;
         if (LoadBootloaderControl(device, &boot_ctrl)) {
             if (slot < 2) {
+                boot_ctrl.slot_suffix[0] = '_';
+                boot_ctrl.slot_suffix[1] = (slot == 0) ? 'a' : 'b';
+                boot_ctrl.slot_suffix[2] = '\0';
+                boot_ctrl.slot_suffix[3] = '\0';
                 boot_ctrl.slot_info[slot].priority = 15;
                 boot_ctrl.slot_info[slot].tries_remaining = 7;
                 boot_ctrl.slot_info[slot].successful_boot = 1;
@@ -110,6 +114,7 @@ Return<void> BootControl::setActiveBootSlot(uint32_t slot, setActiveBootSlot_cb 
             }
         }
     }
+    clearAvbbctlFlag();
     implext_.SetBootRegionSlot(slot);
     if (ok) {
         cr.success = true;
