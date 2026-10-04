@@ -325,8 +325,15 @@ std::string slot_fmt = (slot_cur == "_b" || slot_cur == "b" || slot_cur == "1") 
 gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
             c = re.sub(slot_pat, slot_repl, c)
 
+            # Suppress raw dev-keys / AP3A build id lines from banner
+            rom_desc_pat = r'gui_print\s*\(\s*\"\*\s*%s\\n\"\s*,\s*rom_desc\.c_str\s*\(\s*\)\s*\);'
+            rom_desc_repl = """if (!rom_desc.empty() && rom_desc.find("dev-keys") == std::string::npos && rom_desc.find("AP3A") == std::string::npos && rom_desc.find("test-keys") == std::string::npos) {
+    gui_print("* %s\\n", rom_desc.c_str());
+}"""
+            c = re.sub(rom_desc_pat, rom_desc_repl, c)
+
             write_file_lf(twrp_funcs_cpp, c)
-            print("[+] Successfully patched twrp-functions.cpp with clean Dimensity 8200 & slot banner")
+            print("[+] Successfully patched twrp-functions.cpp with clean Dimensity 8200, slot banner & dev-keys suppression")
         except Exception as e:
             print(f"[-] Failed patching banner in twrp-functions.cpp: {e}")
 
@@ -404,6 +411,7 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
 
       umount "$tmp_mount" 2>/dev/null
       rm -rf "$tmp_mount"
+      echo "$disp_id"
       return 0
    fi
 
@@ -414,6 +422,7 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
    echo "INCREMENTAL_VERSION=180003" >> $F
    echo "ROM_FINGERPRINT=Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys" >> $F
    echo "SDK=35" >> $F
+   echo "X6871-15.1.2.180SP05(OP001PF001AZ)"
 }"""
                         if "get_ROM()" in sh_c:
                             sh_c = re.sub(r'get_ROM\(\)\s*\{.*?\n\}', lambda m: dynamic_stock_probe, sh_c, flags=re.DOTALL)

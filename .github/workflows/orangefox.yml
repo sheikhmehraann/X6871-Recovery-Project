@@ -136,7 +136,7 @@ jobs:
           export FOX_USE_ZSTD_BINARY=1
           export FOX_USE_NANO_EDITOR=1
           export FOX_DELETE_AROMAFM=1
-          export FOX_VARIANT="16.0-Beta"
+          export FOX_VARIANT="15.1.2"
           export OF_MAINTAINER="withmehraan"
           export OF_SCREEN_H=2436
           export OF_STATUS_H=90

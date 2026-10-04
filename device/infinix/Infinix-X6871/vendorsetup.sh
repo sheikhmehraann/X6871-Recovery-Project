@@ -69,7 +69,7 @@ if [ "$1" = "$FDEVICE" -o "$FOX_BUILD_DEVICE" = "$FDEVICE" ]; then
 	export FOX_MAINTAINER_PATCH_VERSION=$(date +"%Y%m%d")
 	unset FOX_VERSION
 	export FOX_BUILD_TYPE="Beta"
-	export FOX_VARIANT="16.0-Beta"
+	export FOX_VARIANT="15.1.2"
 	export OF_MAINTAINER="withmehraan"
 	export FOX_RECOVERY_INSTALL_PARTITION="/dev/block/by-name/vendor_boot"
 	export FOX_RECOVERY_BOOT_PARTITION="/dev/block/by-name/boot"

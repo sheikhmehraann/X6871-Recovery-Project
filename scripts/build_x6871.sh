@@ -24,7 +24,7 @@ export FOX_DELETE_AROMAFM=1
 export FOX_MAINTAINER_PATCH_VERSION=$(date +"%Y%m%d")
 unset FOX_VERSION
 export FOX_BUILD_TYPE="Beta"
-export FOX_VARIANT="16.0-Beta"
+export FOX_VARIANT="15.1.2"
 export OF_MAINTAINER="withmehraan"
 export LC_ALL="C"
 export GOGC=50
