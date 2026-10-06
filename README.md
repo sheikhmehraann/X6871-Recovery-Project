@@ -10,13 +10,13 @@ Maintained by [@withmehraan](https://github.com/sheikhmehraann) with active comm
 
 | Attribute | Specification |
 |---|---|
-| **Device Model** | Infinix GT 20 Pro (`Infinix-X6871` / `X6871-OP`) |
-| **SoC** | MediaTek Dimensity 8200 Ultimate (4nm, Octa-core) |
+| **Device Model** | Infinix GT 20 Pro (`Infinix X6871` |
+| **SoC** | MediaTek Dimensity 8200 Ultimate  |
 | **Platform** | `mt6895` / `mt6896` |
 | **Display** | 1080 x 2436 AMOLED (144Hz, Single-Pipe DRM) |
 | **Kernel Version** | 5.10.237-android12-9 (Header v4) |
 | **Architecture** | ARM64 (aarch64-linux-android) |
-| **Partition Scheme** | Virtual A/B (VAB) + Dynamic Partitions (`super`) |
+| **Partition Scheme** | Virtual A/B (VAB) + Dynamic Partitions |
 | **Recovery Location** | `vendor_boot` (Header v4, 64 MB budget) |
 | **Target OS** | Android 15 / XOS 15 |
 
