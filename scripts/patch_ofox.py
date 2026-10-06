@@ -222,6 +222,14 @@ def patch_magiskboot_vendor_boot(fox_root):
 	        AppendLineToFile (cmd_script2, "fi");
 	        // Vendor_boot v4 recovery ramdisk repack bridge
 	        AppendLineToFile (cmd_script2, "[ -f ramdisk.cpio ] && [ ! -f vendor_ramdisk_recovery.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio");
+	        // Ultra-fast multi-core parallel compression via pigz before magiskboot repack
+	        AppendLineToFile (cmd_script2, "if [ -x /system/bin/pigz ]; then");
+	        AppendLineToFile (cmd_script2, "  for f in vendor_ramdisk_recovery.cpio ramdisk.cpio vendor_ramdisk_.cpio; do");
+	        AppendLineToFile (cmd_script2, "    if [ -f \\\"$f\\\" ] && ! gzip -t \\\"$f\\\" 2>/dev/null; then");
+	        AppendLineToFile (cmd_script2, "      /system/bin/pigz -f \\\"$f\\\" && mv -f \\\"${f}.gz\\\" \\\"$f\\\"");
+	        AppendLineToFile (cmd_script2, "    fi");
+	        AppendLineToFile (cmd_script2, "  done");
+	        AppendLineToFile (cmd_script2, "fi");
 	        \1'''
     if "Fast in-place splash update" not in content:
         content = re.sub(repack_pattern, repack_inject, content)
