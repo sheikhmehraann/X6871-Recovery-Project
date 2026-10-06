@@ -1,7 +1,23 @@
 #!/usr/bin/env bash
+#
+# Local build script for OrangeFox Recovery R12.1 - Infinix GT 20 Pro (X6871)
+# Maintained by withmehraan
+#
 
-cd /root/X6871-Recovery-Project/fox_12.1
+set -euo pipefail
 
+# Project root path
+FOX_ROOT="${FOX_ROOT:-$HOME/fox_14.1}"
+
+if [ ! -d "${FOX_ROOT}" ]; then
+    echo "[-] Error: Fox source tree not found at ${FOX_ROOT}"
+    echo "[-] Please set FOX_ROOT or sync the tree first."
+    exit 1
+fi
+
+cd "${FOX_ROOT}"
+
+# Build flags
 export ALLOW_MISSING_DEPENDENCIES=true
 export WITH_TIDY=0
 export WITHOUT_CHECK_API=true
@@ -22,66 +38,54 @@ export FOX_USE_ZSTD_BINARY=1
 export FOX_USE_NANO_EDITOR=1
 export FOX_DELETE_AROMAFM=1
 export FOX_MAINTAINER_PATCH_VERSION=$(date +"%Y%m%d")
-unset FOX_VERSION
+unset FOX_VERSION || true
 export FOX_BUILD_TYPE="Stable"
 export FOX_VARIANT="15.1.2"
 export OF_MAINTAINER="withmehraan"
 export LC_ALL="C"
-export GOGC=50
-export GOMAXPROCS=4
 export USE_CCACHE=1
-export CCACHE_EXEC=/usr/bin/ccache
-export CCACHE_DIR=/var/cache/ccache
 
-echo "[*] Sourcing build/envsetup.sh and lunching..."
-set +e
-set +u
+# Output directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "${SCRIPT_DIR}")"
+OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/output}"
+mkdir -p "${OUTPUT_DIR}"
+
+echo "[*] Setting up build environment..."
 source build/envsetup.sh
 lunch twrp_X6871-eng
-LUNCH_RC=$?
-if [ ${LUNCH_RC} -ne 0 ]; then
-    echo "[!] Lunch failed with code ${LUNCH_RC}"
-    exit 1
-fi
-set -e
 
-echo "[*] Starting mka adbd vendorbootimage -j4..."
+echo "[*] Compiling vendorbootimage..."
 START_TIME=$(date +%s)
-mka adbd vendorbootimage -j4 2>&1 | tee /tmp/build.log
-BUILD_STATUS=${PIPESTATUS[0]}
+mka adbd vendorbootimage -j$(nproc)
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
 
-echo "[*] Compilation completed in ${ELAPSED} seconds with status ${BUILD_STATUS}."
-
-OUTPUT_DIR="/mnt/c/Users/Admin/Videos/Github/X6871-Recovery-Project/Output"
-mkdir -p "${OUTPUT_DIR}"
-
-PRODUCT_DIR="out/target/product/Infinix-X6871"
+PRODUCT_DIR="out/target/product/X6871"
+if [ ! -d "${PRODUCT_DIR}" ]; then
+    PRODUCT_DIR="out/target/product/Infinix-X6871"
+fi
 
 if [ -f "${PRODUCT_DIR}/vendor_boot.img" ]; then
-    echo "[✓] vendor_boot.img successfully created!"
+    echo "[+] Compilation successful in ${ELAPSED} seconds!"
+    
     TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-    cp -v "${PRODUCT_DIR}/vendor_boot.img" "${OUTPUT_DIR}/OrangeFox-R12.0-X6871-NewBuild-${TIMESTAMP}.img"
+    RELEASE_NAME="OrangeFox-R12.1_${TIMESTAMP}_15.1.2-Stable-X6871"
+    
+    cp -v "${PRODUCT_DIR}/vendor_boot.img" "${OUTPUT_DIR}/${RELEASE_NAME}.img"
     cp -v "${PRODUCT_DIR}/vendor_boot.img" "${OUTPUT_DIR}/vendor_boot.img"
     
     find "${PRODUCT_DIR}" -maxdepth 2 -name "OrangeFox*.zip" -exec cp -v {} "${OUTPUT_DIR}/" \; 2>/dev/null || true
     
     cd "${OUTPUT_DIR}"
-    md5sum "OrangeFox-R12.0-X6871-NewBuild-${TIMESTAMP}.img" > "OrangeFox-R12.0-X6871-NewBuild-${TIMESTAMP}.img.md5"
-    sha256sum "OrangeFox-R12.0-X6871-NewBuild-${TIMESTAMP}.img" > "OrangeFox-R12.0-X6871-NewBuild-${TIMESTAMP}.img.sha256"
+    sha256sum "${RELEASE_NAME}.img" > "${RELEASE_NAME}.img.sha256"
+    md5sum "${RELEASE_NAME}.img" > "${RELEASE_NAME}.img.md5"
     
     echo "=========================================================="
-    echo "[✓] SUCCESS: Build artifacts deployed to ${OUTPUT_DIR}"
-    ls -la "${OUTPUT_DIR}/OrangeFox-R12.0-X6871-NewBuild-${TIMESTAMP}.img"
+    echo "[+] Build artifacts deployed to ${OUTPUT_DIR}:"
+    ls -lh "${OUTPUT_DIR}/${RELEASE_NAME}.img"
     echo "=========================================================="
-    
-    echo "[*] Triggering host shutdown in 120 seconds..."
-    /mnt/c/Windows/System32/shutdown.exe /s /t 120 /c "OrangeFox Recovery build complete! Shutting down in 2 minutes. Run shutdown /a to abort." || true
 else
-    echo "=========================================================="
-    echo "[✗] ERROR: vendor_boot.img was NOT found in ${PRODUCT_DIR}"
-    echo "=========================================================="
-    tail -n 100 /tmp/build.log
+    echo "[-] Error: vendor_boot.img was not generated in ${PRODUCT_DIR}"
     exit 1
 fi
