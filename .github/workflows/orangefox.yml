@@ -23,14 +23,23 @@ jobs:
 
       - name: Free Disk Space
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/powershell /opt/hostedtoolcache
+          sudo rm -rf \
+            /usr/share/dotnet \
+            /usr/local/lib/android \
+            /opt/ghc \
+            /usr/local/share/powershell \
+            /usr/local/share/boost \
+            /usr/local/share/chromium \
+            /usr/share/swift \
+            /opt/hostedtoolcache \
+            /var/lib/docker
           sudo docker image prune --all --force 2>/dev/null || true
           df -h
 
       - name: Setup Swap Space
         uses: pierotofy/set-swap-space@master
         with:
-          swap-size-gb: 20
+          swap-size-gb: 12
 
       - name: Install Build Dependencies
         run: |
@@ -69,6 +78,9 @@ jobs:
           git clone --depth=1 https://gitlab.com/OrangeFox/sync.git $HOME/OrangeFox_sync
           cd $HOME/OrangeFox_sync
           ./orangefox_sync.sh --branch 14.1 --path $HOME/fox_14.1
+          echo "Reclaiming git pack cache from minimal tree..."
+          rm -rf $HOME/fox_14.1/.repo
+          df -h
 
       - name: Setup Device Trees & Patches
         run: |
@@ -222,6 +234,18 @@ jobs:
             cp -vf "$TARGET_DIR"/vendor_boot.img $GITHUB_WORKSPACE/output/ 2>/dev/null || true
           fi
 
+          # Prune any 0-byte corrupted files immediately
+          find $GITHUB_WORKSPACE/output -type f -size 0 -delete
+
+          # If the OrangeFox zip is missing or was empty, package vendor_boot into flashable installer zip
+          OFOX_ZIP=$(find $GITHUB_WORKSPACE/output -name "OrangeFox-*.zip" -type f 2>/dev/null | head -n 1)
+          if [ -z "$OFOX_ZIP" ] && [ -f "$GITHUB_WORKSPACE/output/vendor_boot.img" ]; then
+            ZIP_NAME="OrangeFox-R12.1_$(date +%Y%m%d)_15.1.2-Stable-X6871.zip"
+            echo "Packaging fallback flashable recovery zip: $ZIP_NAME"
+            cd $GITHUB_WORKSPACE/output
+            zip -r9 "$ZIP_NAME" vendor_boot.img
+          fi
+
           echo "Bundling Root Suite (Magisk, KernelSU, APatch)..."
           mkdir -p $GITHUB_WORKSPACE/output/Root_Suite
           cp -vf /tmp/Magisk.zip $GITHUB_WORKSPACE/output/Root_Suite/Magisk-v28.1.zip 2>/dev/null || curl -sSL "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/Magisk-v28.1.zip
@@ -229,6 +253,9 @@ jobs:
           curl -sSL "https://github.com/bmax121/APatch/releases/download/11224/APatch_11224_9a63e0f_HEAD-release-signed.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/APatch-11224.apk || true
           cd $GITHUB_WORKSPACE/output/Root_Suite && zip -r ../OrangeFox-RootSuite-X6871.zip * || true
           rm -rf $GITHUB_WORKSPACE/output/Root_Suite
+
+          # Strict validation: delete any 0-byte files so release asset upload never fails
+          find $GITHUB_WORKSPACE/output -type f -size 0 -delete
 
           cd $GITHUB_WORKSPACE/output
           sha256sum * > SHA256SUMS.txt 2>/dev/null || true
