@@ -10,7 +10,7 @@ Maintained by [@withmehraan](https://github.com/sheikhmehraann) with active comm
 
 | Attribute | Specification |
 |---|---|
-| **Device Model** | Infinix GT 20 Pro (`Infinix X6871` |
+| **Device Model** | Infinix GT 20 Pro (`Infinix X6871`) |
 | **SoC** | MediaTek Dimensity 8200 Ultimate  |
 | **Platform** | `mt6895` / `mt6896` |
 | **Display** | 1080 x 2436 AMOLED (144Hz, Single-Pipe DRM) |
