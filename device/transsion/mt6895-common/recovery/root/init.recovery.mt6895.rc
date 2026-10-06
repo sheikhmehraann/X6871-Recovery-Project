@@ -1,5 +1,7 @@
 import /init.tee.rc
 import /init.device.rc
+import /system/etc/init/create_pl_dev.rc
+import /create_pl_dev.rc
 
 on early-init
     symlink /system/etc/recovery.fstab /etc/recovery.fstab

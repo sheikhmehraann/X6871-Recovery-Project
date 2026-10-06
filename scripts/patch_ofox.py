@@ -209,16 +209,16 @@ def patch_magiskboot_vendor_boot(fox_root):
 
     # 4. Inject fast in-place CPIO splash addition & dual-slot vendor_boot sync in cmd_script2
     repack_pattern = r'(AppendLineToFile\s*\(\s*cmd_script2,\s*magiskboot_sbin\s*\+\s*" repack)'
-    repack_inject = r'''// Fast in-place splash update via magiskboot cpio (sub-second turnaround)
+    repack_inject = r'''// Fast in-place splash update via single-pass magiskboot cpio
 	        AppendLineToFile (cmd_script2, "if [ -f /tmp/orangefox/ramdisk/twres/splash.xml ]; then");
-	        AppendLineToFile (cmd_script2, "  for cpio_file in vendor_ramdisk_recovery.cpio ramdisk.cpio; do");
-	        AppendLineToFile (cmd_script2, "    if [ -f \"$cpio_file\" ]; then");
-	        AppendLineToFile (cmd_script2, "      " + magiskboot_sbin + " cpio \"$cpio_file\" 'add 0644 twres/splash.xml /tmp/orangefox/ramdisk/twres/splash.xml'");
-	        AppendLineToFile (cmd_script2, "      if [ -f /tmp/orangefox/ramdisk/twres/images/Splash/user.png ]; then");
-	        AppendLineToFile (cmd_script2, "        " + magiskboot_sbin + " cpio \"$cpio_file\" 'add 0644 twres/images/Splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png'");
-	        AppendLineToFile (cmd_script2, "      fi");
+	        AppendLineToFile (cmd_script2, "  CPIO_TARGET=\"\"; [ -f vendor_ramdisk_recovery.cpio ] && CPIO_TARGET=\"vendor_ramdisk_recovery.cpio\" || CPIO_TARGET=\"ramdisk.cpio\"");
+	        AppendLineToFile (cmd_script2, "  if [ -n \"$CPIO_TARGET\" ] && [ -f \"$CPIO_TARGET\" ]; then");
+	        AppendLineToFile (cmd_script2, "    if [ -f /tmp/orangefox/ramdisk/twres/images/Splash/user.png ]; then");
+	        AppendLineToFile (cmd_script2, "      " + magiskboot_sbin + " cpio \"$CPIO_TARGET\" 'add 0644 twres/splash.xml /tmp/orangefox/ramdisk/twres/splash.xml' 'add 0644 twres/images/Splash/user.png /tmp/orangefox/ramdisk/twres/images/Splash/user.png'");
+	        AppendLineToFile (cmd_script2, "    else");
+	        AppendLineToFile (cmd_script2, "      " + magiskboot_sbin + " cpio \"$CPIO_TARGET\" 'add 0644 twres/splash.xml /tmp/orangefox/ramdisk/twres/splash.xml'");
 	        AppendLineToFile (cmd_script2, "    fi");
-	        AppendLineToFile (cmd_script2, "  done");
+	        AppendLineToFile (cmd_script2, "  fi");
 	        AppendLineToFile (cmd_script2, "fi");
 	        // Vendor_boot v4 recovery ramdisk repack bridge
 	        AppendLineToFile (cmd_script2, "[ -f ramdisk.cpio ] && [ ! -f vendor_ramdisk_recovery.cpio ] && cp -f ramdisk.cpio vendor_ramdisk_recovery.cpio");

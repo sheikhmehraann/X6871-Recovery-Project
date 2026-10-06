@@ -110,6 +110,11 @@ PRODUCT_PACKAGES += \
     mtk_plpath_utils \
     mtk_plpath_utils.recovery
 
+# Create preloader dev
+PRODUCT_PACKAGES += \
+    create_pl_dev \
+    create_pl_dev.recovery
+
 # Update engine
 PRODUCT_PACKAGES += \
     update_engine \
