@@ -90,6 +90,14 @@
         </interface>
         <fqname>@1.0::IGatekeeper/default</fqname>
     </hal>
+    <hal format="aidl">
+        <name>android.hardware.security.keymint</name>
+        <fqname>IKeyMintDevice/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.security.keymint</name>
+        <fqname>IRemotelyProvisionedComponent/default</fqname>
+    </hal>
     <hal format="hidl">
         <name>android.hardware.graphics.allocator</name>
         <transport>hwbinder</transport>

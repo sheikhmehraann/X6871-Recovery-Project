@@ -10,8 +10,8 @@ on early-init
     symlink /system/etc/recovery.fstab /vendor/etc/fstab.mt6895
     symlink /system/etc/recovery.fstab /odm/etc/fstab.mt6895
     symlink /system/etc/twrp.flags /etc/twrp.flags
-    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.vendor.build.security_patch 2026-07-01
-    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.build.version.security_patch 2026-07-01
+    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.vendor.build.security_patch 2026-09-01
+    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.build.version.security_patch 2026-09-01
 
 on init
     setprop sys.usb.configfs 1
@@ -39,6 +39,8 @@ on fs
     symlink /dev/block/by-name /dev/block/bootdevice/by-name
     wait /dev/block/by-name/metadata
     mount ext4 /dev/block/by-name/metadata /metadata noatime nosuid nodev discard
+    mkdir /metadata/recovery 0770 root root
+    symlink /metadata/recovery /cache
     wait /dev/block/by-name/persist
     mkdir /mnt/vendor/persist 0771 system system
     mount ext4 /dev/block/by-name/persist /mnt/vendor/persist noatime nosuid nodev
@@ -49,6 +51,7 @@ on fs
     chown system system /mnt/vendor/persist/mcRegistry
     chmod 0771 /mnt/vendor/persist/mcRegistry
     install_keyring
+    start mobicore
 
 on post-fs
     start mobicore

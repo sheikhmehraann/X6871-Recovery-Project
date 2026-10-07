@@ -714,6 +714,16 @@ def patch_super_partitions(fox_root):
         if "Can_Be_Backed_Up) {\n\t\t\tif (!(*iter)->Is_Present" not in c:
             c = re.sub(list_bak_pat, list_bak_inject, c)
 
+        # 3. In Unmap_Super_Devices: force unmount and unlink mapper symlink before destroying logical partition
+        destroy_pat = r'(\s*)(\S*::DestroyLogicalPartition\s*\(\s*\(\*iter\)->Get_Partition_Name\(\)\s*,\s*0\s*\)\s*;)'
+        destroy_inject = r'''\1(*iter)->UnMount(true);
+\1unlink(("/dev/block/mapper/" + (*iter)->Get_Partition_Name()).c_str());
+\1TWPartition* cleanImg = Find_Partition_By_Path("/" + (*iter)->Get_Partition_Name() + "_image");
+\1if (cleanImg) cleanImg->Is_Present = false;
+\1\2'''
+        if 'unlink(("/dev/block/mapper/" + (*iter)->Get_Partition_Name()).c_str());' not in c:
+            c = re.sub(destroy_pat, destroy_inject, c)
+
         if c != orig:
             write_file_lf(pm_cpp, c)
             print("[+] Successfully patched partitionmanager.cpp with dynamic super partition flash & backup engine")
