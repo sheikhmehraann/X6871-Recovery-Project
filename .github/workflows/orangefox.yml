@@ -178,6 +178,7 @@ jobs:
 
           export OF_USE_TWRP_SAR_DETECT=1
           export OF_SUPPORT_OZIP_DECRYPTION=1
+          export OF_DEFAULT_KEYMASTER_VERSION=2
           export OF_FBE_METADATA_MOUNT_IGNORE=0
           export OF_SKIP_DECRYPTED_ADOPTED_STORAGE=1
           export OF_SPLASH_MAX_SIZE=8192
