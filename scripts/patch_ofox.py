@@ -714,15 +714,111 @@ def patch_super_partitions(fox_root):
         if "Can_Be_Backed_Up) {\n\t\t\tif (!(*iter)->Is_Present" not in c:
             c = re.sub(list_bak_pat, list_bak_inject, c)
 
-        # 3. In Unmap_Super_Devices: force unmount and unlink mapper symlink before destroying logical partition
-        destroy_pat = r'(\s*)(\S*::DestroyLogicalPartition\s*\(\s*\(\*iter\)->Get_Partition_Name\(\)\s*,\s*0\s*\)\s*;)'
-        destroy_inject = r'''\1(*iter)->UnMount(true);
-\1unlink(("/dev/block/mapper/" + (*iter)->Get_Partition_Name()).c_str());
-\1TWPartition* cleanImg = Find_Partition_By_Path("/" + (*iter)->Get_Partition_Name() + "_image");
-\1if (cleanImg) cleanImg->Is_Present = false;
-\1\2'''
-        if 'unlink(("/dev/block/mapper/" + (*iter)->Get_Partition_Name()).c_str());' not in c:
-            c = re.sub(destroy_pat, destroy_inject, c)
+        # 3. In Process_Keymaster_Version: ensure TW_FORCE_KEYMASTER_VER support
+        if "#ifndef TW_FORCE_KEYMASTER_VER" not in c:
+            km_func_pat = r'void inline Process_Keymaster_Version\s*\([^)]*\)\s*\{[\s\S]*?\n\}'
+            km_func_inject = r'''void inline Process_Keymaster_Version(TWPartition *ven, bool Display_Error) {
+	// Fetch the Keymaster Service version to be started
+	std::string version;
+#ifndef TW_FORCE_KEYMASTER_VER
+	version = KM_Ver_From_Manifest(version);
+
+	/* If we are unable to get the version from device vendor then
+		* set the version from the keymaster_ver prop if set
+		*/
+	if (version.empty()) {
+		// unmount partition(s)
+		if (ven) ven->UnMount(Display_Error);
+
+		// Use keymaster_ver prop set from device tree (if exists)
+		version = android::base::GetProperty(TW_KEYMASTER_VERSION_PROP, version);
+		if (version.empty()) {
+			LOGINFO("Keymaster_Ver::Unable to find vendor manifest on the device, and no default value set. Checking the ramdisk manifest\\n");
+			version = KM_Ver_From_Manifest(version);
+		} else {
+			LOGINFO("Keymaster_Ver::Unable to find vendor manifest on the device. Setting to default value.\\n");
+		}
+	} else {
+		if (ven) ven->UnMount(Display_Error);
+	}
+#else
+	if (ven) ven->UnMount(Display_Error);
+
+	version = android::base::GetProperty(TW_KEYMASTER_VERSION_PROP, version);
+	if (version.empty()) {
+		LOGINFO("Keymaster_Ver::Force Keymaster_Ver flag found, but keymaster_ver prop not set.\\n");
+	} else {
+		LOGINFO("Keymaster_Ver::Force Keymaster_Ver flag found.\\n");
+	}
+#endif
+	if (version.empty()) // defective device tree - apply a default
+		version = "4.x";
+
+	LOGINFO("Keymaster_Ver::Using keymaster version '%s' for decryption\\n", version.c_str());
+	android::base::SetProperty(TW_KEYMASTER_VERSION_PROP, version.c_str());
+}'''
+            c = re.sub(km_func_pat, km_func_inject, c)
+
+        # 4. In Unmap_Super_Devices: force unmount, unlink mapper symlinks, and avoid fatal abort on symlink cleanup
+        unmap_func_pat = r'bool TWPartitionManager::Unmap_Super_Devices\(\)\s*\{[\s\S]*?\n\}'
+        unmap_func_inject = r'''bool TWPartitionManager::Unmap_Super_Devices() {
+	bool destroyed = false;
+#ifndef TW_EXCLUDE_APEX
+	twrpApex apex;
+	apex.Unmount();
+#endif
+	LOGINFO("Unmap_Super_Devices\\n");
+	for (auto iter = Partitions.begin(); iter != Partitions.end();) {
+		LOGINFO("Checking partition: %s\\n", (*iter)->Get_Mount_Point().c_str());
+		if ((*iter)->Is_Super) {
+			TWPartition *part = *iter;
+			std::string bare_partition_name = Get_Bare_Partition_Name((*iter)->Get_Mount_Point());
+			std::string blk_device_partition = bare_partition_name;
+			if (DataManager::GetIntValue("of_ab_device") == 1 || DataManager::GetStrValue("tw_has_boot_slots") == "1")
+				blk_device_partition.append(PartitionManager.Get_Active_Slot_Suffix());
+			(*iter)->UnMount(true);
+			unlink(("/dev/block/mapper/" + bare_partition_name).c_str());
+			unlink(("/dev/block/mapper/" + blk_device_partition).c_str());
+			unlink(("/dev/block/by-name/" + bare_partition_name).c_str());
+			unlink(("/dev/block/by-name/" + blk_device_partition).c_str());
+			TWPartition* cleanImg = Find_Partition_By_Path("/" + bare_partition_name + "_image");
+			if (cleanImg) cleanImg->Is_Present = false;
+			LOGINFO("removing dynamic partition: %s\\n", blk_device_partition.c_str());
+			destroyed = DestroyLogicalPartition(blk_device_partition);
+			std::string cow_partition = blk_device_partition + "-cow";
+			std::string cow_partition_path = "/dev/block/mapper/" + cow_partition;
+			struct stat st;
+			if (lstat(cow_partition_path.c_str(), &st) == 0) {
+				LOGINFO("removing cow partition: %s\\n", cow_partition.c_str());
+				DestroyLogicalPartition(cow_partition);
+				unlink(cow_partition_path.c_str());
+			}
+			iter = Partitions.erase(iter);
+			delete part;
+		} else {
+			++iter;
+		}
+	}
+
+	const std::string block_path = "/dev/block/mapper/";
+	DIR* d = opendir(block_path.c_str());
+	if (d != NULL) {
+		struct dirent* de;
+		while ((de = readdir(d)) != NULL) {
+			if (de->d_type == DT_LNK) {
+				std::string partition = de->d_name;
+				if (strcmp(partition.c_str(),"userdata") != 0){
+					LOGINFO("removing dynamic partition: %s\\n", partition.c_str());
+					unlink((block_path + partition).c_str());
+					DestroyLogicalPartition(partition);
+				}
+			}
+		}
+		closedir(d);
+	}
+	return true;
+}'''
+        c = re.sub(unmap_func_pat, unmap_func_inject, c)
 
         if c != orig:
             write_file_lf(pm_cpp, c)

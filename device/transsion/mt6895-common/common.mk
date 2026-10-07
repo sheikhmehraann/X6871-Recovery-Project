@@ -123,3 +123,14 @@ PRODUCT_PACKAGES += \
 
 PRODUCT_PACKAGES_DEBUG += \
     update_engine_client
+
+# KeyMint & Keystore AIDL
+PRODUCT_PACKAGES += \
+    android.hardware.security.secureclock-V1-ndk \
+    android.hardware.security.sharedsecret-V1-ndk \
+    android.hardware.gatekeeper-V1-ndk \
+    android.hardware.security.keymint-V3-ndk \
+    android.system.keystore2 \
+    libkeymint \
+    libgatekeeper
+

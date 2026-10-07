@@ -10,8 +10,11 @@ on early-init
     symlink /system/etc/recovery.fstab /vendor/etc/fstab.mt6895
     symlink /system/etc/recovery.fstab /odm/etc/fstab.mt6895
     symlink /system/etc/twrp.flags /etc/twrp.flags
-    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.vendor.build.security_patch 2026-09-01
-    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.build.version.security_patch 2026-09-01
+    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.build.version.release 15
+    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.build.version.release_or_codename 15
+    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.build.version.sdk 35
+    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.build.version.security_patch 2026-07-01
+    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.vendor.build.security_patch 2026-07-01
 
 on init
     setprop sys.usb.configfs 1
@@ -39,7 +42,10 @@ on fs
     symlink /dev/block/by-name /dev/block/bootdevice/by-name
     wait /dev/block/by-name/metadata
     mount ext4 /dev/block/by-name/metadata /metadata noatime nosuid nodev discard
+    restorecon -R /metadata
     mkdir /metadata/recovery 0770 root root
+    chmod 0770 /metadata/recovery
+    rm /cache
     symlink /metadata/recovery /cache
     wait /dev/block/by-name/persist
     mkdir /mnt/vendor/persist 0771 system system
