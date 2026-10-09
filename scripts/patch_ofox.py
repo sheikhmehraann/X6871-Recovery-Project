@@ -16,6 +16,7 @@ Components Patched:
 9. Display Timeout: Interactive [ Enabled / Disabled ] toggle button + slider
 10. AVB 2.0: Slot-aware vbmeta disable addon
 11. Graphics DRM: Single-pipe atomic display rendering
+12. Format Data: Virtual A/B pending snapshot bypass, reboot lock reset, MTP/mount detach
 """
 
 import os
@@ -828,6 +829,89 @@ def patch_super_partitions(fox_root):
         print(f"[-] Failed patching partitionmanager.cpp for super partitions: {e}")
     return False
 
+def patch_format_data(fox_root):
+    pm_cpp = os.path.join(fox_root, "bootable/recovery/partitionmanager.cpp")
+    if not os.path.isfile(pm_cpp):
+        print(f"[-] partitionmanager.cpp not found at {pm_cpp}")
+        return False
+
+    try:
+        with open(pm_cpp, "r", encoding="utf-8", errors="ignore") as f:
+            c = f.read()
+
+        orig = c
+
+        fmt_pat = r'int TWPartitionManager::Format_Data\s*\(\s*void\s*\)\s*\{[\s\S]*?\n\}'
+        fmt_repl = '''int TWPartitionManager::Format_Data(void) {
+	// 1. Reset A/B zip installation reboot lock so user can format data without rebooting recovery
+	DataManager::SetValue("tw_block_reboot", 0);
+	if (TWFunc::Block_Operations_Until_Reboot())
+		return false;
+
+	TWPartition* dat = Find_Partition_By_Path("/data");
+	TWPartition* metadata = Find_Partition_By_Path("/metadata");
+	bool ret = false;
+	if (metadata != NULL)
+		metadata->UnMount(false);
+
+	if (dat != NULL) {
+		// 2. Pre-emptively detach MTP and active mounts on /data and /sdcard to prevent EBUSY
+		Remove_MTP_Storage(dat->MTP_Storage_ID);
+		dat->UnMount(false, MNT_FORCE | MNT_DETACH);
+		umount2("/data", MNT_FORCE | MNT_DETACH);
+		umount2("/sdcard", MNT_FORCE | MNT_DETACH);
+
+		#ifdef OF_REFRESH_ENCRYPTION_PROPS_BEFORE_FORMAT
+		Update_Encryption_Props_Before_Format(); // call here, because it must run before Unmap_Super_Devices is executed
+		#endif
+		if (android::base::GetBoolProperty("ro.virtual_ab.enabled", false)) {
+#ifndef TW_EXCLUDE_APEX
+			twrpApex apex;
+			apex.Unmount();
+#endif
+			if (metadata != NULL)
+				metadata->Mount(true);
+			// 3. Virtual A/B: do not abort format data if an unverified snapshot is pending
+			if (!Check_Pending_Merges()) {
+				LOGINFO("Check_Pending_Merges returned false (unverified snapshot pending); cancelling snapshot update before data wipe.\\n");
+				auto sm = android::snapshot::SnapshotManager::NewForFirstStageMount();
+				if (sm) {
+					sm->CancelUpdate();
+				}
+			}
+		}
+		ret = dat->Wipe_Encryption();
+	} else {
+		gui_msg(Msg(msg::kError, "unable_to_locate=Unable to locate {1}.")("/data"));
+		return false;
+	}
+
+	if (ret) {
+		#ifdef OF_WIPE_METADATA_AFTER_DATAFORMAT
+		usleep(2048);
+		Wipe_By_Path("/metadata");
+		usleep(2048);
+		mkdir("/metadata/recovery", 0770);
+		#endif
+		TWFunc::check_and_run_script(TW_FORMAT_DATA_SCRIPT, "Format Data Script");
+	}
+	return ret;
+}'''
+
+        if re.search(fmt_pat, c):
+            c = re.sub(fmt_pat, lambda m: fmt_repl, c)
+
+        if c != orig:
+            write_file_lf(pm_cpp, c)
+            print("[+] Successfully patched partitionmanager.cpp with robust Format_Data engine")
+            return True
+        else:
+            print("[-] Format_Data already patched or pattern did not match")
+            return False
+    except Exception as e:
+        print(f"[-] Failed patching partitionmanager.cpp for format data: {e}")
+    return False
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: patch_ofox.py <fox_source_root>")
@@ -852,7 +936,8 @@ def main():
     patch_graphics_drm(fox_root)
     patch_version(fox_root)
     patch_super_partitions(fox_root)
-    print("[*] All hardware, architecture, identity, slot, splash, version, and UI patches applied cleanly!")
+    patch_format_data(fox_root)
+    print("[*] All hardware, architecture, identity, slot, splash, version, format data, and UI patches applied cleanly!")
 
 if __name__ == "__main__":
     main()
