@@ -117,6 +117,12 @@ jobs:
           echo "Applying Clang-Tidy Stub..."
           find prebuilts/ -name "clang-tidy" -type f -exec bash -c 'echo -e "#!/bin/sh\nexit 0" > "$1" && chmod +x "$1"' _ {} \; || true
 
+          echo "Fetching KernelSU v3.3.0 LKM assets for built-in Fox Addon..."
+          mkdir -p /tmp/ksu_assets
+          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.0/ksuinit-aarch64" -o /tmp/ksu_assets/ksuinit
+          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.0/lkm-aarch64-android12-5.10_kernelsu.ko" -o /tmp/ksu_assets/kernelsu.ko
+          chmod 0755 /tmp/ksu_assets/ksuinit /tmp/ksu_assets/kernelsu.ko
+
           echo "Executing OrangeFox Universal Hardware & Architecture Patch Engine..."
           python3 $GITHUB_WORKSPACE/scripts/patch_ofox.py $HOME/fox_14.1
 
@@ -152,7 +158,9 @@ jobs:
           export FOX_USE_NANO_EDITOR=1
           export FOX_DELETE_AROMAFM=1
           export FOX_VARIANT="15.1.2"
-          export OF_MAINTAINER="withmehraan"
+          export OF_MAINTAINER="sheikhmehraann"
+          export OF_ENABLE_FRP_ADDON=1
+          export FOX_SUPPORT_KSU=1
           export OF_SCREEN_H=2436
           export OF_STATUS_H=90
           export OF_CLOCK_POS=0
@@ -279,7 +287,7 @@ jobs:
           name: "OrangeFox Recovery - Infinix GT 20 Pro (X6871) #${{ github.run_number }}"
           body: |
             ## OrangeFox Recovery Unofficial — Infinix GT 20 Pro (X6871)
-            * **Maintainer:** `withmehraan`
+            * **Maintainer:** `sheikhmehraann`
             * **Updates:** [GT 20 Pro Updates](https://t.me/Gt20ProINUpdates)
             * **Discussion:** [GT 20 Pro Discussion](https://t.me/Gt20ProIN)
             * **Platform:** `mt6895 (Dimensity 8200 Ultimate)`
@@ -288,13 +296,15 @@ jobs:
             * **Recovery Target:** `vendor_boot` (Header v4, Virtual A/B)
 
             ### Features & Native Support
+            - **Native 144Hz AMOLED UI:** Smooth 144 FPS recovery rendering (`TW_FRAMERATE := 144`) with single-pipe DRM
+            - **Built-in KernelSU v3.3.0 LKM Addon:** One-tap `Install KernelSU v3.3.0` & `Uninstall KernelSU` directly inside Fox Addons (`/FFiles/KernelSU`)
+            - **Remove Lockscreen PIN/Password Addon:** Built-in `OF_DelPass.zip` in Fox Addons to clear lockscreen credentials without breaking FBEv2 keys
+            - **Remove FRP Lock Addon:** Built-in `OF_DelFRP.zip` in Fox Addons to wipe Factory Reset Protection
+            - **Slot-Aware VBMeta AVB 2.0 Addon:** One-tap `Patch VBMeta (Disable AVB 2.0)` across `vbmeta_a/b`, `vbmeta_system_a/b`, and `vbmeta_vendor_a/b`
             - **Native Vendor_Boot Splash Changer:** Direct unpack & repack of Header v4 vendor_boot recovery image
             - **Official A/B Boot Slot Support:** Seamless boot slot display and switching via native recovery reboot menu
             - **Full Dynamic Partitions Support:** All 82 partitions and Transsion vendor partitions mounted and backup-ready
-            - **Native Root Suite Addon:** Magisk v28.1 bundled natively in recovery (/FFiles/OF_Magisk)
-            - **AVB 2.0 Addon:** Slot-aware disable vbmeta verification addon
-            - **Exact Stock Identity:** Console banner and properties strictly reflect Infinix Android 15
-            - **Haptics & Flashlight:** AW8697 Linear Vibrator and OCP81375 rear camera torch
-            - **Thermals:** Unlocked live CPU temperature display (`soc_max`)
+            - **Exact Stock Identity & Community Links:** Maintainer (`sheikhmehraann`) and Telegram links (`@Gt20ProINUpdates` / `@Gt20ProIN`) in About screen and startup log
+            - **Haptics, Flashlight & Thermals:** AW8697 Linear Vibrator, OCP81375 rear camera torch, and live CPU temperature display (`soc_max`)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

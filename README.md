@@ -2,7 +2,7 @@
 
 Unofficial **OrangeFox Recovery R12.1 (Stable)** device tree and automated build system for the **Infinix GT 20 Pro** (`X6871` / `X6871-OP`), powered by the MediaTek Dimensity 8200 Ultimate (`MT6895` / `MT6896`).
 
-Maintained by [@withmehraan](https://github.com/sheikhmehraann) with active community testing.
+Maintained by [@sheikhmehraann](https://github.com/sheikhmehraann) with active community testing.
 
 ---
 

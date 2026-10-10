@@ -18,4 +18,5 @@ TARGET_INIT_VENDOR_LIB := libinit_Infinix-X6871
 TARGET_RECOVERY_DEVICE_MODULES := libinit_Infinix-X6871
 
 # TWRP Configs
-TW_DEVICE_VERSION := X6871_by_withmehraan
+TW_DEVICE_VERSION := X6871_by_sheikhmehraann
+TW_FRAMERATE := 144

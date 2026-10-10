@@ -70,7 +70,9 @@ if [ "$1" = "$FDEVICE" -o "$FOX_BUILD_DEVICE" = "$FDEVICE" ]; then
 	unset FOX_VERSION
 	export FOX_BUILD_TYPE="Stable"
 	export FOX_VARIANT="15.1.2"
-	export OF_MAINTAINER="withmehraan"
+	export OF_MAINTAINER="sheikhmehraann"
+	export OF_ENABLE_FRP_ADDON=1
+	export FOX_SUPPORT_KSU=1
 	export FOX_RECOVERY_INSTALL_PARTITION="/dev/block/by-name/vendor_boot"
 	export FOX_RECOVERY_BOOT_PARTITION="/dev/block/by-name/boot"
 

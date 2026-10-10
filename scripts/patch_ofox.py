@@ -22,6 +22,9 @@ Components Patched:
 import os
 import sys
 import re
+import shutil
+import zipfile
+import urllib.request
 
 def write_file_lf(filepath, content):
     """Normalize line endings to Unix LF and write file."""
@@ -336,9 +339,15 @@ def patch_identity_and_banner(fox_root):
             plat_pat = r'#ifdef\s+PRODUCT_PLATFORM\s+gui_msg\(Msg\("fox_platform=\*\s*Platform:\s*\{1\}"\)\(EXPAND\(PRODUCT_PLATFORM\)\)\);\s+#else\s+gui_msg\(Msg\("fox_platform=\*\s*Platform:\s*\{1\}"\)\(DataManager::GetStrValue\(FOX_COMPATIBILITY_DEVICE\)\.c_str\(\)\)\);\s+#endif'
             c = re.sub(plat_pat, 'gui_msg(Msg("fox_platform=* Platform:   {1}")("MediaTek Dimensity 8200 Ultimate (MT6895)"));', c)
 
-            # Clean device in Check_MIUI_Treble
+            # Clean device in Check_MIUI_Treble + Maintainer & Community lines
             dev_pat = r'gui_msg\(Msg\("fox_device=\*\s*Device:\s*\{1\}\s*\(\{2\}\)"\)\(device_model\.c_str\(\)\)\(TWFunc::Fox_Property_Get\("ro\.product\.device"\)\.c_str\(\)\)\);'
-            c = re.sub(dev_pat, 'gui_msg(Msg("fox_device=* Device:     {1} ({2})")("Infinix GT 20 Pro")("Infinix X6871"));', c)
+            dev_repl = (
+                'gui_msg(Msg("fox_device=* Device:     {1} ({2})")("Infinix GT 20 Pro")("Infinix X6871"));\n'
+                '\tgui_print("* Maintainer: sheikhmehraann\\n");\n'
+                '\tgui_print("* Updates:    @Gt20ProINUpdates\\n");\n'
+                '\tgui_print("* Community:  @Gt20ProIN\\n");'
+            )
+            c = re.sub(dev_pat, lambda m: dev_repl, c)
 
             # Clean boot slot: Slot A / Slot B
             slot_pat = r'gui_msg\(Msg\("fox_boot_slot=\*\s*Boot slot:\s*\{1\}"\)\(tmp\.c_str\(\)\)\);'
@@ -355,19 +364,24 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
             if old_print in c:
                 c = c.replace(old_print, new_print)
 
-            # Suppress Support link, OrangeFox websites, Downloads, Guides/FAQ
-            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_support[^;]*?\)\s*\)\s*;', '// fox_support suppressed', c, flags=re.DOTALL)
+            # Replace generic OrangeFox support links with Maintainer & GT 20 Pro Telegram links
+            welcome_links = (
+                'gui_print("[Maintainer]: sheikhmehraann\\n");\n'
+                '\tgui_print("[Updates]   : https://t.me/Gt20ProINUpdates (@Gt20ProINUpdates)\\n");\n'
+                '\tgui_print("[Community] : https://t.me/Gt20ProIN (@Gt20ProIN)\\n");'
+            )
+            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_support[^;]*?\)\s*\)\s*;', lambda m: welcome_links, c, flags=re.DOTALL)
             c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_nosupport[^;]*?\)\s*\)\s*;', '// fox_nosupport suppressed', c, flags=re.DOTALL)
             c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_websites[^;]*?\)\s*\)\s*;', '// fox_websites suppressed', c, flags=re.DOTALL)
             c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_downloads[^;]*?\)\s*\)\s*;', '// fox_downloads suppressed', c, flags=re.DOTALL)
             c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_faq[^;]*?\)\s*\)\s*;', '// fox_faq suppressed', c, flags=re.DOTALL)
 
             write_file_lf(twrp_funcs_cpp, c)
-            print("[+] Successfully patched twrp-functions.cpp with clean Dimensity 8200, slot banner & dev-keys suppression")
+            print("[+] Successfully patched twrp-functions.cpp with clean Dimensity 8200, slot banner, maintainer & Telegram links")
         except Exception as e:
             print(f"[-] Failed patching banner in twrp-functions.cpp: {e}")
 
-    # 2. Patch data.cpp to set FOX_COMPATIBILITY_DEVICE to Infinix GT 20 Pro (Infinix X6871)
+    # 2. Patch data.cpp to set FOX_COMPATIBILITY_DEVICE, maintainer, FRP addon, and KSU vars
     data_cpp = os.path.join(fox_root, "bootable/recovery/data.cpp")
     if os.path.isfile(data_cpp):
         try:
@@ -378,10 +392,102 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
                 'mData.SetValue(FOX_COMPATIBILITY_DEVICE, "Infinix GT 20 Pro (Infinix X6871)");',
                 dc
             )
+            if 'mConst.SetValue("enable_frp_addon", "1");' not in dc:
+                dc = dc.replace(
+                    'mConst.SetValue("fox_branch", FOX_BRANCH);',
+                    'mConst.SetValue("fox_branch", FOX_BRANCH);\n'
+                    '\tmConst.SetValue("of_maintainer", "sheikhmehraann");\n'
+                    '\tmConst.SetValue("enable_frp_addon", "1");\n'
+                    '\tmConst.SetValue("fox_support_ksu", "1");\n'
+                    '\tmConst.SetValue("fox_vab_device", "1");\n'
+                    '\tmConst.SetValue("ksu_ver", "v3.3.0");'
+                )
             write_file_lf(data_cpp, dc)
-            print("[+] Successfully patched data.cpp with FOX_COMPATIBILITY_DEVICE -> Infinix GT 20 Pro (Infinix X6871)")
+            print("[+] Successfully patched data.cpp with FOX_COMPATIBILITY_DEVICE, sheikhmehraann, FRP & KSU flags")
         except Exception as e:
             print(f"[-] Failed patching data.cpp: {e}")
+
+    # 2b. Patch settings.xml (About page) and credits.txt with Maintainer & Community links
+    search_dirs_about = [
+        os.path.join(fox_root, "vendor/recovery"),
+        os.path.join(fox_root, "bootable/recovery"),
+        os.path.join(fox_root, "twres"),
+        os.path.join(fox_root, "FFiles")
+    ]
+    for sdir in search_dirs_about:
+        if not os.path.isdir(sdir):
+            continue
+        for root, _, files in os.walk(sdir):
+            for file in files:
+                if file in ("settings.xml", "about.xml"):
+                    fpath = os.path.join(root, file)
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            xc = f.read()
+                        orig_xc = xc
+                        old_maint_card = """\t\t\t<text style="about_name">
+\t\t\t\t<condition var1="of_maintainer" op="!=" var2="3"/>
+\t\t\t\t<condition var1="of_maintainer" op="!=" var2="2"/>
+\t\t\t\t<condition var1="of_maintainer" op="!=" var2="1"/>
+\t\t\t\t<placement x="%card_txt_x%" y="%card_img4_y%"/>
+\t\t\t\t<text>%of_maintainer%</text>
+\t\t\t</text>
+
+\t\t\t<text style="about_info">
+\t\t\t\t<condition var1="of_maintainer" op="!=" var2="3"/>
+\t\t\t\t<condition var1="of_maintainer" op="!=" var2="2"/>
+\t\t\t\t<condition var1="of_maintainer" op="!=" var2="1"/>
+\t\t\t\t<placement x="%card_txt_x%" y="%cardtxt_7%"/>
+\t\t\t\t<text>{@abt_maintainer}</text>
+\t\t\t</text>"""
+                        new_maint_card = """\t\t\t<text style="about_name">
+\t\t\t\t<condition var1="of_maintainer" op="!=" var2="3"/>
+\t\t\t\t<condition var1="of_maintainer" op="!=" var2="2"/>
+\t\t\t\t<condition var1="of_maintainer" op="!=" var2="1"/>
+\t\t\t\t<placement x="%card_txt_x%" y="%card_img4_y%"/>
+\t\t\t\t<text>sheikhmehraann</text>
+\t\t\t</text>
+
+\t\t\t<text style="about_info">
+\t\t\t\t<condition var1="of_maintainer" op="!=" var2="3"/>
+\t\t\t\t<condition var1="of_maintainer" op="!=" var2="2"/>
+\t\t\t\t<condition var1="of_maintainer" op="!=" var2="1"/>
+\t\t\t\t<placement x="%card_txt_x%" y="%cardtxt_7%"/>
+\t\t\t\t<text>{@abt_maintainer} | @Gt20ProINUpdates</text>
+\t\t\t</text>
+
+\t\t\t<text style="about_info">
+\t\t\t\t<condition var1="of_maintainer" op="!=" var2="3"/>
+\t\t\t\t<condition var1="of_maintainer" op="!=" var2="2"/>
+\t\t\t\t<condition var1="of_maintainer" op="!=" var2="1"/>
+\t\t\t\t<placement x="%card_txt_x%" y="%cardtxt_8%"/>
+\t\t\t\t<text>Community: @Gt20ProIN</text>
+\t\t\t</text>"""
+                        if old_maint_card in xc:
+                            xc = xc.replace(old_maint_card, new_maint_card)
+                        if xc != orig_xc:
+                            write_file_lf(fpath, xc)
+                            print(f"[+] Patched About page in {fpath} with sheikhmehraann & Telegram links")
+                    except Exception as e:
+                        print(f"[-] Failed patching {fpath}: {e}")
+                elif file == "credits.txt":
+                    fpath = os.path.join(root, file)
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            cc = f.read()
+                        if "sheikhmehraann" not in cc:
+                            header = (
+                                "\nInfinix GT 20 Pro (X6871)\n"
+                                "--------------------------\n"
+                                "* Maintainer: sheikhmehraann\n"
+                                "* Updates:    @Gt20ProINUpdates (t.me/Gt20ProINUpdates)\n"
+                                "* Community:  @Gt20ProIN (t.me/Gt20ProIN)\n\n"
+                            )
+                            cc = header + cc.lstrip("\n")
+                            write_file_lf(fpath, cc)
+                            print(f"[+] Patched {fpath} with GT 20 Pro maintainer and Telegram credits")
+                    except Exception:
+                        pass
 
     # 3. Patch foxstart.sh with dynamic partition mounter for stock Transsion firmware
     search_dirs = [
@@ -584,6 +690,427 @@ def patch_display_timeout_toggle(fox_root):
             print(f"[-] Failed checking data.cpp timeout: {e}")
     return True
 
+def build_flashable_zip(zip_path, update_binary_str, extra_files=None):
+    os.makedirs(os.path.dirname(zip_path), exist_ok=True)
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        info = zipfile.ZipInfo("META-INF/com/google/android/update-binary")
+        info.external_attr = 0o755 << 16
+        info.compress_type = zipfile.ZIP_DEFLATED
+        zf.writestr(info, update_binary_str.replace("\r\n", "\n"))
+
+        info2 = zipfile.ZipInfo("META-INF/com/google/android/updater-script")
+        info2.external_attr = 0o644 << 16
+        info2.compress_type = zipfile.ZIP_DEFLATED
+        zf.writestr(info2, "#MAGISK\n")
+
+        if extra_files:
+            for arcname, src in extra_files.items():
+                finfo = zipfile.ZipInfo(arcname)
+                finfo.external_attr = 0o755 << 16
+                finfo.compress_type = zipfile.ZIP_DEFLATED
+                if isinstance(src, bytes):
+                    zf.writestr(finfo, src)
+                elif os.path.isfile(src):
+                    with open(src, "rb") as rf:
+                        zf.writestr(finfo, rf.read())
+
+AVB20_SCRIPT = """#!/sbin/sh
+# OrangeFox Slot-Aware AVB 2.0 / VBMeta Disabler for Infinix GT 20 Pro (X6871)
+OUTFD=$2
+ui_print() {
+  if [ -n "$OUTFD" ]; then
+    echo "ui_print $1" >&$OUTFD
+    echo "ui_print" >&$OUTFD
+  else
+    echo "$1"
+  fi
+}
+
+ui_print "******************************************"
+ui_print "*   OrangeFox VBMeta / AVB 2.0 Patcher   *"
+ui_print "*      Maintainer: sheikhmehraann        *"
+ui_print "******************************************"
+
+PATCHED_COUNT=0
+for part in vbmeta_a vbmeta_b vbmeta vbmeta_system_a vbmeta_system_b vbmeta_system vbmeta_vendor_a vbmeta_vendor_b vbmeta_vendor; do
+  BDEV=""
+  for base in /dev/block/by-name /dev/block/bootdevice/by-name /dev/block/platform/bootdevice/by-name; do
+    if [ -e "$base/$part" ]; then
+      BDEV="$base/$part"
+      break
+    fi
+  done
+  [ -z "$BDEV" ] && continue
+
+  MAGIC=$(dd if="$BDEV" bs=1 count=4 2>/dev/null)
+  if [ "$MAGIC" = "AVB0" ]; then
+    printf '\\x00\\x00\\x00\\x03' | dd of="$BDEV" bs=1 seek=120 count=4 conv=notrunc 2>/dev/null
+    sync
+    ui_print "- Patched $part (flags=0x03: verification & verity disabled)"
+    PATCHED_COUNT=$((PATCHED_COUNT + 1))
+  fi
+done
+
+# Also strip AVBf verification flags on active boot image if magiskboot is available
+MB=$(which magiskboot 2>/dev/null)
+[ -z "$MB" ] && [ -x /system/bin/magiskboot ] && MB=/system/bin/magiskboot
+[ -z "$MB" ] && [ -x /sbin/magiskboot ] && MB=/sbin/magiskboot
+SLOT=$(getprop ro.boot.slot_suffix)
+[ -z "$SLOT" ] && SLOT="_a"
+BOOT_DEV="/dev/block/by-name/boot$SLOT"
+if [ -n "$MB" ] && [ -e "$BOOT_DEV" ]; then
+  mkdir -p /tmp/avb_boot
+  dd if="$BOOT_DEV" of=/tmp/avb_boot/boot.img bs=1048576 2>/dev/null
+  if grep -q "AVBf" /tmp/avb_boot/boot.img 2>/dev/null; then
+    $MB hexpatch /tmp/avb_boot/boot.img 41564266000000 41564266000300 >/dev/null 2>&1 && {
+      dd if=/tmp/avb_boot/boot.img of="$BOOT_DEV" bs=1048576 conv=notrunc 2>/dev/null
+      ui_print "- Patched AVBf footer on boot$SLOT"
+    }
+  fi
+  rm -rf /tmp/avb_boot
+fi
+
+if [ "$PATCHED_COUNT" -gt 0 ]; then
+  ui_print "- Successfully disabled AVB 2.0 on $PATCHED_COUNT VBMeta partition(s)!"
+else
+  ui_print "! Warning: No valid AVB0 VBMeta headers found to patch."
+fi
+exit 0
+"""
+
+DELPASS_SCRIPT = """#!/sbin/sh
+# OrangeFox Remove Password / PIN / Lockscreen Addon (Android 15 FBEv2 Safe)
+OUTFD=$2
+ui_print() {
+  if [ -n "$OUTFD" ]; then
+    echo "ui_print $1" >&$OUTFD
+    echo "ui_print" >&$OUTFD
+  else
+    echo "$1"
+  fi
+}
+
+ui_print "******************************************"
+ui_print "*  OrangeFox Lockscreen Password Remover *"
+ui_print "*      Maintainer: sheikhmehraann        *"
+ui_print "******************************************"
+
+mount /data 2>/dev/null || true
+
+if [ ! -d "/data/system" ]; then
+  ui_print "! Error: /data/system is not accessible."
+  ui_print "! Please decrypt Data first if encrypted."
+  exit 1
+fi
+
+REMOVED=0
+for f in \\
+  /data/system/locksettings.db \\
+  /data/system/locksettings.db-wal \\
+  /data/system/locksettings.db-shm \\
+  /data/system/locksettings.db-journal \\
+  /data/system/gesture.key \\
+  /data/system/password.key \\
+  /data/system/gatekeeper.password.key \\
+  /data/system/gatekeeper.pattern.key \\
+  /data/system/gatekeeper.gesture.key \\
+  /data/system/locksettings.PerUser*; do
+  if [ -e "$f" ]; then
+    rm -rf "$f"
+    ui_print "- Removed: $(basename "$f")"
+    REMOVED=$((REMOVED + 1))
+  fi
+done
+
+sync
+if [ "$REMOVED" -gt 0 ]; then
+  ui_print "- Cleared $REMOVED lockscreen credential file(s)."
+  ui_print "- Note: FBEv2 spblob preserved to keep Data encryption intact."
+else
+  ui_print "- No lockscreen password/PIN database files found (already clean)."
+fi
+ui_print "- Done!"
+exit 0
+"""
+
+DELFRP_SCRIPT = """#!/sbin/sh
+# OrangeFox Factory Reset Protection (FRP) Wiper for Infinix GT 20 Pro (X6871)
+OUTFD=$2
+ui_print() {
+  if [ -n "$OUTFD" ]; then
+    echo "ui_print $1" >&$OUTFD
+    echo "ui_print" >&$OUTFD
+  else
+    echo "$1"
+  fi
+}
+
+ui_print "******************************************"
+ui_print "*     OrangeFox FRP Unlock / Wiper       *"
+ui_print "*      Maintainer: sheikhmehraann        *"
+ui_print "******************************************"
+
+FRP_DEV=""
+for candidate in \\
+  /dev/block/by-name/frp \\
+  /dev/block/bootdevice/by-name/frp \\
+  /dev/block/platform/bootdevice/by-name/frp \\
+  /dev/block/by-name/config \\
+  /dev/block/by-name/persistent \\
+  "$(getprop ro.frp.pst)"; do
+  if [ -n "$candidate" ] && [ -e "$candidate" ]; then
+    FRP_DEV="$candidate"
+    break
+  fi
+done
+
+if [ -z "$FRP_DEV" ]; then
+  ui_print "! Error: Could not locate FRP block partition!"
+  exit 1
+fi
+
+ui_print "- Located FRP partition: $FRP_DEV"
+ui_print "- Wiping FRP lock data..."
+dd if=/dev/zero of="$FRP_DEV" bs=1048576 count=1 conv=fsync 2>/dev/null || \\
+dd if=/dev/zero of="$FRP_DEV" bs=4096 conv=notrunc 2>/dev/null || \\
+blkdiscard "$FRP_DEV" 2>/dev/null
+
+sync
+ui_print "- Factory Reset Protection (FRP) wiped successfully!"
+exit 0
+"""
+
+KSU_INSTALL_SCRIPT = """#!/sbin/sh
+# KernelSU v3.3.0 Official LKM Boot Patcher for Infinix GT 20 Pro (android12-5.10)
+OUTFD=$2
+ZIPFILE=$3
+
+ui_print() {
+  if [ -n "$OUTFD" ]; then
+    echo "ui_print $1" >&$OUTFD
+    echo "ui_print" >&$OUTFD
+  else
+    echo "$1"
+  fi
+}
+
+ui_print "******************************************"
+ui_print "*   KernelSU v3.3.0 LKM Boot Installer   *"
+ui_print "*   KMI: android12-5.10 (GKI 2.0 AArch64)*"
+ui_print "*      Maintainer: sheikhmehraann        *"
+ui_print "******************************************"
+
+MB=$(which magiskboot 2>/dev/null)
+[ -z "$MB" ] && [ -x /system/bin/magiskboot ] && MB=/system/bin/magiskboot
+[ -z "$MB" ] && [ -x /sbin/magiskboot ] && MB=/sbin/magiskboot
+if [ -z "$MB" ]; then
+  ui_print "! Error: magiskboot binary not found!"
+  exit 1
+fi
+
+SLOT=$(getprop ro.boot.slot_suffix)
+[ -z "$SLOT" ] && SLOT="_a"
+
+BOOT_DEV=""
+for base in /dev/block/by-name /dev/block/bootdevice/by-name /dev/block/platform/bootdevice/by-name; do
+  if [ -e "$base/boot$SLOT" ]; then
+    BOOT_DEV="$base/boot$SLOT"
+    break
+  fi
+done
+
+if [ -z "$BOOT_DEV" ]; then
+  ui_print "! Error: Could not locate boot$SLOT partition!"
+  exit 1
+fi
+
+WORK=/tmp/ksu_patch
+rm -rf "$WORK"
+mkdir -p "$WORK"
+cd "$WORK" || exit 1
+
+ui_print "- Extracting KernelSU v3.3.0 LKM assets..."
+unzip -o "$ZIPFILE" ksuinit kernelsu.ko -d "$WORK" >/dev/null 2>&1
+if [ ! -f "$WORK/ksuinit" ] || [ ! -f "$WORK/kernelsu.ko" ]; then
+  ui_print "! Error: Missing ksuinit or kernelsu.ko inside addon zip!"
+  rm -rf "$WORK"
+  exit 1
+fi
+chmod 0755 "$WORK/ksuinit" "$WORK/kernelsu.ko"
+
+ui_print "- Dumping active boot partition (boot$SLOT)..."
+dd if="$BOOT_DEV" of="$WORK/boot.img" bs=1048576 2>/dev/null
+if [ ! -s "$WORK/boot.img" ]; then
+  ui_print "! Error: Failed dumping $BOOT_DEV!"
+  rm -rf "$WORK"
+  exit 1
+fi
+
+ui_print "- Unpacking boot.img with magiskboot..."
+"$MB" unpack -h "$WORK/boot.img" >/dev/null 2>&1
+if [ ! -f "$WORK/kernel" ]; then
+  ui_print "! Error: magiskboot unpack failed (no kernel found)!"
+  rm -rf "$WORK"
+  exit 1
+fi
+
+if [ ! -f "$WORK/ramdisk.cpio" ]; then
+  ui_print "- Initializing new GKI ramdisk.cpio..."
+  printf '07070100000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000B00000000TRAILER!!!\\0\\0\\0\\0' > "$WORK/ramdisk.cpio"
+fi
+
+# Check if already patched with kernelsu.ko
+"$MB" cpio "$WORK/ramdisk.cpio" "exists kernelsu.ko" >/dev/null 2>&1
+IS_KSU=$?
+if [ $IS_KSU -ne 0 ]; then
+  "$MB" cpio "$WORK/ramdisk.cpio" "exists init" >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    ui_print "- Backing up stock ramdisk /init -> /init.real..."
+    "$MB" cpio "$WORK/ramdisk.cpio" "mv init init.real" >/dev/null 2>&1
+  fi
+fi
+
+ui_print "- Injecting ksuinit (/init) and kernelsu.ko..."
+"$MB" cpio "$WORK/ramdisk.cpio" "add 0755 init ksuinit" >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+  ui_print "! Error: Failed injecting ksuinit into ramdisk.cpio!"
+  rm -rf "$WORK"
+  exit 1
+fi
+"$MB" cpio "$WORK/ramdisk.cpio" "add 0755 kernelsu.ko kernelsu.ko" >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+  ui_print "! Error: Failed injecting kernelsu.ko into ramdisk.cpio!"
+  rm -rf "$WORK"
+  exit 1
+fi
+
+ui_print "- Repacking KernelSU-patched boot.img..."
+"$MB" repack "$WORK/boot.img" "$WORK/new-boot.img" >/dev/null 2>&1
+if [ ! -s "$WORK/new-boot.img" ]; then
+  ui_print "! Error: magiskboot repack failed!"
+  rm -rf "$WORK"
+  exit 1
+fi
+
+ui_print "- Flashing patched boot image to $BOOT_DEV..."
+dd if="$WORK/new-boot.img" of="$BOOT_DEV" bs=1048576 conv=notrunc,fsync 2>/dev/null
+sync
+rm -rf "$WORK"
+ui_print "- KernelSU v3.3.0 LKM installed to boot$SLOT successfully!"
+ui_print "- Install the KernelSU Manager APK in Android after reboot."
+exit 0
+"""
+
+KSU_UNINSTALL_SCRIPT = """#!/sbin/sh
+# KernelSU LKM Boot Uninstaller for Infinix GT 20 Pro (X6871)
+OUTFD=$2
+
+ui_print() {
+  if [ -n "$OUTFD" ]; then
+    echo "ui_print $1" >&$OUTFD
+    echo "ui_print" >&$OUTFD
+  else
+    echo "$1"
+  fi
+}
+
+ui_print "******************************************"
+ui_print "*     KernelSU LKM Boot Uninstaller      *"
+ui_print "*      Maintainer: sheikhmehraann        *"
+ui_print "******************************************"
+
+MB=$(which magiskboot 2>/dev/null)
+[ -z "$MB" ] && [ -x /system/bin/magiskboot ] && MB=/system/bin/magiskboot
+[ -z "$MB" ] && [ -x /sbin/magiskboot ] && MB=/sbin/magiskboot
+if [ -z "$MB" ]; then
+  ui_print "! Error: magiskboot binary not found!"
+  exit 1
+fi
+
+SLOT=$(getprop ro.boot.slot_suffix)
+[ -z "$SLOT" ] && SLOT="_a"
+
+BOOT_DEV=""
+for base in /dev/block/by-name /dev/block/bootdevice/by-name /dev/block/platform/bootdevice/by-name; do
+  if [ -e "$base/boot$SLOT" ]; then
+    BOOT_DEV="$base/boot$SLOT"
+    break
+  fi
+done
+
+if [ -z "$BOOT_DEV" ]; then
+  ui_print "! Error: Could not locate boot$SLOT partition!"
+  exit 1
+fi
+
+WORK=/tmp/ksu_unpatch
+rm -rf "$WORK"
+mkdir -p "$WORK"
+cd "$WORK" || exit 1
+
+ui_print "- Dumping active boot partition (boot$SLOT)..."
+dd if="$BOOT_DEV" of="$WORK/boot.img" bs=1048576 2>/dev/null
+"$MB" unpack -h "$WORK/boot.img" >/dev/null 2>&1
+
+if [ ! -f "$WORK/ramdisk.cpio" ]; then
+  ui_print "- Boot image has no ramdisk; KernelSU LKM is not installed."
+  rm -rf "$WORK"
+  exit 0
+fi
+
+"$MB" cpio "$WORK/ramdisk.cpio" "exists kernelsu.ko" >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+  ui_print "- kernelsu.ko not found in boot$SLOT ramdisk (already clean)."
+  rm -rf "$WORK"
+  exit 0
+fi
+
+ui_print "- Removing kernelsu.ko and restoring stock init..."
+"$MB" cpio "$WORK/ramdisk.cpio" "rm kernelsu.ko" >/dev/null 2>&1
+"$MB" cpio "$WORK/ramdisk.cpio" "exists init.real" >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+  "$MB" cpio "$WORK/ramdisk.cpio" "mv init.real init" >/dev/null 2>&1
+else
+  "$MB" cpio "$WORK/ramdisk.cpio" "rm init" >/dev/null 2>&1
+fi
+
+"$MB" repack "$WORK/boot.img" "$WORK/new-boot.img" >/dev/null 2>&1
+if [ -s "$WORK/new-boot.img" ]; then
+  dd if="$WORK/new-boot.img" of="$BOOT_DEV" bs=1048576 conv=notrunc,fsync 2>/dev/null
+  sync
+  ui_print "- KernelSU LKM removed from boot$SLOT successfully!"
+else
+  ui_print "! Error: Failed repacking boot.img!"
+  rm -rf "$WORK"
+  exit 1
+fi
+
+rm -rf "$WORK"
+exit 0
+"""
+
+def ensure_ksu_assets():
+    ksu_dir = "/tmp/ksu_assets" if os.name != "nt" else os.path.join(os.environ.get("TEMP", "."), "ksu_assets")
+    os.makedirs(ksu_dir, exist_ok=True)
+    ksuinit_path = os.path.join(ksu_dir, "ksuinit")
+    ko_path = os.path.join(ksu_dir, "kernelsu.ko")
+
+    urls = {
+        ksuinit_path: "https://github.com/tiann/KernelSU/releases/download/v3.3.0/ksuinit-aarch64",
+        ko_path: "https://github.com/tiann/KernelSU/releases/download/v3.3.0/lkm-aarch64-android12-5.10_kernelsu.ko",
+    }
+    for dest, url in urls.items():
+        if not os.path.isfile(dest) or os.path.getsize(dest) < 10000:
+            try:
+                print(f"[*] Downloading {url} -> {dest} ...")
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=60) as resp, open(dest, "wb") as out:
+                    shutil.copyfileobj(resp, out)
+                print(f"[+] Downloaded {dest} ({os.path.getsize(dest)} bytes)")
+            except Exception as e:
+                print(f"[-] Warning: Could not download {url}: {e}")
+    return ksuinit_path, ko_path
+
 def patch_avb_settings(fox_root):
     data_cpp = os.path.join(fox_root, "bootable/recovery/data.cpp")
     if os.path.isfile(data_cpp):
@@ -607,26 +1134,224 @@ def patch_avb_settings(fox_root):
         except Exception as e:
             print(f"[-] Failed patching data.cpp for AVB: {e}")
 
-    # Patch OF_avb20.sh to support A/B devices
-    for root, _, files in os.walk(os.path.join(fox_root, "vendor/recovery")):
-        for file in files:
-            if file == "OF_avb20.sh":
-                fpath = os.path.join(root, file)
-                try:
-                    with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
-                        sh_c = f.read()
-                    old_ab = """\tslot_suffix=$(getprop ro.boot.slot_suffix);
-\tif [ -n "$slot_suffix" ]; then
-\t\tVBMETA="/dev/block/by-name/vbmeta$slot_suffix";
-\telse
-\t\tVBMETA="/dev/block/by-name/vbmeta";
-\tfi;"""
-                    if "slot_suffix=" not in sh_c and 'VBMETA="/dev/block/by-name/vbmeta";' in sh_c:
-                        sh_c = sh_c.replace('VBMETA="/dev/block/by-name/vbmeta";', old_ab)
-                        write_file_lf(fpath, sh_c)
-                        print(f"[+] Patched {fpath} for A/B slot-aware AVB2.0 patching")
-                except Exception:
-                    pass
+    # Replace OF_avb20.sh across vendor/recovery and unpacked FFiles with our slot-aware VBMeta disabler
+    for sdir in [os.path.join(fox_root, "vendor/recovery"), os.path.join(fox_root, "FFiles")]:
+        if not os.path.isdir(sdir):
+            continue
+        for root, _, files in os.walk(sdir):
+            for file in files:
+                if file == "OF_avb20.sh":
+                    fpath = os.path.join(root, file)
+                    try:
+                        write_file_lf(fpath, AVB20_SCRIPT)
+                        os.chmod(fpath, 0o755)
+                        print(f"[+] Replaced {fpath} with slot-aware VBMeta AVB 2.0 disabler")
+                    except Exception as e:
+                        print(f"[-] Failed writing {fpath}: {e}")
+    return True
+
+def patch_addons(fox_root):
+    ksuinit_path, ko_path = ensure_ksu_assets()
+
+    # Build the 5 custom addon packages into a staging directory
+    addon_stage = "/tmp/ofox_custom_addons/FFiles" if os.name != "nt" else os.path.join(os.environ.get("TEMP", "."), "ofox_custom_addons", "FFiles")
+    if os.path.isdir(addon_stage):
+        shutil.rmtree(addon_stage)
+    os.makedirs(addon_stage, exist_ok=True)
+
+    # 1. OF_avb20/OF_avb20.sh and OF_avb20/OF_avb20.zip
+    avb_dir = os.path.join(addon_stage, "OF_avb20")
+    os.makedirs(avb_dir, exist_ok=True)
+    avb_sh = os.path.join(avb_dir, "OF_avb20.sh")
+    write_file_lf(avb_sh, AVB20_SCRIPT)
+    os.chmod(avb_sh, 0o755)
+    build_flashable_zip(os.path.join(avb_dir, "OF_avb20.zip"), AVB20_SCRIPT)
+
+    # 2. OF_DelPass/OF_DelPass.zip
+    delpass_dir = os.path.join(addon_stage, "OF_DelPass")
+    os.makedirs(delpass_dir, exist_ok=True)
+    build_flashable_zip(os.path.join(delpass_dir, "OF_DelPass.zip"), DELPASS_SCRIPT)
+
+    # 3. OF_DelFRP/OF_DelFRP.zip
+    delfrp_dir = os.path.join(addon_stage, "OF_DelFRP")
+    os.makedirs(delfrp_dir, exist_ok=True)
+    build_flashable_zip(os.path.join(delfrp_dir, "OF_DelFRP.zip"), DELFRP_SCRIPT)
+
+    # 4. KernelSU/KernelSU_Installer.zip and KernelSU/KernelSU_Uninstaller.zip
+    ksu_dir = os.path.join(addon_stage, "KernelSU")
+    os.makedirs(ksu_dir, exist_ok=True)
+    ksu_extra = {}
+    if os.path.isfile(ksuinit_path) and os.path.isfile(ko_path):
+        ksu_extra = {"ksuinit": ksuinit_path, "kernelsu.ko": ko_path}
+    build_flashable_zip(os.path.join(ksu_dir, "KernelSU_Installer.zip"), KSU_INSTALL_SCRIPT, extra_files=ksu_extra)
+    build_flashable_zip(os.path.join(ksu_dir, "KernelSU_Uninstaller.zip"), KSU_UNINSTALL_SCRIPT)
+
+    print(f"[+] Built custom Fox Addons in {addon_stage} (AVB2.0, DelPass, DelFRP, KernelSU v3.3.0)")
+
+    # Discover all FFiles directories in fox_root and copy the built addons into them
+    ffiles_targets = set()
+    if os.path.isdir(os.path.join(fox_root, "FFiles")):
+        ffiles_targets.add(os.path.join(fox_root, "FFiles"))
+    dev_common_ffiles = os.path.join(fox_root, "device/transsion/mt6895-common/recovery/root/FFiles")
+    if os.path.isdir(os.path.join(fox_root, "device/transsion/mt6895-common")):
+        ffiles_targets.add(dev_common_ffiles)
+
+    vrec = os.path.join(fox_root, "vendor/recovery")
+    if os.path.isdir(vrec):
+        for root, dirs, files in os.walk(vrec):
+            if os.path.basename(root) == "FFiles" or "OF_reset.zip" in files or "OF_avb20.zip" in files:
+                target_ff = root if os.path.basename(root) == "FFiles" else os.path.dirname(root)
+                if os.path.basename(target_ff) == "FFiles":
+                    ffiles_targets.add(target_ff)
+
+    for target_ff in ffiles_targets:
+        try:
+            for item in os.listdir(addon_stage):
+                s_item = os.path.join(addon_stage, item)
+                d_item = os.path.join(target_ff, item)
+                if os.path.isdir(s_item):
+                    os.makedirs(d_item, exist_ok=True)
+                    for sub in os.listdir(s_item):
+                        shutil.copy2(os.path.join(s_item, sub), os.path.join(d_item, sub))
+                else:
+                    shutil.copy2(s_item, d_item)
+            print(f"[+] Deployed custom Fox Addons to {target_ff}")
+        except Exception as e:
+            print(f"[-] Failed deploying addons to {target_ff}: {e}")
+
+    # Patch advanced.xml to wire up Remove Password, Remove FRP, VBMeta Disabler, and KernelSU v3.3.0
+    search_dirs = [
+        os.path.join(fox_root, "vendor/recovery"),
+        os.path.join(fox_root, "bootable/recovery"),
+        os.path.join(fox_root, "twres")
+    ]
+    for sdir in search_dirs:
+        if not os.path.isdir(sdir):
+            continue
+        for root, _, files in os.walk(sdir):
+            for file in files:
+                if file == "advanced.xml":
+                    fpath = os.path.join(root, file)
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            xml_c = f.read()
+                        orig_xml = xml_c
+
+                        # 1. Disable zip signature verification on built-in Fox Addon pages
+                        for mod_page in ["mod_pass", "mod_factory_rp", "mod_kernelsu", "mod_reset"]:
+                            pat = rf'(<page name="{mod_page}">[\s\S]*?)(<action function="queuezip"\s*/>)'
+                            def add_no_sig(m):
+                                if "tw_signed_zip_verify=0" in m.group(1):
+                                    return m.group(0)
+                                return m.group(1) + '<action function="set">tw_signed_zip_verify=0</action>\n\t\t\t\t' + m.group(2)
+                            xml_c = re.sub(pat, add_no_sig, xml_c, count=1)
+
+                        # Update mod_kernelsu display name to include v3.3.0
+                        xml_c = xml_c.replace(
+                            '<action function="set">fox_m_name={@module_install} KernelSU</action>',
+                            '<action function="set">fox_m_name={@module_install} KernelSU v3.3.0</action>'
+                        )
+
+                        # 2. Add mod_unkernelsu and mod_avb20 pages right after mod_kernelsu page using native OrangeFox module confirmation flow
+                        if '<page name="mod_avb20">' not in xml_c and '<page name="mod_kernelsu">' in xml_c:
+                            extra_pages = """\t\t<page name="mod_unkernelsu">
+\t\t  <action>
+\t\t\t<action function="queueclear"/>
+\t\t\t<action function="set">fox_m_author=sheikhmehraann</action>
+\t\t\t<action function="set">fox_m_name={@module_uninstall} KernelSU</action>
+\t\t\t<action function="set">tw_file=KernelSU_Uninstaller.zip</action>
+\t\t\t<action function="set">tw_filename=/FFiles/KernelSU/KernelSU_Uninstaller.zip</action>
+\t\t\t<action function="set">tw_filecheck=%tw_filename%</action>
+\t\t\t<action function="set">tw_zip_location=/FFiles/KernelSU</action>
+\t\t\t<action function="set">fox_install_built_in_zip=1</action>
+\t\t\t<action function="set">tw_signed_zip_verify=0</action>
+\t\t\t<action function="queuezip"/>
+\t\t\t<action function="set">tw_notexistpage=fox_modules_confirm</action>
+\t\t\t<action function="set">tw_existpage=fox_modules_confirm</action>
+\t\t\t<action function="page">filecheck</action>
+\t\t  </action>
+\t\t</page>
+
+\t\t<page name="mod_avb20">
+\t\t  <action>
+\t\t\t<action function="queueclear"/>
+\t\t\t<action function="set">fox_m_author=sheikhmehraann</action>
+\t\t\t<action function="set">fox_m_name=Patch VBMeta (Disable AVB 2.0)</action>
+\t\t\t<action function="set">tw_file=OF_avb20.zip</action>
+\t\t\t<action function="set">tw_filename=/FFiles/OF_avb20/OF_avb20.zip</action>
+\t\t\t<action function="set">tw_filecheck=%tw_filename%</action>
+\t\t\t<action function="set">tw_zip_location=/FFiles/OF_avb20</action>
+\t\t\t<action function="set">fox_install_built_in_zip=1</action>
+\t\t\t<action function="set">tw_signed_zip_verify=0</action>
+\t\t\t<action function="queuezip"/>
+\t\t\t<action function="set">tw_notexistpage=fox_modules_confirm</action>
+\t\t\t<action function="set">tw_existpage=fox_modules_confirm</action>
+\t\t\t<action function="page">filecheck</action>
+\t\t  </action>
+\t\t</page>"""
+                            xml_c = re.sub(
+                                r'(<page name="mod_kernelsu">[\s\S]*?</page>)',
+                                lambda m: m.group(1) + "\n\n" + extra_pages,
+                                xml_c,
+                                count=1
+                            )
+
+                        # 3. In <page name="fox_modules">: add Patch VBMeta (Disable AVB 2.0) and make FRP + KernelSU unconditionally available
+                        if '<action function="page">mod_avb20</action>' not in xml_c:
+                            avb_item = """\t\t\t\t<listitem name="Patch VBMeta (Disable AVB 2.0)">
+\t\t\t\t\t<condition var1="fileexists" var2="/FFiles/OF_avb20/OF_avb20.zip"/>
+\t\t\t\t\t<icon res="archive"/>
+\t\t\t\t\t<action function="page">mod_avb20</action>
+\t\t\t\t</listitem>"""
+                            xml_c = re.sub(
+                                r'(<listitem name="\{@module_pass\}">[\s\S]*?</listitem>)',
+                                lambda m: m.group(1) + "\n\n" + avb_item,
+                                xml_c,
+                                count=1
+                            )
+
+                        # Remove enable_frp_addon gate so OF_DelFRP.zip shows whenever fileexists
+                        xml_c = re.sub(
+                            r'<condition var1="enable_frp_addon" op="==" var2="1"/>\s*',
+                            '',
+                            xml_c
+                        )
+                        xml_c = re.sub(
+                            r'<condition var1="enable_frp_addon" var2="1"/>\s*',
+                            '',
+                            xml_c
+                        )
+
+                        # Update KernelSU section in fox_modules so both Install KernelSU v3.3.0 and Uninstall KernelSU appear cleanly
+                        ksu_block_pat = r'<text style="caption">\s*<condition var1="fox_vab_device" var2="1"/>\s*<condition var1="fox_support_ksu" var2="1"/>[\s\S]*?<action function="page">mod_sukisu</action>\s*</listitem>\s*</listbox>'
+                        ksu_block_repl = """<text style="caption">
+                <placement x="%gl_text_x%" y="%row7_1a_y%"/>
+                <text>KernelSU (v3.3.0 LKM Root)</text>
+            </text>
+
+            <listbox style="group_list">
+                <placement x="0" y="%row7_2a_y%" w="%screen_w%" h="%bl_h2%"/>
+
+                <listitem name="{@module_install} KernelSU v3.3.0">
+                    <condition var1="fileexists" var2="/FFiles/KernelSU/KernelSU_Installer.zip"/>
+                    <icon res="archive"/>
+                    <action function="page">mod_kernelsu</action>
+                </listitem>
+
+                <listitem name="{@module_uninstall} KernelSU">
+                    <condition var1="fileexists" var2="/FFiles/KernelSU/KernelSU_Uninstaller.zip"/>
+                    <icon res="archive"/>
+                    <action function="page">mod_unkernelsu</action>
+                </listitem>
+            </listbox>"""
+                        if re.search(ksu_block_pat, xml_c):
+                            xml_c = re.sub(ksu_block_pat, lambda m: ksu_block_repl, xml_c, count=1)
+
+                        if xml_c != orig_xml:
+                            write_file_lf(fpath, xml_c)
+                            print(f"[+] Patched Fox Addons menu in {fpath} (Password, FRP, VBMeta, KernelSU v3.3.0)")
+                    except Exception as e:
+                        print(f"[-] Failed patching {fpath} for addons: {e}")
     return True
 
 def patch_graphics_drm(fox_root):
@@ -662,8 +1387,21 @@ def patch_version(fox_root):
             with open(vend_sh, "r", encoding="utf-8") as f:
                 c = f.read()
             c = re.sub(r'export FOX_INTERNAL_RELEASE=R\d+\.\d+', 'export FOX_INTERNAL_RELEASE=R12.1', c)
+            addon_hook = """
+# --- X6871 Custom Fox Addons Post-Install Hook ---
+if [ -d "/tmp/ofox_custom_addons/FFiles" ]; then
+    for ff_dst in "$TARGET_RECOVERY_ROOT_OUT/FFiles" "$OUT/recovery/root/FFiles" "$OUT/vendor_ramdisk/FFiles"; do
+        if [ -n "$ff_dst" ] && [ "$ff_dst" != "/FFiles" ]; then
+            mkdir -p "$ff_dst" 2>/dev/null || true
+            cp -rf /tmp/ofox_custom_addons/FFiles/* "$ff_dst/" 2>/dev/null || true
+        fi
+    done
+fi
+"""
+            if "X6871 Custom Fox Addons Post-Install Hook" not in c:
+                c = c.rstrip() + "\n" + addon_hook + "\n"
             write_file_lf(vend_sh, c)
-            print("[+] Patched vendor/recovery/OrangeFox_vendor.sh with R12.1")
+            print("[+] Patched vendor/recovery/OrangeFox_vendor.sh with R12.1 & custom Fox Addons hook")
         except Exception as e:
             print(f"[-] Failed patching OrangeFox_vendor.sh: {e}")
     return True
@@ -933,11 +1671,12 @@ def main():
     patch_slot_switching(fox_root)
     patch_display_timeout_toggle(fox_root)
     patch_avb_settings(fox_root)
+    patch_addons(fox_root)
     patch_graphics_drm(fox_root)
     patch_version(fox_root)
     patch_super_partitions(fox_root)
     patch_format_data(fox_root)
-    print("[*] All hardware, architecture, identity, slot, splash, version, format data, and UI patches applied cleanly!")
+    print("[*] All hardware, architecture, identity, slot, splash, version, addons, format data, and UI patches applied cleanly!")
 
 if __name__ == "__main__":
     main()

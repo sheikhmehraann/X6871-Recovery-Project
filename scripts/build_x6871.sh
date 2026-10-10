@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Local build script for OrangeFox Recovery R12.1 - Infinix GT 20 Pro (X6871)
-# Maintained by withmehraan
+# Maintained by sheikhmehraann
 #
 
 set -euo pipefail
@@ -41,7 +41,9 @@ export FOX_MAINTAINER_PATCH_VERSION=$(date +"%Y%m%d")
 unset FOX_VERSION || true
 export FOX_BUILD_TYPE="Stable"
 export FOX_VARIANT="15.1.2"
-export OF_MAINTAINER="withmehraan"
+export OF_MAINTAINER="sheikhmehraann"
+export OF_ENABLE_FRP_ADDON=1
+export FOX_SUPPORT_KSU=1
 export LC_ALL="C"
 export USE_CCACHE=1
 
