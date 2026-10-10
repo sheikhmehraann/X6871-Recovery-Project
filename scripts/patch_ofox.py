@@ -342,10 +342,12 @@ def patch_identity_and_banner(fox_root):
             # Clean device in Check_MIUI_Treble + Maintainer & Community lines
             dev_pat = r'gui_msg\(Msg\("fox_device=\*\s*Device:\s*\{1\}\s*\(\{2\}\)"\)\(device_model\.c_str\(\)\)\(TWFunc::Fox_Property_Get\("ro\.product\.device"\)\.c_str\(\)\)\);'
             dev_repl = (
-                'gui_msg(Msg("fox_device=* Device:     {1} ({2})")("Infinix GT 20 Pro")("Infinix X6871"));\n'
-                '\tgui_print("* Maintainer: sheikhmehraann\\n");\n'
-                '\tgui_print("* Updates:    @Gt20ProINUpdates\\n");\n'
-                '\tgui_print("* Community:  @Gt20ProIN\\n");'
+                '{\n'
+                '\t\tgui_msg(Msg("fox_device=* Device:     {1} ({2})")("Infinix GT 20 Pro")("Infinix X6871"));\n'
+                '\t\tgui_print("* Maintainer: sheikhmehraann\\n");\n'
+                '\t\tgui_print("* Updates:    @Gt20ProINUpdates\\n");\n'
+                '\t\tgui_print("* Community:  @Gt20ProIN\\n");\n'
+                '\t}'
             )
             c = re.sub(dev_pat, lambda m: dev_repl, c)
 
@@ -364,17 +366,15 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
             if old_print in c:
                 c = c.replace(old_print, new_print)
 
-            # Replace generic OrangeFox support links with Maintainer & GT 20 Pro Telegram links
+            # Replace generic OrangeFox support links with Maintainer & GT 20 Pro Telegram links (single C++ statement safe for unbraced if/else)
             welcome_links = (
-                'gui_print("[Maintainer]: sheikhmehraann\\n");\n'
-                '\tgui_print("[Updates]   : https://t.me/Gt20ProINUpdates (@Gt20ProINUpdates)\\n");\n'
-                '\tgui_print("[Community] : https://t.me/Gt20ProIN (@Gt20ProIN)\\n");'
+                'gui_print("[Maintainer]: sheikhmehraann\\n[Updates]   : https://t.me/Gt20ProINUpdates (@Gt20ProINUpdates)\\n[Community] : https://t.me/Gt20ProIN (@Gt20ProIN)\\n");'
             )
             c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_support[^;]*?\)\s*\)\s*;', lambda m: welcome_links, c, flags=re.DOTALL)
-            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_nosupport[^;]*?\)\s*\)\s*;', '// fox_nosupport suppressed', c, flags=re.DOTALL)
-            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_websites[^;]*?\)\s*\)\s*;', '// fox_websites suppressed', c, flags=re.DOTALL)
-            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_downloads[^;]*?\)\s*\)\s*;', '// fox_downloads suppressed', c, flags=re.DOTALL)
-            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_faq[^;]*?\)\s*\)\s*;', '// fox_faq suppressed', c, flags=re.DOTALL)
+            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_nosupport[^;]*?\)\s*\)\s*;', lambda m: welcome_links, c, flags=re.DOTALL)
+            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_websites[^;]*?\)\s*\)\s*;', '(void)0;', c, flags=re.DOTALL)
+            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_downloads[^;]*?\)\s*\)\s*;', '(void)0;', c, flags=re.DOTALL)
+            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_faq[^;]*?\)\s*\)\s*;', '(void)0;', c, flags=re.DOTALL)
 
             write_file_lf(twrp_funcs_cpp, c)
             print("[+] Successfully patched twrp-functions.cpp with clean Dimensity 8200, slot banner, maintainer & Telegram links")
