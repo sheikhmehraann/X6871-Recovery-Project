@@ -339,14 +339,14 @@ def patch_identity_and_banner(fox_root):
             plat_pat = r'#ifdef\s+PRODUCT_PLATFORM\s+gui_msg\(Msg\("fox_platform=\*\s*Platform:\s*\{1\}"\)\(EXPAND\(PRODUCT_PLATFORM\)\)\);\s+#else\s+gui_msg\(Msg\("fox_platform=\*\s*Platform:\s*\{1\}"\)\(DataManager::GetStrValue\(FOX_COMPATIBILITY_DEVICE\)\.c_str\(\)\)\);\s+#endif'
             c = re.sub(plat_pat, 'gui_msg(Msg("fox_platform=* Platform:   {1}")("MediaTek Dimensity 8200 Ultimate (MT6895)"));', c)
 
-            # Clean device in Check_MIUI_Treble + Maintainer & Community lines
+            # Clean device in Check_MIUI_Treble + Maintainer & Community lines (written in one place)
             dev_pat = r'gui_msg\(Msg\("fox_device=\*\s*Device:\s*\{1\}\s*\(\{2\}\)"\)\(device_model\.c_str\(\)\)\(TWFunc::Fox_Property_Get\("ro\.product\.device"\)\.c_str\(\)\)\);'
             dev_repl = (
                 '{\n'
                 '\t\tgui_msg(Msg("fox_device=* Device:     {1} ({2})")("Infinix GT 20 Pro")("Infinix X6871"));\n'
                 '\t\tgui_print("* Maintainer: sheikhmehraann\\n");\n'
-                '\t\tgui_print("* Updates:    @Gt20ProINUpdates\\n");\n'
-                '\t\tgui_print("* Community:  @Gt20ProIN\\n");\n'
+                '\t\tgui_print("* Updates:    t.me/Gt20ProINUpdates\\n");\n'
+                '\t\tgui_print("* Community:  t.me/Gt20ProIN\\n");\n'
                 '\t}'
             )
             c = re.sub(dev_pat, lambda m: dev_repl, c)
@@ -366,12 +366,9 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
             if old_print in c:
                 c = c.replace(old_print, new_print)
 
-            # Replace generic OrangeFox support links with Maintainer & GT 20 Pro Telegram links (single C++ statement safe for unbraced if/else)
-            welcome_links = (
-                'gui_print("[Maintainer]: sheikhmehraann\\n[Updates]   : https://t.me/Gt20ProINUpdates (@Gt20ProINUpdates)\\n[Community] : https://t.me/Gt20ProIN (@Gt20ProIN)\\n");'
-            )
-            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_support[^;]*?\)\s*\)\s*;', lambda m: welcome_links, c, flags=re.DOTALL)
-            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_nosupport[^;]*?\)\s*\)\s*;', lambda m: welcome_links, c, flags=re.DOTALL)
+            # Suppress duplicate support links in Welcome_Message so links appear only once in the banner
+            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_support[^;]*?\)\s*\)\s*;', '(void)0;', c, flags=re.DOTALL)
+            c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_nosupport[^;]*?\)\s*\)\s*;', '(void)0;', c, flags=re.DOTALL)
             c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_websites[^;]*?\)\s*\)\s*;', '(void)0;', c, flags=re.DOTALL)
             c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_downloads[^;]*?\)\s*\)\s*;', '(void)0;', c, flags=re.DOTALL)
             c = re.sub(r'gui_msg\s*\(\s*Msg\s*\([^;]*?fox_faq[^;]*?\)\s*\)\s*;', '(void)0;', c, flags=re.DOTALL)
@@ -453,7 +450,7 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
 \t\t\t\t<condition var1="of_maintainer" op="!=" var2="2"/>
 \t\t\t\t<condition var1="of_maintainer" op="!=" var2="1"/>
 \t\t\t\t<placement x="%card_txt_x%" y="%cardtxt_7%"/>
-\t\t\t\t<text>{@abt_maintainer} | @Gt20ProINUpdates</text>
+\t\t\t\t<text>Updates t.me/Gt20ProINUpdates</text>
 \t\t\t</text>
 
 \t\t\t<text style="about_info">
@@ -461,7 +458,7 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
 \t\t\t\t<condition var1="of_maintainer" op="!=" var2="2"/>
 \t\t\t\t<condition var1="of_maintainer" op="!=" var2="1"/>
 \t\t\t\t<placement x="%card_txt_x%" y="%cardtxt_8%"/>
-\t\t\t\t<text>Community: @Gt20ProIN</text>
+\t\t\t\t<text>Community  t.me/Gt20ProIN</text>
 \t\t\t</text>"""
                         if old_maint_card in xc:
                             xc = xc.replace(old_maint_card, new_maint_card)
@@ -480,8 +477,8 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
                                 "\nInfinix GT 20 Pro (X6871)\n"
                                 "--------------------------\n"
                                 "* Maintainer: sheikhmehraann\n"
-                                "* Updates:    @Gt20ProINUpdates (t.me/Gt20ProINUpdates)\n"
-                                "* Community:  @Gt20ProIN (t.me/Gt20ProIN)\n\n"
+                                "* Updates:    t.me/Gt20ProINUpdates\n"
+                                "* Community:  t.me/Gt20ProIN\n\n"
                             )
                             cc = header + cc.lstrip("\n")
                             write_file_lf(fpath, cc)
@@ -774,6 +771,70 @@ if [ "$PATCHED_COUNT" -gt 0 ]; then
   ui_print "- Successfully disabled AVB 2.0 on $PATCHED_COUNT VBMeta partition(s)!"
 else
   ui_print "! Warning: No valid AVB0 VBMeta headers found to patch."
+fi
+exit 0
+"""
+
+AVB20_ENABLE_SCRIPT = """#!/sbin/sh
+# OrangeFox Slot-Aware AVB 2.0 / VBMeta Enabler (Restore Verification) for Infinix GT 20 Pro (X6871)
+OUTFD=$2
+ui_print() {
+  if [ -n "$OUTFD" ]; then
+    echo "ui_print $1" >&$OUTFD
+    echo "ui_print" >&$OUTFD
+  else
+    echo "$1"
+  fi
+}
+
+ui_print "******************************************"
+ui_print "*   OrangeFox VBMeta / AVB 2.0 Enabler   *"
+ui_print "*      Maintainer: sheikhmehraann        *"
+ui_print "******************************************"
+
+RESTORED_COUNT=0
+for part in vbmeta_a vbmeta_b vbmeta vbmeta_system_a vbmeta_system_b vbmeta_system vbmeta_vendor_a vbmeta_vendor_b vbmeta_vendor; do
+  BDEV=""
+  for base in /dev/block/by-name /dev/block/bootdevice/by-name /dev/block/platform/bootdevice/by-name; do
+    if [ -e "$base/$part" ]; then
+      BDEV="$base/$part"
+      break
+    fi
+  done
+  [ -z "$BDEV" ] && continue
+
+  MAGIC=$(dd if="$BDEV" bs=1 count=4 2>/dev/null)
+  if [ "$MAGIC" = "AVB0" ]; then
+    printf '\\x00\\x00\\x00\\x00' | dd of="$BDEV" bs=1 seek=120 count=4 conv=notrunc 2>/dev/null
+    sync
+    ui_print "- Enabled $part (flags=0x00: verification & dm-verity restored)"
+    RESTORED_COUNT=$((RESTORED_COUNT + 1))
+  fi
+done
+
+# Also restore AVBf verification flags on active boot image if magiskboot is available
+MB=$(which magiskboot 2>/dev/null)
+[ -z "$MB" ] && [ -x /system/bin/magiskboot ] && MB=/system/bin/magiskboot
+[ -z "$MB" ] && [ -x /sbin/magiskboot ] && MB=/sbin/magiskboot
+SLOT=$(getprop ro.boot.slot_suffix)
+[ -z "$SLOT" ] && SLOT="_a"
+BOOT_DEV="/dev/block/by-name/boot$SLOT"
+if [ -n "$MB" ] && [ -e "$BOOT_DEV" ]; then
+  mkdir -p /tmp/avb_boot
+  dd if="$BOOT_DEV" of=/tmp/avb_boot/boot.img bs=1048576 2>/dev/null
+  if grep -q "AVBf" /tmp/avb_boot/boot.img 2>/dev/null; then
+    $MB hexpatch /tmp/avb_boot/boot.img 41564266000300 41564266000000 >/dev/null 2>&1 && {
+      dd if=/tmp/avb_boot/boot.img of="$BOOT_DEV" bs=1048576 conv=notrunc 2>/dev/null
+      ui_print "- Restored AVBf footer on boot$SLOT"
+    }
+  fi
+  rm -rf /tmp/avb_boot
+fi
+
+if [ "$RESTORED_COUNT" -gt 0 ]; then
+  ui_print "- Successfully enabled AVB 2.0 on $RESTORED_COUNT VBMeta partition(s)!"
+else
+  ui_print "! Warning: No valid AVB0 VBMeta headers found to restore."
 fi
 exit 0
 """
@@ -1159,13 +1220,18 @@ def patch_addons(fox_root):
         shutil.rmtree(addon_stage)
     os.makedirs(addon_stage, exist_ok=True)
 
-    # 1. OF_avb20/OF_avb20.sh and OF_avb20/OF_avb20.zip
+    # 1. OF_avb20/OF_avb20.sh, OF_avb20.zip (Disable AVB 2.0) and OF_enable_avb20.sh, OF_enable_avb20.zip (Enable AVB 2.0)
     avb_dir = os.path.join(addon_stage, "OF_avb20")
     os.makedirs(avb_dir, exist_ok=True)
     avb_sh = os.path.join(avb_dir, "OF_avb20.sh")
     write_file_lf(avb_sh, AVB20_SCRIPT)
     os.chmod(avb_sh, 0o755)
     build_flashable_zip(os.path.join(avb_dir, "OF_avb20.zip"), AVB20_SCRIPT)
+
+    avb_en_sh = os.path.join(avb_dir, "OF_enable_avb20.sh")
+    write_file_lf(avb_en_sh, AVB20_ENABLE_SCRIPT)
+    os.chmod(avb_en_sh, 0o755)
+    build_flashable_zip(os.path.join(avb_dir, "OF_enable_avb20.zip"), AVB20_ENABLE_SCRIPT)
 
     # 2. OF_DelPass/OF_DelPass.zip
     delpass_dir = os.path.join(addon_stage, "OF_DelPass")
@@ -1186,7 +1252,7 @@ def patch_addons(fox_root):
     build_flashable_zip(os.path.join(ksu_dir, "KernelSU_Installer.zip"), KSU_INSTALL_SCRIPT, extra_files=ksu_extra)
     build_flashable_zip(os.path.join(ksu_dir, "KernelSU_Uninstaller.zip"), KSU_UNINSTALL_SCRIPT)
 
-    print(f"[+] Built custom Fox Addons in {addon_stage} (AVB2.0, DelPass, DelFRP, KernelSU v3.3.0)")
+    print(f"[+] Built custom Fox Addons in {addon_stage} (Disable/Enable AVB2.0, DelPass, DelFRP, KernelSU v3.3.0)")
 
     # Discover all FFiles directories in fox_root and copy the built addons into them
     ffiles_targets = set()
@@ -1219,7 +1285,7 @@ def patch_addons(fox_root):
         except Exception as e:
             print(f"[-] Failed deploying addons to {target_ff}: {e}")
 
-    # Patch advanced.xml to wire up Remove Password, Remove FRP, VBMeta Disabler, and KernelSU v3.3.0
+    # Patch advanced.xml to wire up Remove Password, Remove FRP, VBMeta Disabler/Enabler, and KernelSU v3.3.0
     search_dirs = [
         os.path.join(fox_root, "vendor/recovery"),
         os.path.join(fox_root, "bootable/recovery"),
@@ -1252,7 +1318,7 @@ def patch_addons(fox_root):
                             '<action function="set">fox_m_name={@module_install} KernelSU v3.3.0</action>'
                         )
 
-                        # 2. Add mod_unkernelsu and mod_avb20 pages right after mod_kernelsu page using native OrangeFox module confirmation flow
+                        # 2. Add mod_unkernelsu, mod_avb20, and mod_enable_avb20 pages right after mod_kernelsu page using native OrangeFox module confirmation flow
                         if '<page name="mod_avb20">' not in xml_c and '<page name="mod_kernelsu">' in xml_c:
                             extra_pages = """\t\t<page name="mod_unkernelsu">
 \t\t  <action>
@@ -1276,9 +1342,27 @@ def patch_addons(fox_root):
 \t\t  <action>
 \t\t\t<action function="queueclear"/>
 \t\t\t<action function="set">fox_m_author=sheikhmehraann</action>
-\t\t\t<action function="set">fox_m_name=Patch VBMeta (Disable AVB 2.0)</action>
+\t\t\t<action function="set">fox_m_name=Disable VBMeta (Patch AVB 2.0)</action>
 \t\t\t<action function="set">tw_file=OF_avb20.zip</action>
 \t\t\t<action function="set">tw_filename=/FFiles/OF_avb20/OF_avb20.zip</action>
+\t\t\t<action function="set">tw_filecheck=%tw_filename%</action>
+\t\t\t<action function="set">tw_zip_location=/FFiles/OF_avb20</action>
+\t\t\t<action function="set">fox_install_built_in_zip=1</action>
+\t\t\t<action function="set">tw_signed_zip_verify=0</action>
+\t\t\t<action function="queuezip"/>
+\t\t\t<action function="set">tw_notexistpage=fox_modules_confirm</action>
+\t\t\t<action function="set">tw_existpage=fox_modules_confirm</action>
+\t\t\t<action function="page">filecheck</action>
+\t\t  </action>
+\t\t</page>
+
+\t\t<page name="mod_enable_avb20">
+\t\t  <action>
+\t\t\t<action function="queueclear"/>
+\t\t\t<action function="set">fox_m_author=sheikhmehraann</action>
+\t\t\t<action function="set">fox_m_name=Enable VBMeta (Restore AVB 2.0)</action>
+\t\t\t<action function="set">tw_file=OF_enable_avb20.zip</action>
+\t\t\t<action function="set">tw_filename=/FFiles/OF_avb20/OF_enable_avb20.zip</action>
 \t\t\t<action function="set">tw_filecheck=%tw_filename%</action>
 \t\t\t<action function="set">tw_zip_location=/FFiles/OF_avb20</action>
 \t\t\t<action function="set">fox_install_built_in_zip=1</action>
@@ -1296,12 +1380,18 @@ def patch_addons(fox_root):
                                 count=1
                             )
 
-                        # 3. In <page name="fox_modules">: add Patch VBMeta (Disable AVB 2.0) and make FRP + KernelSU unconditionally available
+                        # 3. In <page name="fox_modules">: add Disable VBMeta and Enable VBMeta and make FRP + KernelSU unconditionally available
                         if '<action function="page">mod_avb20</action>' not in xml_c:
-                            avb_item = """\t\t\t\t<listitem name="Patch VBMeta (Disable AVB 2.0)">
+                            avb_item = """\t\t\t\t<listitem name="Disable VBMeta (Patch AVB 2.0)">
 \t\t\t\t\t<condition var1="fileexists" var2="/FFiles/OF_avb20/OF_avb20.zip"/>
 \t\t\t\t\t<icon res="archive"/>
 \t\t\t\t\t<action function="page">mod_avb20</action>
+\t\t\t\t</listitem>
+
+\t\t\t\t<listitem name="Enable VBMeta (Restore AVB 2.0)">
+\t\t\t\t\t<condition var1="fileexists" var2="/FFiles/OF_avb20/OF_enable_avb20.zip"/>
+\t\t\t\t\t<icon res="archive"/>
+\t\t\t\t\t<action function="page">mod_enable_avb20</action>
 \t\t\t\t</listitem>"""
                             xml_c = re.sub(
                                 r'(<listitem name="\{@module_pass\}">[\s\S]*?</listitem>)',

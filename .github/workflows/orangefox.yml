@@ -288,8 +288,8 @@ jobs:
           body: |
             ## OrangeFox Recovery Unofficial — Infinix GT 20 Pro (X6871)
             * **Maintainer:** `sheikhmehraann`
-            * **Updates:** [GT 20 Pro Updates](https://t.me/Gt20ProINUpdates)
-            * **Discussion:** [GT 20 Pro Discussion](https://t.me/Gt20ProIN)
+            * **Updates:** `t.me/Gt20ProINUpdates`
+            * **Community:** `t.me/Gt20ProIN`
             * **Platform:** `mt6895 (Dimensity 8200 Ultimate)`
             * **Device:** `Infinix GT 20 Pro (Infinix-X6871)`
             * **Stock ROM:** XOS Android 15 (SDK 35), `AP3A.240905.015.A2 / 180003`
@@ -300,11 +300,11 @@ jobs:
             - **Built-in KernelSU v3.3.0 LKM Addon:** One-tap `Install KernelSU v3.3.0` & `Uninstall KernelSU` directly inside Fox Addons (`/FFiles/KernelSU`)
             - **Remove Lockscreen PIN/Password Addon:** Built-in `OF_DelPass.zip` in Fox Addons to clear lockscreen credentials without breaking FBEv2 keys
             - **Remove FRP Lock Addon:** Built-in `OF_DelFRP.zip` in Fox Addons to wipe Factory Reset Protection
-            - **Slot-Aware VBMeta AVB 2.0 Addon:** One-tap `Patch VBMeta (Disable AVB 2.0)` across `vbmeta_a/b`, `vbmeta_system_a/b`, and `vbmeta_vendor_a/b`
+            - **Slot-Aware Disable & Enable VBMeta Addons:** One-tap `Disable VBMeta (Patch AVB 2.0)` (`0x03`) and `Enable VBMeta (Restore AVB 2.0)` (`0x00`) across `vbmeta_a/b`, `vbmeta_system_a/b`, and `vbmeta_vendor_a/b`
             - **Native Vendor_Boot Splash Changer:** Direct unpack & repack of Header v4 vendor_boot recovery image
             - **Official A/B Boot Slot Support:** Seamless boot slot display and switching via native recovery reboot menu
             - **Full Dynamic Partitions Support:** All 82 partitions and Transsion vendor partitions mounted and backup-ready
-            - **Exact Stock Identity & Community Links:** Maintainer (`sheikhmehraann`) and Telegram links (`@Gt20ProINUpdates` / `@Gt20ProIN`) in About screen and startup log
+            - **Exact Stock Identity & Community Links:** Maintainer (`sheikhmehraann`) and Telegram links (`t.me/Gt20ProINUpdates` / `t.me/Gt20ProIN`) in About screen and startup log
             - **Haptics, Flashlight & Thermals:** AW8697 Linear Vibrator, OCP81375 rear camera torch, and live CPU temperature display (`soc_max`)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
