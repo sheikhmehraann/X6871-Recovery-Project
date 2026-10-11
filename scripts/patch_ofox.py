@@ -1683,11 +1683,16 @@ def patch_format_data(fox_root):
 		metadata->UnMount(false);
 
 	if (dat != NULL) {
-		// 2. Pre-emptively detach MTP and active mounts on /data and /sdcard to prevent EBUSY
+		// 2. Pre-emptively detach MTP, unmount /sdcard & /data, and tear down FBEv2 userdata dm holder (dm-default-key)
 		Remove_MTP_Storage(dat->MTP_Storage_ID);
+		umount2("/sdcard", MNT_FORCE | MNT_DETACH);
 		dat->UnMount(false, MNT_FORCE | MNT_DETACH);
 		umount2("/data", MNT_FORCE | MNT_DETACH);
-		umount2("/sdcard", MNT_FORCE | MNT_DETACH);
+		unlink("/dev/block/mapper/userdata");
+		DestroyLogicalPartition("userdata");
+		system("/system/bin/lptools unmap userdata >/dev/null 2>&1");
+		dat->Decrypted_Block_Device = "";
+		dat->Is_Decrypted = false;
 
 		#ifdef OF_REFRESH_ENCRYPTION_PROPS_BEFORE_FORMAT
 		Update_Encryption_Props_Before_Format(); // call here, because it must run before Unmap_Super_Devices is executed
@@ -1732,13 +1737,48 @@ def patch_format_data(fox_root):
         if c != orig:
             write_file_lf(pm_cpp, c)
             print("[+] Successfully patched partitionmanager.cpp with robust Format_Data engine")
-            return True
         else:
             print("[-] Format_Data already patched or pattern did not match")
-            return False
     except Exception as e:
         print(f"[-] Failed patching partitionmanager.cpp for format data: {e}")
-    return False
+        return False
+
+    part_cpp = os.path.join(fox_root, "bootable/recovery/partition.cpp")
+    if os.path.isfile(part_cpp):
+        try:
+            with open(part_cpp, "r", encoding="utf-8", errors="ignore") as f:
+                pc = f.read()
+            orig_pc = pc
+
+            # Ensure Wipe_Encryption and Wipe_F2FS always unmap userdata dm holder before running make_f2fs
+            f2fs_hook = 'LOGINFO("OrangeFox: bind-unmounting /sdcard before f2fs data format...\\n");'
+            f2fs_repl = (
+                'LOGINFO("OrangeFox: bind-unmounting /sdcard before f2fs data format...\\n");\n'
+                '\t\t\tumount2("/sdcard", MNT_FORCE | MNT_DETACH);\n'
+                '\t\t\tumount2("/data", MNT_FORCE | MNT_DETACH);\n'
+                '\t\t\tunlink("/dev/block/mapper/userdata");\n'
+                '\t\t\tsystem("/system/bin/lptools unmap userdata >/dev/null 2>&1");'
+            )
+            if f2fs_hook in pc and 'lptools unmap userdata' not in pc:
+                pc = pc.replace(f2fs_hook, f2fs_repl)
+
+            # Also inside Wipe_Encryption right when Decrypted_Block_Device is cleared
+            dec_pat = r'(Decrypted_Block_Device\s*=\s*""\s*;\s*\n\s*Is_Decrypted\s*=\s*false\s*;)'
+            dec_repl = (
+                r'\1' + '\n'
+                '\tunlink("/dev/block/mapper/userdata");\n'
+                '\tsystem("/system/bin/lptools unmap userdata >/dev/null 2>&1");'
+            )
+            if re.search(dec_pat, pc):
+                pc = re.sub(dec_pat, dec_repl, pc, count=1)
+
+            if pc != orig_pc:
+                write_file_lf(part_cpp, pc)
+                print("[+] Successfully patched bootable/recovery/partition.cpp to unmap userdata dm holder before Wipe_F2FS")
+        except Exception as e:
+            print(f"[-] Failed patching partition.cpp for format data: {e}")
+
+    return True
 
 def main():
     if len(sys.argv) < 2:
