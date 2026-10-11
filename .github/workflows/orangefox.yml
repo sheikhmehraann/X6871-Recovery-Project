@@ -126,6 +126,12 @@ jobs:
           echo "Executing OrangeFox Universal Hardware & Architecture Patch Engine..."
           python3 $GITHUB_WORKSPACE/scripts/patch_ofox.py $HOME/fox_14.1
 
+          echo "Syncing built-in Fox Addons to device recovery trees..."
+          mkdir -p device/transsion/mt6895-common/recovery/root/FFiles
+          mkdir -p device/infinix/Infinix-X6871/recovery/root/FFiles
+          cp -rf /tmp/ofox_custom_addons/FFiles/* device/transsion/mt6895-common/recovery/root/FFiles/ || true
+          cp -rf /tmp/ofox_custom_addons/FFiles/* device/infinix/Infinix-X6871/recovery/root/FFiles/ || true
+
       - name: Build OrangeFox Recovery Image
         run: |
           cd $HOME/fox_14.1
@@ -300,7 +306,7 @@ jobs:
             - **Built-in KernelSU v3.3.0 LKM Addon:** One-tap `Install KernelSU v3.3.0` & `Uninstall KernelSU` directly inside Fox Addons (`/FFiles/KernelSU`)
             - **Remove Lockscreen PIN/Password Addon:** Built-in `OF_DelPass.zip` in Fox Addons to clear lockscreen credentials without breaking FBEv2 keys
             - **Remove FRP Lock Addon:** Built-in `OF_DelFRP.zip` in Fox Addons to wipe Factory Reset Protection
-            - **Slot-Aware Disable & Enable VBMeta Addons:** One-tap `Disable VBMeta (Patch AVB 2.0)` (`0x03`) and `Enable VBMeta (Restore AVB 2.0)` (`0x00`) across `vbmeta_a/b`, `vbmeta_system_a/b`, and `vbmeta_vendor_a/b`
+            - **Slot-Aware Disable & Enable VBMeta Addons:** One-tap `Disable Vbmeta` (`0x03`) and `Enable Vbmeta` (`0x00`) across `vbmeta_a/b`, `vbmeta_system_a/b`, and `vbmeta_vendor_a/b`
             - **Native Vendor_Boot Splash Changer:** Direct unpack & repack of Header v4 vendor_boot recovery image
             - **Official A/B Boot Slot Support:** Seamless boot slot display and switching via native recovery reboot menu
             - **Full Dynamic Partitions Support:** All 82 partitions and Transsion vendor partitions mounted and backup-ready

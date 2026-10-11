@@ -1261,6 +1261,9 @@ def patch_addons(fox_root):
     dev_common_ffiles = os.path.join(fox_root, "device/transsion/mt6895-common/recovery/root/FFiles")
     if os.path.isdir(os.path.join(fox_root, "device/transsion/mt6895-common")):
         ffiles_targets.add(dev_common_ffiles)
+    dev_x6871_ffiles = os.path.join(fox_root, "device/infinix/Infinix-X6871/recovery/root/FFiles")
+    if os.path.isdir(os.path.join(fox_root, "device/infinix/Infinix-X6871")):
+        ffiles_targets.add(dev_x6871_ffiles)
 
     vrec = os.path.join(fox_root, "vendor/recovery")
     if os.path.isdir(vrec):
@@ -1342,7 +1345,7 @@ def patch_addons(fox_root):
 \t\t  <action>
 \t\t\t<action function="queueclear"/>
 \t\t\t<action function="set">fox_m_author=sheikhmehraann</action>
-\t\t\t<action function="set">fox_m_name=Disable VBMeta (Patch AVB 2.0)</action>
+\t\t\t<action function="set">fox_m_name=Disable Vbmeta</action>
 \t\t\t<action function="set">tw_file=OF_avb20.zip</action>
 \t\t\t<action function="set">tw_filename=/FFiles/OF_avb20/OF_avb20.zip</action>
 \t\t\t<action function="set">tw_filecheck=%tw_filename%</action>
@@ -1360,7 +1363,7 @@ def patch_addons(fox_root):
 \t\t  <action>
 \t\t\t<action function="queueclear"/>
 \t\t\t<action function="set">fox_m_author=sheikhmehraann</action>
-\t\t\t<action function="set">fox_m_name=Enable VBMeta (Restore AVB 2.0)</action>
+\t\t\t<action function="set">fox_m_name=Enable Vbmeta</action>
 \t\t\t<action function="set">tw_file=OF_enable_avb20.zip</action>
 \t\t\t<action function="set">tw_filename=/FFiles/OF_avb20/OF_enable_avb20.zip</action>
 \t\t\t<action function="set">tw_filecheck=%tw_filename%</action>
@@ -1380,25 +1383,31 @@ def patch_addons(fox_root):
                                 count=1
                             )
 
-                        # 3. In <page name="fox_modules">: add Disable VBMeta and Enable VBMeta and make FRP + KernelSU unconditionally available
+                        # 3. In <page name="fox_modules">: add Disable Vbmeta and Enable Vbmeta unconditionally at top of Addons listbox
                         if '<action function="page">mod_avb20</action>' not in xml_c:
-                            avb_item = """\t\t\t\t<listitem name="Disable VBMeta (Patch AVB 2.0)">
-\t\t\t\t\t<condition var1="fileexists" var2="/FFiles/OF_avb20/OF_avb20.zip"/>
+                            avb_items = """\t\t\t\t<listitem name="Disable Vbmeta">
 \t\t\t\t\t<icon res="archive"/>
 \t\t\t\t\t<action function="page">mod_avb20</action>
 \t\t\t\t</listitem>
 
-\t\t\t\t<listitem name="Enable VBMeta (Restore AVB 2.0)">
-\t\t\t\t\t<condition var1="fileexists" var2="/FFiles/OF_avb20/OF_enable_avb20.zip"/>
+\t\t\t\t<listitem name="Enable Vbmeta">
 \t\t\t\t\t<icon res="archive"/>
 \t\t\t\t\t<action function="page">mod_enable_avb20</action>
 \t\t\t\t</listitem>"""
-                            xml_c = re.sub(
-                                r'(<listitem name="\{@module_pass\}">[\s\S]*?</listitem>)',
-                                lambda m: m.group(1) + "\n\n" + avb_item,
-                                xml_c,
-                                count=1
-                            )
+                            if re.search(r'(<listbox style="group_list">\s*<placement x="0" y="%row3_2a_y%"[^>]*>)', xml_c):
+                                xml_c = re.sub(
+                                    r'(<listbox style="group_list">\s*<placement x="0" y="%row3_2a_y%"[^>]*>)',
+                                    lambda m: m.group(1) + "\n" + avb_items,
+                                    xml_c,
+                                    count=1
+                                )
+                            else:
+                                xml_c = re.sub(
+                                    r'(<listitem name="\{@module_pass\}">[\s\S]*?</listitem>)',
+                                    lambda m: avb_items + "\n\n" + m.group(1),
+                                    xml_c,
+                                    count=1
+                                )
 
                         # Remove enable_frp_addon gate so OF_DelFRP.zip shows whenever fileexists
                         xml_c = re.sub(
