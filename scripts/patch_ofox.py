@@ -1410,17 +1410,12 @@ def patch_addons(fox_root):
                                 count=1
                             )
 
-                        # 3. Replace <page name="fox_modules"> section layout for uniform 1080x2436 padding and full-height smooth scrolling
+                        # 3. Replace <page name="fox_modules"> section layout with unified full-height smooth scrollable group_list
                         fox_modules_pat = r'(<page name="fox_modules">[\s\S]*?<!-- fox_modules_confirm located in install\.xml -->)[\s\S]*?(<template name="base"/>)'
                         fox_modules_repl = r"""\1
 
-			<text style="caption">
-				<placement x="%gl_text_x%" y="%row1_1_y%"/>
-				<text>Magisk</text>
-			</text>
-
 			<listbox style="group_list">
-				<placement x="0" y="%row1_2_y%" w="%screen_w%" h="%bl_h2%"/>
+				<placement x="0" y="%ab_h%" w="%screen_w%" h="%bl_fullscreen_h%"/>
 				<listitem name="{@module_install} Magisk %magisk_ver%">
 					<icon res="archive"/>
 					<action function="page">mod_magisk</action>
@@ -1429,15 +1424,6 @@ def patch_addons(fox_root):
 					<icon res="archive"/>
 					<action function="page">mod_unmagisk</action>
 				</listitem>
-			</listbox>
-
-			<text style="caption">
-				<placement x="%gl_text_x%" y="%row3_2_y%"/>
-				<text>KernelSU (v3.3.1 LKM Root)</text>
-			</text>
-
-			<listbox style="group_list">
-				<placement x="0" y="%row3_3_y%" w="%screen_w%" h="%bl_h2%"/>
 				<listitem name="{@module_install} KernelSU v3.3.1">
 					<condition var1="fileexists" var2="/FFiles/KernelSU/KernelSU_Installer.zip"/>
 					<icon res="archive"/>
@@ -1448,15 +1434,6 @@ def patch_addons(fox_root):
 					<icon res="archive"/>
 					<action function="page">mod_unkernelsu</action>
 				</listitem>
-			</listbox>
-
-			<text style="caption">
-				<placement x="%gl_text_x%" y="%row5_3_y%"/>
-				<text>{@cust_oth}</text>
-			</text>
-
-			<listbox style="group_list">
-				<placement x="0" y="%row6_1_y%" w="%screen_w%" h="1008"/>
 				<listitem name="Disable Vbmeta">
 					<icon res="archive"/>
 					<action function="page">mod_avb20</action>
@@ -1520,46 +1497,6 @@ def patch_addons(fox_root):
 					<icon res="archive"/>
 					<action function="page">mod_survival</action>
 				</listitem>
-				<listitem name="{@module_initd}">
-					<condition var1="fox_vab_device" op="!=" var2="1"/>
-					<condition var1="fileexists" var2="%of_initd_zip%"/>
-					<icon res="archive"/>
-					<action function="queueclear"/>
-					<action function="set">fox_m_author=DarthJabba9</action>
-					<action function="set">fox_m_name={@module_initd}</action>
-					<action function="set">tw_file=OF_initd.zip</action>
-					<action function="set">tw_filename=%of_initd_zip%</action>
-					<action function="set">tw_filecheck=%tw_filename%</action>
-					<action function="set">tw_zip_location=%fox_home_files%</action>
-					<action function="set">fox_install_built_in_zip=1</action>
-					<action function="set">tw_signed_zip_verify=0</action>
-					<action function="queuezip"/>
-					<action function="set">tw_notexistpage=fox_modules_confirm</action>
-					<action function="set">tw_existpage=fox_modules_confirm</action>
-					<action function="page">filecheck</action>
-				</listitem>
-				<listitem name="AromaFM">
-					<condition var1="aroma_help" op="!=" var2="1"/>
-					<condition var1="fileexists" var2="%aroma_fm_zip%"/>
-					<icon res="files"/>
-					<action function="set">aroma_help=1</action>
-				</listitem>
-				<listitem name="{@aroma_help}">
-					<condition var1="aroma_help" var2="1"/>
-					<icon res="files"/>
-					<action function="queueclear"/>
-					<action function="set">tw_signed_zip_verify_tmp=%tw_signed_zip_verify%</action>
-					<action function="set">tw_signed_zip_verify=0</action>
-					<action function="set">fox_inject_after_zip_tmp=%fox_inject_after_zip%</action>
-					<action function="set">fox_inject_after_zip=0</action>
-					<action function="set">tw_screen_timeout_temp=%tw_screen_timeout_secs%</action>
-					<action function="set">tw_screen_timeout_secs=0</action>
-					<action function="set">tw_filename=%aroma_fm_zip%</action>
-					<action function="set">qcount_temp=1</action>
-					<action function="set">fox_install_built_in_zip=1</action>
-					<action function="queuezip"/>
-					<action function="flash">aroma_busy</action>
-				</listitem>
 			</listbox>
 
 			\2"""
@@ -1568,7 +1505,7 @@ def patch_addons(fox_root):
 
                         if xml_c != orig_xml:
                             write_file_lf(fpath, xml_c)
-                            print(f"[+] Patched Fox Addons menu in {fpath} (Uniform padding, 1008px scrollable Other list, KernelSU v3.3.1)")
+                            print(f"[+] Patched Fox Addons menu in {fpath} (Unified group_list, full-height smooth scrolling, KernelSU v3.3.1)")
                     except Exception as e:
                         print(f"[-] Failed patching {fpath} for addons: {e}")
     return True
@@ -1589,73 +1526,7 @@ def patch_gui_scrolling(fox_root):
             "if (actualItemHeight / 3 > 6)\n\t\ttouchDebounce = std::min(actualItemHeight / 8, 16);"
         )
 
-        # 2. Draw a continuous rounded group card (r=32, RoundedCornerFlags::ALL) for scrollable group_list viewports
-        has_scroll_hook = """\t} else {
-\t\thasScroll = true;
-\t\tlistW = mRenderW - mFastScrollW;
-\t\t// Determine how many items to render
-\t\tlines = windowH / actualItemHeight + 2;
-\t\tif (firstDisplayedItem + (int)lines > (int)listSize)
-\t\t\tlines = listSize - firstDisplayedItem;
-\t}"""
-        has_scroll_repl = has_scroll_hook + """
-
-\tif (isGroup && hasScroll) {
-\t\tint groupOffset = 45;
-\t\tint gx = mRenderX + groupOffset;
-\t\tint gw = mRenderW - 2 * groupOffset;
-\t\tint gy = mRenderY + mHeaderH;
-\t\tint gh = mRenderH - mHeaderH;
-\t\tGGLSurface *gsurf = (GGLSurface *)malloc(sizeof(GGLSurface));
-\t\tmemset(gsurf, 0, sizeof(GGLSurface));
-\t\tgsurf->version = sizeof(gsurf);
-\t\tuint32_t* gimg = createShape(gw, gh, 32, 0, groupColor, RoundedCornerFlags::ALL);
-\t\tgsurf->width = gw;
-\t\tgsurf->height = gh;
-\t\tgsurf->stride = gw;
-\t\tgsurf->data = (GGLubyte*)gimg;
-\t\tgsurf->format = res_get_pixel_format();
-\t\tgr_blit((gr_surface)gsurf, 0, 0, gw, gh, gx, gy);
-\t\tres_free_surface(gsurf);
-\t\tfree(gimg);
-\t}"""
-        if "uint32_t* gimg = createShape" not in sc and has_scroll_hook in sc:
-            sc = sc.replace(has_scroll_hook, has_scroll_repl, 1)
-
-        # 3. Skip per-item square-corner groupColor overwrite when hasScroll is true in RenderStdItem
-        std_item_hook = """\t\timg = createShape(w, h, r, s, groupColor, corners);
-
-\t\tsurface->width = w;
-\t\tsurface->height = h;
-\t\tsurface->stride = w;
-\t\tsurface->data = (GGLubyte*)img;
-\t\tsurface->format = res_get_pixel_format();
-
-\t\tgr_blit((gr_surface)surface, 0, 0, w, h, x, y);
-\t\tif (isHighlight) {
-\t\t\thl_img = createShape(w, h, r, s, highlightColor, corners);
-\t\t\tsurface->data = (GGLubyte*)hl_img;
-\t\t\tgr_blit((gr_surface)surface, 0, 0, w, h, x, y);
-\t\t}"""
-        std_item_repl = """\t\tsurface->width = w;
-\t\tsurface->height = h;
-\t\tsurface->stride = w;
-\t\tsurface->format = res_get_pixel_format();
-
-\t\tif (!hasScroll) {
-\t\t\timg = createShape(w, h, r, s, groupColor, corners);
-\t\t\tsurface->data = (GGLubyte*)img;
-\t\t\tgr_blit((gr_surface)surface, 0, 0, w, h, x, y);
-\t\t}
-\t\tif (isHighlight) {
-\t\t\thl_img = createShape(w, h, r, s, highlightColor, hasScroll ? RoundedCornerFlags::NONE : corners);
-\t\t\tsurface->data = (GGLubyte*)hl_img;
-\t\t\tgr_blit((gr_surface)surface, 0, 0, w, h, x, y);
-\t\t}"""
-        if std_item_hook in sc:
-            sc = sc.replace(std_item_hook, std_item_repl, 1)
-
-        # 4. Smooth drag start & 144Hz kinetic scrolling on release
+        # 2. Smooth drag start & 144Hz kinetic scrolling on release
         drag_hook = """\t\tselectedItem = NO_ITEM; // nothing is selected because we dragged too far"""
         drag_repl = """\t\tif (selectedItem != NO_ITEM) {
 \t\t\tselectedItem = NO_ITEM; // nothing is selected because we dragged too far
@@ -1675,7 +1546,7 @@ def patch_gui_scrolling(fox_root):
         if kin_hook in sc:
             sc = sc.replace(kin_hook, kin_repl, 1)
 
-        # 5. Fix group top-padding scroll boundary oscillation in HandleScrolling
+        # 3. Fix group top-padding scroll boundary oscillation in HandleScrolling
         sc = sc.replace(
             "while (firstDisplayedItem + (int)lines < (int)totalSize && abs(y_offset) > actualItemHeight) {",
             "while (firstDisplayedItem + (int)lines < (int)totalSize && abs(y_offset) > (actualItemHeight + ((isGroup && firstDisplayedItem == 0) ? mItemPaddingTop : 0))) {"
@@ -1683,7 +1554,7 @@ def patch_gui_scrolling(fox_root):
 
         if sc != orig_sc:
             write_file_lf(scroll_cpp, sc)
-            print(f"[+] Patched {scroll_cpp} with smooth 144Hz scrolling and continuous rounded group_list cards")
+            print(f"[+] Patched {scroll_cpp} with smooth 144Hz scrolling")
             return True
     except Exception as e:
         print(f"[-] Failed patching scrolllist.cpp: {e}")
