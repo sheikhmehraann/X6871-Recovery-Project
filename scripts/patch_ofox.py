@@ -942,7 +942,7 @@ exit 0
 """
 
 KSU_INSTALL_SCRIPT = """#!/sbin/sh
-# KernelSU v3.3.0 Official LKM Boot Patcher for Infinix GT 20 Pro (android12-5.10)
+# KernelSU v3.3.1 Official LKM Boot Patcher for Infinix GT 20 Pro (android12-5.10)
 OUTFD=$2
 ZIPFILE=$3
 
@@ -956,7 +956,7 @@ ui_print() {
 }
 
 ui_print "******************************************"
-ui_print "*   KernelSU v3.3.0 LKM Boot Installer   *"
+ui_print "*   KernelSU v3.3.1 LKM Boot Installer   *"
 ui_print "*   KMI: android12-5.10 (GKI 2.0 AArch64)*"
 ui_print "*      Maintainer: sheikhmehraann        *"
 ui_print "******************************************"
@@ -990,7 +990,7 @@ rm -rf "$WORK"
 mkdir -p "$WORK"
 cd "$WORK" || exit 1
 
-ui_print "- Extracting KernelSU v3.3.0 LKM assets..."
+ui_print "- Extracting KernelSU v3.3.1 LKM assets..."
 unzip -o "$ZIPFILE" ksuinit kernelsu.ko -d "$WORK" >/dev/null 2>&1
 if [ ! -f "$WORK/ksuinit" ] || [ ! -f "$WORK/kernelsu.ko" ]; then
   ui_print "! Error: Missing ksuinit or kernelsu.ko inside addon zip!"
@@ -1057,7 +1057,7 @@ ui_print "- Flashing patched boot image to $BOOT_DEV..."
 dd if="$WORK/new-boot.img" of="$BOOT_DEV" bs=1048576 conv=notrunc,fsync 2>/dev/null
 sync
 rm -rf "$WORK"
-ui_print "- KernelSU v3.3.0 LKM installed to boot$SLOT successfully!"
+ui_print "- KernelSU v3.3.1 LKM installed to boot$SLOT successfully!"
 ui_print "- Install the KernelSU Manager APK in Android after reboot."
 exit 0
 """
@@ -1157,8 +1157,8 @@ def ensure_ksu_assets():
     ko_path = os.path.join(ksu_dir, "kernelsu.ko")
 
     urls = {
-        ksuinit_path: "https://github.com/tiann/KernelSU/releases/download/v3.3.0/ksuinit-aarch64",
-        ko_path: "https://github.com/tiann/KernelSU/releases/download/v3.3.0/lkm-aarch64-android12-5.10_kernelsu.ko",
+        ksuinit_path: "https://github.com/tiann/KernelSU/releases/download/v3.3.1/ksuinit-aarch64",
+        ko_path: "https://github.com/tiann/KernelSU/releases/download/v3.3.1/lkm-aarch64-android12-5.10_kernelsu.ko",
     }
     for dest, url in urls.items():
         if not os.path.isfile(dest) or os.path.getsize(dest) < 10000:
@@ -1252,7 +1252,7 @@ def patch_addons(fox_root):
     build_flashable_zip(os.path.join(ksu_dir, "KernelSU_Installer.zip"), KSU_INSTALL_SCRIPT, extra_files=ksu_extra)
     build_flashable_zip(os.path.join(ksu_dir, "KernelSU_Uninstaller.zip"), KSU_UNINSTALL_SCRIPT)
 
-    print(f"[+] Built custom Fox Addons in {addon_stage} (Disable/Enable AVB2.0, DelPass, DelFRP, KernelSU v3.3.0)")
+    print(f"[+] Built custom Fox Addons in {addon_stage} (Disable/Enable AVB2.0, DelPass, DelFRP, KernelSU v3.3.1)")
 
     # Discover all FFiles directories in fox_root and copy the built addons into them
     ffiles_targets = set()
@@ -1288,7 +1288,7 @@ def patch_addons(fox_root):
         except Exception as e:
             print(f"[-] Failed deploying addons to {target_ff}: {e}")
 
-    # Patch advanced.xml to wire up Remove Password, Remove FRP, VBMeta Disabler/Enabler, and KernelSU v3.3.0
+    # Patch advanced.xml and vars.xml to wire up Remove Password, Remove FRP, VBMeta Disabler/Enabler, KernelSU v3.3.1, and fix Fox Addons padding & scrolling
     search_dirs = [
         os.path.join(fox_root, "vendor/recovery"),
         os.path.join(fox_root, "bootable/recovery"),
@@ -1299,12 +1299,35 @@ def patch_addons(fox_root):
             continue
         for root, _, files in os.walk(sdir):
             for file in files:
+                if file == "vars.xml":
+                    vpath = os.path.join(root, file)
+                    try:
+                        with open(vpath, "r", encoding="utf-8", errors="ignore") as f:
+                            vc = f.read()
+                        orig_vc = vc
+                        vc = vc.replace(
+                            '<variable name="adv_additions_h" value="%screen_w%-200"/>',
+                            '<variable name="adv_additions_h" value="1008"/>'
+                        )
+                        if vc != orig_vc:
+                            write_file_lf(vpath, vc)
+                            print(f"[+] Updated adv_additions_h in {vpath} to 1008px (7 rows)")
+                    except Exception as e:
+                        print(f"[-] Failed updating vars.xml {vpath}: {e}")
+
                 if file == "advanced.xml":
                     fpath = os.path.join(root, file)
                     try:
                         with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
                             xml_c = f.read()
                         orig_xml = xml_c
+
+                        # 0. Fix main <page name="advanced"> first listbox height so it does not overlap Additions
+                        xml_c = xml_c.replace(
+                            '<placement x="0" y="%row1_1a_y%" w="%screen_w%" h="%files_np_w%"/>',
+                            '<placement x="0" y="%row1_1a_y%" w="%screen_w%" h="%bl_h4%"/>',
+                            1
+                        )
 
                         # 1. Disable zip signature verification on built-in Fox Addon pages
                         for mod_page in ["mod_pass", "mod_factory_rp", "mod_kernelsu", "mod_reset"]:
@@ -1315,10 +1338,14 @@ def patch_addons(fox_root):
                                 return m.group(1) + '<action function="set">tw_signed_zip_verify=0</action>\n\t\t\t\t' + m.group(2)
                             xml_c = re.sub(pat, add_no_sig, xml_c, count=1)
 
-                        # Update mod_kernelsu display name to include v3.3.0
+                        # Update mod_kernelsu display name to include v3.3.1
                         xml_c = xml_c.replace(
                             '<action function="set">fox_m_name={@module_install} KernelSU</action>',
-                            '<action function="set">fox_m_name={@module_install} KernelSU v3.3.0</action>'
+                            '<action function="set">fox_m_name={@module_install} KernelSU v3.3.1</action>'
+                        )
+                        xml_c = xml_c.replace(
+                            '<action function="set">fox_m_name={@module_install} KernelSU v3.3.0</action>',
+                            '<action function="set">fox_m_name={@module_install} KernelSU v3.3.1</action>'
                         )
 
                         # 2. Add mod_unkernelsu, mod_avb20, and mod_enable_avb20 pages right after mod_kernelsu page using native OrangeFox module confirmation flow
@@ -1383,75 +1410,284 @@ def patch_addons(fox_root):
                                 count=1
                             )
 
-                        # 3. In <page name="fox_modules">: add Disable Vbmeta and Enable Vbmeta unconditionally at top of Addons listbox
-                        if '<action function="page">mod_avb20</action>' not in xml_c:
-                            avb_items = """\t\t\t\t<listitem name="Disable Vbmeta">
-\t\t\t\t\t<icon res="archive"/>
-\t\t\t\t\t<action function="page">mod_avb20</action>
-\t\t\t\t</listitem>
+                        # 3. Replace <page name="fox_modules"> section layout for uniform 1080x2436 padding and full-height smooth scrolling
+                        fox_modules_pat = r'(<page name="fox_modules">[\s\S]*?<!-- fox_modules_confirm located in install\.xml -->)[\s\S]*?(<template name="base"/>)'
+                        fox_modules_repl = r"""\1
 
-\t\t\t\t<listitem name="Enable Vbmeta">
-\t\t\t\t\t<icon res="archive"/>
-\t\t\t\t\t<action function="page">mod_enable_avb20</action>
-\t\t\t\t</listitem>"""
-                            if re.search(r'(<listbox style="group_list">\s*<placement x="0" y="%row3_2a_y%"[^>]*>)', xml_c):
-                                xml_c = re.sub(
-                                    r'(<listbox style="group_list">\s*<placement x="0" y="%row3_2a_y%"[^>]*>)',
-                                    lambda m: m.group(1) + "\n" + avb_items,
-                                    xml_c,
-                                    count=1
-                                )
-                            else:
-                                xml_c = re.sub(
-                                    r'(<listitem name="\{@module_pass\}">[\s\S]*?</listitem>)',
-                                    lambda m: avb_items + "\n\n" + m.group(1),
-                                    xml_c,
-                                    count=1
-                                )
+			<text style="caption">
+				<placement x="%gl_text_x%" y="%row1_1_y%"/>
+				<text>Magisk</text>
+			</text>
 
-                        # Remove enable_frp_addon gate so OF_DelFRP.zip shows whenever fileexists
-                        xml_c = re.sub(
-                            r'<condition var1="enable_frp_addon" op="==" var2="1"/>\s*',
-                            '',
-                            xml_c
-                        )
-                        xml_c = re.sub(
-                            r'<condition var1="enable_frp_addon" var2="1"/>\s*',
-                            '',
-                            xml_c
-                        )
+			<listbox style="group_list">
+				<placement x="0" y="%row1_2_y%" w="%screen_w%" h="%bl_h2%"/>
+				<listitem name="{@module_install} Magisk %magisk_ver%">
+					<icon res="archive"/>
+					<action function="page">mod_magisk</action>
+				</listitem>
+				<listitem name="{@module_uninstall} Magisk">
+					<icon res="archive"/>
+					<action function="page">mod_unmagisk</action>
+				</listitem>
+			</listbox>
 
-                        # Update KernelSU section in fox_modules so both Install KernelSU v3.3.0 and Uninstall KernelSU appear cleanly
-                        ksu_block_pat = r'<text style="caption">\s*<condition var1="fox_vab_device" var2="1"/>\s*<condition var1="fox_support_ksu" var2="1"/>[\s\S]*?<action function="page">mod_sukisu</action>\s*</listitem>\s*</listbox>'
-                        ksu_block_repl = """<text style="caption">
-                <placement x="%gl_text_x%" y="%row7_1a_y%"/>
-                <text>KernelSU (v3.3.0 LKM Root)</text>
-            </text>
+			<text style="caption">
+				<placement x="%gl_text_x%" y="%row3_2_y%"/>
+				<text>KernelSU (v3.3.1 LKM Root)</text>
+			</text>
 
-            <listbox style="group_list">
-                <placement x="0" y="%row7_2a_y%" w="%screen_w%" h="%bl_h2%"/>
+			<listbox style="group_list">
+				<placement x="0" y="%row3_3_y%" w="%screen_w%" h="%bl_h2%"/>
+				<listitem name="{@module_install} KernelSU v3.3.1">
+					<condition var1="fileexists" var2="/FFiles/KernelSU/KernelSU_Installer.zip"/>
+					<icon res="archive"/>
+					<action function="page">mod_kernelsu</action>
+				</listitem>
+				<listitem name="{@module_uninstall} KernelSU">
+					<condition var1="fileexists" var2="/FFiles/KernelSU/KernelSU_Uninstaller.zip"/>
+					<icon res="archive"/>
+					<action function="page">mod_unkernelsu</action>
+				</listitem>
+			</listbox>
 
-                <listitem name="{@module_install} KernelSU v3.3.0">
-                    <condition var1="fileexists" var2="/FFiles/KernelSU/KernelSU_Installer.zip"/>
-                    <icon res="archive"/>
-                    <action function="page">mod_kernelsu</action>
-                </listitem>
+			<text style="caption">
+				<placement x="%gl_text_x%" y="%row5_3_y%"/>
+				<text>{@cust_oth}</text>
+			</text>
 
-                <listitem name="{@module_uninstall} KernelSU">
-                    <condition var1="fileexists" var2="/FFiles/KernelSU/KernelSU_Uninstaller.zip"/>
-                    <icon res="archive"/>
-                    <action function="page">mod_unkernelsu</action>
-                </listitem>
-            </listbox>"""
-                        if re.search(ksu_block_pat, xml_c):
-                            xml_c = re.sub(ksu_block_pat, lambda m: ksu_block_repl, xml_c, count=1)
+			<listbox style="group_list">
+				<placement x="0" y="%row6_1_y%" w="%screen_w%" h="1008"/>
+				<listitem name="Disable Vbmeta">
+					<icon res="archive"/>
+					<action function="page">mod_avb20</action>
+				</listitem>
+				<listitem name="Enable Vbmeta">
+					<icon res="archive"/>
+					<action function="page">mod_enable_avb20</action>
+				</listitem>
+				<listitem name="{@module_pass}">
+					<condition var1="fileexists" var2="/FFiles/OF_DelPass/OF_DelPass.zip"/>
+					<icon res="archive"/>
+					<action function="page">mod_pass</action>
+				</listitem>
+				<listitem name="{@remove_factory_reset_protection}">
+					<condition var1="fileexists" var2="/FFiles/OF_DelFRP/OF_DelFRP.zip"/>
+					<icon res="archive"/>
+					<action function="page">mod_factory_rp</action>
+				</listitem>
+				<listitem name="{@module_of_set}">
+					<condition var1="fileexists" var2="/FFiles/OF_backup_settings/OF_backup_settings.zip"/>
+					<icon res="archive"/>
+					<action function="queueclear"/>
+					<action function="set">fox_m_author=DarthJabba9</action>
+					<action function="set">fox_m_name={@module_of_set}</action>
+					<action function="set">tw_file=OF_backup_settings.zip</action>
+					<action function="set">tw_filename=/FFiles/OF_backup_settings/OF_backup_settings.zip</action>
+					<action function="set">tw_filecheck=%tw_filename%</action>
+					<action function="set">tw_zip_location=/FFiles/OF_backup_settings</action>
+					<action function="set">fox_install_built_in_zip=1</action>
+					<action function="set">tw_signed_zip_verify=0</action>
+					<action function="queuezip"/>
+					<action function="set">tw_notexistpage=fox_modules_confirm</action>
+					<action function="set">tw_existpage=fox_modules_confirm</action>
+					<action function="page">filecheck</action>
+				</listitem>
+				<listitem name="OrangeFox: {@dialog_reset_theme_hdr}">
+					<condition var1="fileexists" var2="/FFiles/OF_reset/OF_reset.zip"/>
+					<icon res="archive"/>
+					<action function="page">mod_reset</action>
+				</listitem>
+				<listitem name="{@remove_of_files}">
+					<condition var1="fileexists" var2="/FFiles/OF_DelFiles/OF_DelFiles.zip"/>
+					<icon res="archive"/>
+					<action function="queueclear"/>
+					<action function="set">fox_m_author=DarthJabba9</action>
+					<action function="set">fox_m_name={@remove_of_files}</action>
+					<action function="set">tw_file=OF_DelFiles.zip</action>
+					<action function="set">tw_filename=/FFiles/OF_DelFiles/OF_DelFiles.zip</action>
+					<action function="set">tw_filecheck=%tw_filename%</action>
+					<action function="set">tw_zip_location=/FFiles/OF_DelFiles</action>
+					<action function="set">fox_install_built_in_zip=1</action>
+					<action function="set">tw_signed_zip_verify=0</action>
+					<action function="queuezip"/>
+					<action function="set">tw_notexistpage=fox_modules_confirm</action>
+					<action function="set">tw_existpage=fox_modules_confirm</action>
+					<action function="page">filecheck</action>
+				</listitem>
+				<listitem name="{@module_remove_survival}">
+					<condition var1="fileexists" var2="/FFiles/OF_Del_Survival/OF_Del_Survival.zip"/>
+					<condition var1="fox_branch" op="&gt;=" var2="10"/>
+					<icon res="archive"/>
+					<action function="page">mod_survival</action>
+				</listitem>
+				<listitem name="{@module_initd}">
+					<condition var1="fox_vab_device" op="!=" var2="1"/>
+					<condition var1="fileexists" var2="%of_initd_zip%"/>
+					<icon res="archive"/>
+					<action function="queueclear"/>
+					<action function="set">fox_m_author=DarthJabba9</action>
+					<action function="set">fox_m_name={@module_initd}</action>
+					<action function="set">tw_file=OF_initd.zip</action>
+					<action function="set">tw_filename=%of_initd_zip%</action>
+					<action function="set">tw_filecheck=%tw_filename%</action>
+					<action function="set">tw_zip_location=%fox_home_files%</action>
+					<action function="set">fox_install_built_in_zip=1</action>
+					<action function="set">tw_signed_zip_verify=0</action>
+					<action function="queuezip"/>
+					<action function="set">tw_notexistpage=fox_modules_confirm</action>
+					<action function="set">tw_existpage=fox_modules_confirm</action>
+					<action function="page">filecheck</action>
+				</listitem>
+				<listitem name="AromaFM">
+					<condition var1="aroma_help" op="!=" var2="1"/>
+					<condition var1="fileexists" var2="%aroma_fm_zip%"/>
+					<icon res="files"/>
+					<action function="set">aroma_help=1</action>
+				</listitem>
+				<listitem name="{@aroma_help}">
+					<condition var1="aroma_help" var2="1"/>
+					<icon res="files"/>
+					<action function="queueclear"/>
+					<action function="set">tw_signed_zip_verify_tmp=%tw_signed_zip_verify%</action>
+					<action function="set">tw_signed_zip_verify=0</action>
+					<action function="set">fox_inject_after_zip_tmp=%fox_inject_after_zip%</action>
+					<action function="set">fox_inject_after_zip=0</action>
+					<action function="set">tw_screen_timeout_temp=%tw_screen_timeout_secs%</action>
+					<action function="set">tw_screen_timeout_secs=0</action>
+					<action function="set">tw_filename=%aroma_fm_zip%</action>
+					<action function="set">qcount_temp=1</action>
+					<action function="set">fox_install_built_in_zip=1</action>
+					<action function="queuezip"/>
+					<action function="flash">aroma_busy</action>
+				</listitem>
+			</listbox>
+
+			\2"""
+                        if re.search(fox_modules_pat, xml_c):
+                            xml_c = re.sub(fox_modules_pat, fox_modules_repl, xml_c, count=1)
 
                         if xml_c != orig_xml:
                             write_file_lf(fpath, xml_c)
-                            print(f"[+] Patched Fox Addons menu in {fpath} (Password, FRP, VBMeta, KernelSU v3.3.0)")
+                            print(f"[+] Patched Fox Addons menu in {fpath} (Uniform padding, 1008px scrollable Other list, KernelSU v3.3.1)")
                     except Exception as e:
                         print(f"[-] Failed patching {fpath} for addons: {e}")
     return True
+
+def patch_gui_scrolling(fox_root):
+    scroll_cpp = os.path.join(fox_root, "bootable/recovery/gui/scrolllist.cpp")
+    if not os.path.isfile(scroll_cpp):
+        return False
+
+    try:
+        with open(scroll_cpp, "r", encoding="utf-8", errors="ignore") as f:
+            sc = f.read()
+        orig_sc = sc
+
+        # 1. Cap touchDebounce at 16px instead of actualItemHeight/3 (48px on group_list) so dragging starts smoothly without jumping
+        sc = sc.replace(
+            "if (actualItemHeight / 3 > 6)\n\t\ttouchDebounce = actualItemHeight / 3;",
+            "if (actualItemHeight / 3 > 6)\n\t\ttouchDebounce = std::min(actualItemHeight / 8, 16);"
+        )
+
+        # 2. Draw a continuous rounded group card (r=32, RoundedCornerFlags::ALL) for scrollable group_list viewports
+        has_scroll_hook = """\t} else {
+\t\thasScroll = true;
+\t\tlistW = mRenderW - mFastScrollW;
+\t\t// Determine how many items to render
+\t\tlines = windowH / actualItemHeight + 2;
+\t\tif (firstDisplayedItem + (int)lines > (int)listSize)
+\t\t\tlines = listSize - firstDisplayedItem;
+\t}"""
+        has_scroll_repl = has_scroll_hook + """
+
+\tif (isGroup && hasScroll) {
+\t\tint groupOffset = 45;
+\t\tint gx = mRenderX + groupOffset;
+\t\tint gw = mRenderW - 2 * groupOffset;
+\t\tint gy = mRenderY + mHeaderH;
+\t\tint gh = mRenderH - mHeaderH;
+\t\tGGLSurface *gsurf = (GGLSurface *)malloc(sizeof(GGLSurface));
+\t\tmemset(gsurf, 0, sizeof(GGLSurface));
+\t\tgsurf->version = sizeof(gsurf);
+\t\tuint32_t* gimg = createShape(gw, gh, 32, 0, groupColor, RoundedCornerFlags::ALL);
+\t\tgsurf->width = gw;
+\t\tgsurf->height = gh;
+\t\tgsurf->stride = gw;
+\t\tgsurf->data = (GGLubyte*)gimg;
+\t\tgsurf->format = res_get_pixel_format();
+\t\tgr_blit((gr_surface)gsurf, 0, 0, gw, gh, gx, gy);
+\t\tres_free_surface(gsurf);
+\t\tfree(gimg);
+\t}"""
+        if "uint32_t* gimg = createShape" not in sc and has_scroll_hook in sc:
+            sc = sc.replace(has_scroll_hook, has_scroll_repl, 1)
+
+        # 3. Skip per-item square-corner groupColor overwrite when hasScroll is true in RenderStdItem
+        std_item_hook = """\t\timg = createShape(w, h, r, s, groupColor, corners);
+
+\t\tsurface->width = w;
+\t\tsurface->height = h;
+\t\tsurface->stride = w;
+\t\tsurface->data = (GGLubyte*)img;
+\t\tsurface->format = res_get_pixel_format();
+
+\t\tgr_blit((gr_surface)surface, 0, 0, w, h, x, y);
+\t\tif (isHighlight) {
+\t\t\thl_img = createShape(w, h, r, s, highlightColor, corners);
+\t\t\tsurface->data = (GGLubyte*)hl_img;
+\t\t\tgr_blit((gr_surface)surface, 0, 0, w, h, x, y);
+\t\t}"""
+        std_item_repl = """\t\tsurface->width = w;
+\t\tsurface->height = h;
+\t\tsurface->stride = w;
+\t\tsurface->format = res_get_pixel_format();
+
+\t\tif (!hasScroll) {
+\t\t\timg = createShape(w, h, r, s, groupColor, corners);
+\t\t\tsurface->data = (GGLubyte*)img;
+\t\t\tgr_blit((gr_surface)surface, 0, 0, w, h, x, y);
+\t\t}
+\t\tif (isHighlight) {
+\t\t\thl_img = createShape(w, h, r, s, highlightColor, hasScroll ? RoundedCornerFlags::NONE : corners);
+\t\t\tsurface->data = (GGLubyte*)hl_img;
+\t\t\tgr_blit((gr_surface)surface, 0, 0, w, h, x, y);
+\t\t}"""
+        if std_item_hook in sc:
+            sc = sc.replace(std_item_hook, std_item_repl, 1)
+
+        # 4. Smooth drag start & 144Hz kinetic scrolling on release
+        drag_hook = """\t\tselectedItem = NO_ITEM; // nothing is selected because we dragged too far"""
+        drag_repl = """\t\tif (selectedItem != NO_ITEM) {
+\t\t\tselectedItem = NO_ITEM; // nothing is selected because we dragged too far
+\t\t\tlastY = last2Y = y;
+\t\t}"""
+        if drag_hook in sc and "lastY = last2Y = y;\n\t\t}" not in sc:
+            sc = sc.replace(drag_hook, drag_repl, 1)
+
+        kin_hook = """\t\t\t// Start kinetic scrolling
+\t\t\tscrollingSpeed = lastY - last2Y;
+\t\t\tif (abs(scrollingSpeed) < touchDebounce)
+\t\t\t\tscrollingSpeed = 0;"""
+        kin_repl = """\t\t\t// Start kinetic scrolling
+\t\t\tscrollingSpeed = (lastY - last2Y) * 2;
+\t\t\tif (abs(scrollingSpeed) < 6)
+\t\t\t\tscrollingSpeed = 0;"""
+        if kin_hook in sc:
+            sc = sc.replace(kin_hook, kin_repl, 1)
+
+        # 5. Fix group top-padding scroll boundary oscillation in HandleScrolling
+        sc = sc.replace(
+            "while (firstDisplayedItem + (int)lines < (int)totalSize && abs(y_offset) > actualItemHeight) {",
+            "while (firstDisplayedItem + (int)lines < (int)totalSize && abs(y_offset) > (actualItemHeight + ((isGroup && firstDisplayedItem == 0) ? mItemPaddingTop : 0))) {"
+        )
+
+        if sc != orig_sc:
+            write_file_lf(scroll_cpp, sc)
+            print(f"[+] Patched {scroll_cpp} with smooth 144Hz scrolling and continuous rounded group_list cards")
+            return True
+    except Exception as e:
+        print(f"[-] Failed patching scrolllist.cpp: {e}")
+    return False
 
 def patch_graphics_drm(fox_root):
     drm_cpp = os.path.join(fox_root, "bootable/recovery/minuitwrp/graphics_drm.cpp")
@@ -1811,11 +2047,12 @@ def main():
     patch_display_timeout_toggle(fox_root)
     patch_avb_settings(fox_root)
     patch_addons(fox_root)
+    patch_gui_scrolling(fox_root)
     patch_graphics_drm(fox_root)
     patch_version(fox_root)
     patch_super_partitions(fox_root)
     patch_format_data(fox_root)
-    print("[*] All hardware, architecture, identity, slot, splash, version, addons, format data, and UI patches applied cleanly!")
+    print("[*] All hardware, architecture, identity, slot, splash, version, addons, scrolling, format data, and UI patches applied cleanly!")
 
 if __name__ == "__main__":
     main()

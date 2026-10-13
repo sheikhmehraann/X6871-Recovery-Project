@@ -117,10 +117,10 @@ jobs:
           echo "Applying Clang-Tidy Stub..."
           find prebuilts/ -name "clang-tidy" -type f -exec bash -c 'echo -e "#!/bin/sh\nexit 0" > "$1" && chmod +x "$1"' _ {} \; || true
 
-          echo "Fetching KernelSU v3.3.0 LKM assets for built-in Fox Addon..."
+          echo "Fetching KernelSU v3.3.1 LKM assets for built-in Fox Addon..."
           mkdir -p /tmp/ksu_assets
-          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.0/ksuinit-aarch64" -o /tmp/ksu_assets/ksuinit
-          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.0/lkm-aarch64-android12-5.10_kernelsu.ko" -o /tmp/ksu_assets/kernelsu.ko
+          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/ksuinit-aarch64" -o /tmp/ksu_assets/ksuinit
+          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/lkm-aarch64-android12-5.10_kernelsu.ko" -o /tmp/ksu_assets/kernelsu.ko
           chmod 0755 /tmp/ksu_assets/ksuinit /tmp/ksu_assets/kernelsu.ko
 
           echo "Executing OrangeFox Universal Hardware & Architecture Patch Engine..."
@@ -264,7 +264,7 @@ jobs:
           echo "Bundling Root Suite (Magisk, KernelSU, APatch)..."
           mkdir -p $GITHUB_WORKSPACE/output/Root_Suite
           cp -vf /tmp/Magisk.zip $GITHUB_WORKSPACE/output/Root_Suite/Magisk-v28.1.zip 2>/dev/null || curl -sSL "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/Magisk-v28.1.zip
-          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.0/KernelSU_v3.3.0_32601-release.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/KernelSU-v3.3.0.apk || true
+          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/KernelSU_v3.3.1_32680-release.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/KernelSU-v3.3.1.apk || true
           curl -sSL "https://github.com/bmax121/APatch/releases/download/11224/APatch_11224_9a63e0f_HEAD-release-signed.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/APatch-11224.apk || true
           cd $GITHUB_WORKSPACE/output/Root_Suite && zip -r ../OrangeFox-RootSuite-X6871.zip * || true
           rm -rf $GITHUB_WORKSPACE/output/Root_Suite
@@ -303,7 +303,7 @@ jobs:
 
             ### Features & Native Support
             - **Native 144Hz AMOLED UI:** Smooth 144 FPS recovery rendering (`TW_FRAMERATE := 144`) with single-pipe DRM
-            - **Built-in KernelSU v3.3.0 LKM Addon:** One-tap `Install KernelSU v3.3.0` & `Uninstall KernelSU` directly inside Fox Addons (`/FFiles/KernelSU`)
+            - **Built-in KernelSU v3.3.1 LKM Addon:** One-tap `Install KernelSU v3.3.1` & `Uninstall KernelSU` directly inside Fox Addons (`/FFiles/KernelSU`)
             - **Remove Lockscreen PIN/Password Addon:** Built-in `OF_DelPass.zip` in Fox Addons to clear lockscreen credentials without breaking FBEv2 keys
             - **Remove FRP Lock Addon:** Built-in `OF_DelFRP.zip` in Fox Addons to wipe Factory Reset Protection
             - **Slot-Aware Disable & Enable VBMeta Addons:** One-tap `Disable Vbmeta` (`0x03`) and `Enable Vbmeta` (`0x00`) across `vbmeta_a/b`, `vbmeta_system_a/b`, and `vbmeta_vendor_a/b`
