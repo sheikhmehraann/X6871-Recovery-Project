@@ -240,30 +240,30 @@ static uint32_t number_of_lms = DEFAULT_NUM_LMS;
 static uint32_t spr_enabled;
 static std::string spr_prop_name;
 
-#define find_prop_id(_res, type, Type, obj_id, prop_name, prop_id)    \
+#define find_prop_id(_res, type, Type, obj_id, prop_name, out_prop_id) \
   do {                                                                \
     int j = 0;                                                        \
     int prop_count = 0;                                               \
     struct Type *obj = NULL;                                          \
     obj = (_res);                                                     \
     if (!obj || main_monitor_##type->type##_id != (obj_id)){          \
-      prop_id = 0;                                                    \
+      (out_prop_id) = 0;                                              \
       break;                                                          \
     }                                                                 \
     prop_count = (int)obj->props->count_props;                        \
     for (j = 0; j < prop_count; ++j)                                  \
       if (!strcmp(obj->props_info[j]->name, (prop_name)))             \
         break;                                                        \
-    (prop_id) = (j == prop_count)?                                    \
+    (out_prop_id) = (j == prop_count)?                                \
       0 : obj->props_info[j]->prop_id;                                \
   } while (0)
 
 #define add_prop(res, type, Type, id, id_name, id_val)       \
   do {                                                        \
-    uint32_t __prop_id = 0;                                   \
-    find_prop_id(res, type, Type, id, id_name, __prop_id);    \
-    if (__prop_id)                                            \
-      drmModeAtomicAddProperty(atomic_req, id, __prop_id, id_val); \
+    uint32_t __out_id = 0;                                    \
+    find_prop_id(res, type, Type, id, id_name, __out_id);     \
+    if (__out_id)                                             \
+      drmModeAtomicAddProperty(atomic_req, id, __out_id, id_val); \
   } while (0)
 
 /**
