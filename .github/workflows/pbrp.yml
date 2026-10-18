@@ -25,14 +25,23 @@ jobs:
             /usr/local/share/chromium \
             /usr/share/swift \
             /opt/hostedtoolcache \
-            /var/lib/docker
+            /var/lib/docker \
+            /usr/local/.ghcup \
+            /usr/local/share/vcpkg \
+            /usr/share/ruby \
+            /usr/share/rust \
+            /usr/local/graalvm
           sudo docker image prune --all --force 2>/dev/null || true
+          sudo docker builder prune -a --force 2>/dev/null || true
+          sudo apt-get purge -y azure-cli google-cloud-sdk microsoft-edge-stable google-chrome-stable firefox powershell imagemagick ant unixodbc-dev 2>/dev/null || true
+          sudo apt-get autoremove -y 2>/dev/null || true
+          sudo apt-get clean 2>/dev/null || true
           df -h
 
       - name: Setup Swap Space
         uses: pierotofy/set-swap-space@master
         with:
-          swap-size-gb: 12
+          swap-size-gb: 6
 
       - name: Install Build Dependencies
         run: |
@@ -62,7 +71,7 @@ jobs:
           mkdir -p $HOME/pbrp
           cd $HOME/pbrp
           repo init --no-repo-verify -u https://github.com/PitchBlackRecoveryProject/manifest_pb.git -b android-12.1 --depth=1
-          repo sync -c -j$(nproc) --force-sync --no-clone-bundle --no-tags
+          repo sync -c -j4 --force-sync --no-clone-bundle --no-tags --current-branch || repo sync -c -j2 --force-sync
           rm -rf .repo
 
       - name: Setup Device Trees & Patches
