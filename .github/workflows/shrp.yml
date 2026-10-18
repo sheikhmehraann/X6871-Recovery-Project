@@ -86,6 +86,11 @@ jobs:
             git clone --depth=1 https://android.googlesource.com/platform/external/gflags/ -b android-12.1.0_r4 external/gflags || true
           fi
 
+          if [ ! -d "system/vold/model" ] || ! grep -q "libfscrypttwrp" system/vold/Android.bp 2>/dev/null; then
+            rm -rf system/vold
+            git clone --depth=1 https://github.com/TeamWin/android_system_vold.git -b twrp-12.1 system/vold
+          fi
+
           echo "WITH_DEXPREOPT := false" >> device/transsion/mt6895-common/BoardConfigCommon.mk
           if grep -q "func shouldBuildBootImages" build/soong/java/dexpreopt_bootjars.go 2>/dev/null; then
             sed -i '/func shouldBuildBootImages(/a \\tif global.DisablePreoptBootImages { return false }' build/soong/java/dexpreopt_bootjars.go

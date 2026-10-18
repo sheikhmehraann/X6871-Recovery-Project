@@ -528,7 +528,7 @@ static int atomic_populate_plane(int plane, drmModeAtomicReqPtr atomic_req) {
 }
 
 static int teardown_pipeline(drmModeAtomicReqPtr atomic_req) {
-  uint32_t i, prop_id;
+  uint32_t i;
   int ret;
 
   /* During suspend, tear down pipeline */
@@ -561,7 +561,7 @@ static int drm_disable_crtc(drmModeAtomicReqPtr atomic_req) {
 }
 
 static int setup_pipeline(drmModeAtomicReqPtr atomic_req) {
-  uint32_t i, prop_id;
+  uint32_t i;
   int ret;
 
   for(i = 0; i < number_of_lms; i++) {
@@ -891,7 +891,7 @@ static void disable_non_main_crtcs(int fd,
 }
 
 static void update_plane_fb() {
-  uint32_t i, prop_id;
+  uint32_t i;
 
   /* Set atomic req */
   drmModeAtomicReqPtr atomic_req = drmModeAtomicAlloc();
