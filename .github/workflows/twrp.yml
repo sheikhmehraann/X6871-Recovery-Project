@@ -33,9 +33,6 @@ jobs:
             /usr/local/graalvm
           sudo docker image prune --all --force 2>/dev/null || true
           sudo docker builder prune -a --force 2>/dev/null || true
-          sudo apt-get purge -y azure-cli google-cloud-sdk microsoft-edge-stable google-chrome-stable firefox powershell imagemagick ant unixodbc-dev 2>/dev/null || true
-          sudo apt-get autoremove -y 2>/dev/null || true
-          sudo apt-get clean 2>/dev/null || true
           df -h
 
       - name: Setup Swap Space
@@ -52,6 +49,14 @@ jobs:
             libgl1-mesa-dev libxml2 libxml2-utils xsltproc unzip fontconfig \
             python3 python-is-python3 libssl-dev rsync bc liblz4-tool libncurses5-dev \
             squashfs-tools libtinfo5 openjdk-11-jdk-headless ccache
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: twrp-ccache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            twrp-ccache-${{ runner.os }}-
 
       - name: Install Repo Tool
         run: |
@@ -113,10 +118,17 @@ jobs:
           export TW_DEVICE_VERSION="X6871_sheikhmehraann"
           export LC_ALL="C"
           export USE_CCACHE=1
+          export CCACHE_DIR=$HOME/.ccache
+          export CCACHE_EXEC=/usr/bin/ccache
+          mkdir -p $HOME/.ccache
+          ccache -M 20G
+          ccache -o compression=true
+          ccache -z
 
           source build/envsetup.sh
           lunch twrp_X6871-eng || lunch omni_X6871-eng
           mka adbd vendorbootimage -j$(nproc)
+          ccache -s
 
       - name: Package Artifacts
         run: |

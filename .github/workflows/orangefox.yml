@@ -33,9 +33,6 @@ jobs:
             /usr/local/graalvm
           sudo docker image prune --all --force 2>/dev/null || true
           sudo docker builder prune -a --force 2>/dev/null || true
-          sudo apt-get purge -y azure-cli google-cloud-sdk microsoft-edge-stable google-chrome-stable firefox powershell imagemagick ant unixodbc-dev 2>/dev/null || true
-          sudo apt-get autoremove -y 2>/dev/null || true
-          sudo apt-get clean 2>/dev/null || true
           df -h
 
       - name: Setup Swap Space
@@ -217,6 +214,7 @@ jobs:
           set -e
           lunch twrp_X6871-eng || lunch omni_X6871-eng || lunch fox_X6871-eng
           mka -j$(nproc) adbd vendorbootimage
+          ccache -s
 
       - name: Prepare Artifacts
         run: |

@@ -78,3 +78,15 @@
 /tr_overlayfs_image	emmc		/dev/block/bootdevice/by-name/tr_overlayfs	/dev/block/by-name/tr_overlayfs		flags=display="TR OverlayFS Image";backup=1;flashimg=1
 /tr_region_image	emmc		/dev/block/bootdevice/by-name/tr_region		/dev/block/by-name/tr_region		flags=display="TR Region Image";backup=1;flashimg=1
 /tr_theme_image		emmc		/dev/block/bootdevice/by-name/tr_theme		/dev/block/by-name/tr_theme			flags=display="TR Theme Image";backup=1;flashimg=1
+/tr_system_image	emmc		/dev/block/bootdevice/by-name/tr_system		/dev/block/by-name/tr_system		flags=display="TR System Image";backup=1;flashimg=1
+/mi_ext_image		emmc		/dev/block/bootdevice/by-name/mi_ext		/dev/block/by-name/mi_ext			flags=display="MI EXT Image";backup=1;flashimg=1
+/my_product_image	emmc		/dev/block/bootdevice/by-name/my_product	/dev/block/by-name/my_product		flags=display="My Product Image";backup=1;flashimg=1
+/my_engineering_image	emmc	/dev/block/bootdevice/by-name/my_engineering	/dev/block/by-name/my_engineering	flags=display="My Engineering Image";backup=1;flashimg=1
+/my_company_image	emmc		/dev/block/bootdevice/by-name/my_company	/dev/block/by-name/my_company		flags=display="My Company Image";backup=1;flashimg=1
+/my_carrier_image	emmc		/dev/block/bootdevice/by-name/my_carrier	/dev/block/by-name/my_carrier		flags=display="My Carrier Image";backup=1;flashimg=1
+/my_region_image	emmc		/dev/block/bootdevice/by-name/my_region		/dev/block/by-name/my_region		flags=display="My Region Image";backup=1;flashimg=1
+/my_heytap_image	emmc		/dev/block/bootdevice/by-name/my_heytap		/dev/block/by-name/my_heytap		flags=display="My HeyTap Image";backup=1;flashimg=1
+/my_stock_image		emmc		/dev/block/bootdevice/by-name/my_stock		/dev/block/by-name/my_stock			flags=display="My Stock Image";backup=1;flashimg=1
+/my_preload_image	emmc		/dev/block/bootdevice/by-name/my_preload	/dev/block/by-name/my_preload		flags=display="My Preload Image";backup=1;flashimg=1
+/my_bigball_image	emmc		/dev/block/bootdevice/by-name/my_bigball	/dev/block/by-name/my_bigball		flags=display="My Bigball Image";backup=1;flashimg=1
+/my_manifest_image	emmc		/dev/block/bootdevice/by-name/my_manifest	/dev/block/by-name/my_manifest		flags=display="My Manifest Image";backup=1;flashimg=1
