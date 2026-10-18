@@ -53,7 +53,7 @@ jobs:
       - name: Cache ccache
         uses: actions/cache@v4
         with:
-          path: ~/.ccache
+          path: /home/runner/twrp/.ccache
           key: twrp-ccache-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
             twrp-ccache-${{ runner.os }}-
@@ -118,9 +118,10 @@ jobs:
           export TW_DEVICE_VERSION="X6871_sheikhmehraann"
           export LC_ALL="C"
           export USE_CCACHE=1
-          export CCACHE_DIR=$HOME/.ccache
+          export CCACHE_DIR=$HOME/twrp/.ccache
+          export CCACHE_TEMPDIR=$HOME/twrp/.ccache/tmp
           export CCACHE_EXEC=/usr/bin/ccache
-          mkdir -p $HOME/.ccache
+          mkdir -p $HOME/twrp/.ccache/tmp
           ccache -M 20G
           ccache -o compression=true
           ccache -z

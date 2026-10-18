@@ -53,7 +53,7 @@ jobs:
       - name: Cache ccache
         uses: actions/cache@v4
         with:
-          path: ~/.ccache
+          path: /home/runner/shrp/.ccache
           key: shrp-ccache-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
             shrp-ccache-${{ runner.os }}-
@@ -122,9 +122,10 @@ jobs:
           export SHRP_DEV="sheikhmehraann"
           export LC_ALL="C"
           export USE_CCACHE=1
-          export CCACHE_DIR=$HOME/.ccache
+          export CCACHE_DIR=$HOME/shrp/.ccache
+          export CCACHE_TEMPDIR=$HOME/shrp/.ccache/tmp
           export CCACHE_EXEC=/usr/bin/ccache
-          mkdir -p $HOME/.ccache
+          mkdir -p $HOME/shrp/.ccache/tmp
           ccache -M 20G
           ccache -o compression=true
           ccache -z
