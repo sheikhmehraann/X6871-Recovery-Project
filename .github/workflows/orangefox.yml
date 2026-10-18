@@ -212,8 +212,10 @@ jobs:
             cp -vf /tmp/Magisk.zip $HOME/fox_12.1/vendor/recovery/OrangeFox/FoxFiles/OF_Magisk/Magisk.zip || true
           fi
 
+          set +e
           source build/envsetup.sh
-          lunch twrp_X6871-eng || lunch omni_X6871-eng || lunch twrp_X6871-${TARGET_RELEASE}-eng || lunch twrp_X6871-ap2a-eng
+          set -e
+          lunch twrp_X6871-eng || lunch omni_X6871-eng || lunch fox_X6871-eng
           mka -j$(nproc) adbd vendorbootimage
 
       - name: Prepare Artifacts

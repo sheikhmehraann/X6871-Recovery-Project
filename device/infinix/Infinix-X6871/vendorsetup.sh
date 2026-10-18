@@ -4,17 +4,15 @@
 # Supports TWRP, OrangeFox, PitchBlack, and SkyHawk recoveries
 #
 
-# Lunch combos
-add_lunch_combo twrp_X6871-eng
-add_lunch_combo twrp_X6871-userdebug
-add_lunch_combo omni_X6871-eng
-add_lunch_combo omni_X6871-userdebug
-add_lunch_combo fox_X6871-eng
-add_lunch_combo fox_X6871-userdebug
-add_lunch_combo pb_X6871-eng
-add_lunch_combo pb_X6871-userdebug
-add_lunch_combo shrp_X6871-eng
-add_lunch_combo shrp_X6871-userdebug
+# Lunch combos are defined in AndroidProducts.mk (COMMON_LUNCH_CHOICES)
+# Legacy lunch fallback:
+if command -v add_lunch_combo >/dev/null 2>&1; then
+	add_lunch_combo twrp_X6871-eng 2>/dev/null || true
+	add_lunch_combo omni_X6871-eng 2>/dev/null || true
+	add_lunch_combo fox_X6871-eng 2>/dev/null || true
+	add_lunch_combo pb_X6871-eng 2>/dev/null || true
+	add_lunch_combo shrp_X6871-eng 2>/dev/null || true
+fi
 
 FDEVICE="X6871"
 
@@ -98,3 +96,5 @@ if [ -d bootable/recovery ]; then
 		git -C bootable/recovery apply "$PWD/$patch_file" >/dev/null 2>&1 || true
 	fi
 fi
+
+return 0 2>/dev/null || true
