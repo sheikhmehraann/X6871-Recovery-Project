@@ -3,14 +3,23 @@ ro.product.model=Infinix X6871
 ro.product.name=X6871-OP
 ro.product.brand=Infinix
 ro.product.manufacturer=INFINIX
-ro.product.device=X6871
+ro.product.device=Infinix-X6871
 ro.build.product=X6871
+ro.product.board=Infinix-X6871
 ro.product.marketname=Infinix GT 20 Pro
 ro.orangefox.device_model=Infinix GT 20 Pro
 ro.board.platform=mt6895
 ro.hardware=mt6895
+ro.hardware.chipname=MT6895
 ro.soc.manufacturer=Mediatek
 ro.soc.model=MT6896
+ro.build.version.release=15
+ro.build.version.sdk=35
+ro.product.first_api_level=34
+ro.build.display.id=X6871-15.1.2.180SP05(OP001PF001AZ)
+ro.build.fingerprint=Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys
+ro.product.build.fingerprint=Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys
+ro.product.tran.version.release=X6871-15.1.2.180SP05(BASE001PF001AZ)
 ro.twrp.target.devices=X6871,Infinix-X6871,Infinix_X6871,X6871-OP
 
 
