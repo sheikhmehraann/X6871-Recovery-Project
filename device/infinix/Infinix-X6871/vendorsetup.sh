@@ -1,49 +1,31 @@
 #!/bin/bash
 #
-#	This file is part of the OrangeFox Recovery Project
-# 	Copyright (C) 2024-2025 The OrangeFox Recovery Project
-#
-#	OrangeFox is free software: you can redistribute it and/or modify
-#	it under the terms of the GNU General Public License as published by
-#	the Free Software Foundation, either version 3 of the License, or
-#	any later version.
-#
-#	OrangeFox is distributed in the hope that it will be useful,
-#	but WITHOUT ANY WARRANTY; without even the implied warranty of
-#	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#	GNU General Public License for more details.
-#
-# 	This software is released under GPL version 3 or any later version.
-#	See <http://www.gnu.org/licenses/>.
-#
-# 	Please maintain this if you use this script or any part of it
+# vendorsetup.sh for Infinix GT 20 Pro (X6871)
+# Supports TWRP, OrangeFox, PitchBlack, and SkyHawk recoveries
 #
 
-#set -o xtrace
+# Lunch combos
+add_lunch_combo twrp_X6871-eng
+add_lunch_combo twrp_X6871-userdebug
+add_lunch_combo omni_X6871-eng
+add_lunch_combo omni_X6871-userdebug
+add_lunch_combo fox_X6871-eng
+add_lunch_combo fox_X6871-userdebug
+add_lunch_combo pb_X6871-eng
+add_lunch_combo pb_X6871-userdebug
+add_lunch_combo shrp_X6871-eng
+add_lunch_combo shrp_X6871-userdebug
+
 FDEVICE="X6871"
 
-fetch_mt6895_common_repo() {
-	local URL=https://github.com/transsion-mt6895/twrp-device_transsion_mt6895-common.git
-	local common=device/transsion/mt6895-common
-	if [ ! -d $common ]; then
-		echo "Cloning $URL ... to $common"
-		git clone $URL -b fox_12.1-tos15 $common
-	else
-		echo "Device common repository: \"$common\" found ..."
-	fi
-}
+# Common base configuration
+export ALLOW_MISSING_DEPENDENCIES=true
+export TW_DEVICE_VERSION="X6871_sheikhmehraann"
+export LC_ALL="C"
 
-FOX_BUILD_DEVICE="$FDEVICE"
-
-if [ "$1" = "$FDEVICE" -o "$FOX_BUILD_DEVICE" = "$FDEVICE" ]; then
-	# Clone to fix build on minimal manifest
-	if [ ! -d external/gflags ]; then
-		git clone https://android.googlesource.com/platform/external/gflags/ -b android-12.1.0_r4 external/gflags || true
-	fi
-
-	# mt6895-common
-	fetch_mt6895_common_repo
-
+# OrangeFox environment configuration
+if [ -n "$FOX_BUILD_DEVICE" ] || [ "${TARGET_PRODUCT:-}" = "fox_X6871" ]; then
+	export FOX_BUILD_DEVICE="$FDEVICE"
 	export FOX_VIRTUAL_AB_DEVICE=1
 	export OF_ALLOW_DISABLE_NAVBAR=1
 	export OF_CHECK_OVERWRITE_ATTEMPTS=1
@@ -57,6 +39,8 @@ if [ "$1" = "$FDEVICE" -o "$FOX_BUILD_DEVICE" = "$FDEVICE" ]; then
 	export FOX_ENABLE_APP_MANAGER=1
 	export FOX_RECOVERY_SYSTEM_PARTITION="/dev/block/mapper/system"
 	export FOX_RECOVERY_VENDOR_PARTITION="/dev/block/mapper/vendor"
+	export FOX_RECOVERY_INSTALL_PARTITION="/dev/block/by-name/vendor_boot"
+	export FOX_RECOVERY_BOOT_PARTITION="/dev/block/by-name/boot"
 	export FOX_USE_BASH_SHELL=1
 	export FOX_ASH_IS_BASH=1
 	export FOX_USE_TAR_BINARY=1
@@ -66,29 +50,51 @@ if [ "$1" = "$FDEVICE" -o "$FOX_BUILD_DEVICE" = "$FDEVICE" ]; then
 	export FOX_USE_ZSTD_BINARY=1
 	export FOX_USE_NANO_EDITOR=1
 	export FOX_DELETE_AROMAFM=1
-	export FOX_MAINTAINER_PATCH_VERSION=$(date +"%Y%m%d")
-	unset FOX_VERSION
 	export FOX_BUILD_TYPE="Stable"
 	export FOX_VARIANT="15.1.2"
 	export OF_MAINTAINER="sheikhmehraann"
 	export OF_ENABLE_FRP_ADDON=1
 	export FOX_SUPPORT_KSU=1
-	export FOX_RECOVERY_INSTALL_PARTITION="/dev/block/by-name/vendor_boot"
-	export FOX_RECOVERY_BOOT_PARTITION="/dev/block/by-name/boot"
-
-	# Patches
-	RET=0
-	if [ -d bootable/recovery ]; then
-		cd bootable/recovery
-		git apply ../../device/infinix/Infinix-X6871/patches/0001-Change-haptics-activation-file-path.patch > /dev/null 2>&1 || RET=$?
-		cd ../../
-		if [ $RET -ne 0 ];then
-			echo "INFO: Patch not applied or already applied"
-		else
-			echo "OK: All patched"
-		fi
-	fi
+	export OF_SCREEN_H=2436
 fi
 
-# Ensure clean return
-true
+# PitchBlack environment configuration
+if [ "${TARGET_PRODUCT:-}" = "pb_X6871" ]; then
+	export PB_DEVICE_SPECIFICATION="Infinix GT 20 Pro (X6871)"
+	export PB_TORCH_PATH="/sys/devices/platform/11cb0000.i2c/i2c-7/7-0050/leds/torch/brightness"
+	export PB_BATTERY_PATH="/sys/class/power_supply/battery"
+	export PB_VIBRATOR_PATH="/sys/class/leds/vibrator_single/activate"
+	export PB_BUILD_TYPE="OFFICIAL"
+	export PBRP_MAINTAINER="sheikhmehraann"
+	export PBRP_BRANCH="12.1"
+	export PBRP_STATUS="STABLE"
+fi
+
+# SkyHawk environment configuration
+if [ "${TARGET_PRODUCT:-}" = "shrp_X6871" ]; then
+	export SHRP_PATH="device/infinix/Infinix-X6871"
+	export SHRP_MAINTAINER="sheikhmehraann"
+	export SHRP_DEVICE_CODE="X6871"
+	export SHRP_EDL_MODE=0
+	export SHRP_EXTERNAL="/sdcard"
+	export SHRP_INTERNAL="/data/media/0"
+	export SHRP_OTG="/usb_otg"
+	export SHRP_FLASH=1
+	export SHRP_FONTS="default"
+	export SHRP_OFFICIAL=true
+	export SHRP_DARK=true
+	export SHRP_EXPRESS=true
+	export SHRP_DEV="sheikhmehraann"
+	export SHRP_REC="/dev/block/by-name/vendor_boot"
+	export SHRP_REC_TYPE="vendor_boot"
+	export SHRP_CUSTOM_FLASHLIGHT=true
+	export SHRP_CUSTOM_FLASHLIGHT_PATH="/sys/devices/platform/11cb0000.i2c/i2c-7/7-0050/leds/torch/brightness"
+fi
+
+# Haptics activation patch
+if [ -d bootable/recovery ]; then
+	patch_file="device/infinix/Infinix-X6871/patches/0001-Change-haptics-activation-file-path.patch"
+	if [ -f "$patch_file" ]; then
+		git -C bootable/recovery apply "$PWD/$patch_file" >/dev/null 2>&1 || true
+	fi
+fi

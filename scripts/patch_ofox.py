@@ -1568,7 +1568,7 @@ def patch_graphics_drm(fox_root):
             with open(local_drm, "r", encoding="utf-8") as f_src:
                 drm_content = f_src.read()
             write_file_lf(drm_cpp, drm_content)
-            print(f"[+] Successfully deployed verified MediaTek single-pipe graphics_drm.cpp to {drm_cpp}")
+            print(f"[+] Deployed graphics_drm.cpp to {drm_cpp}")
             return True
         except Exception as e:
             print(f"[-] Failed copying graphics_drm.cpp: {e}")
@@ -1767,7 +1767,7 @@ def patch_super_partitions(fox_root):
 
         if c != orig:
             write_file_lf(pm_cpp, c)
-            print("[+] Successfully patched partitionmanager.cpp with dynamic super partition flash & backup engine")
+            print("[+] Patched super partition handling in partitionmanager.cpp")
             return True
     except Exception as e:
         print(f"[-] Failed patching partitionmanager.cpp for super partitions: {e}")
@@ -1852,7 +1852,7 @@ def patch_format_data(fox_root):
 
         if c != orig:
             write_file_lf(pm_cpp, c)
-            print("[+] Successfully patched partitionmanager.cpp with robust Format_Data engine")
+            print("[+] Patched Format_Data in partitionmanager.cpp")
         else:
             print("[-] Format_Data already patched or pattern did not match")
     except Exception as e:
@@ -1890,7 +1890,7 @@ def patch_format_data(fox_root):
 
             if pc != orig_pc:
                 write_file_lf(part_cpp, pc)
-                print("[+] Successfully patched bootable/recovery/partition.cpp to unmap userdata dm holder before Wipe_F2FS")
+                print("[+] Patched partition.cpp for userdata unmap before Wipe_F2FS")
         except Exception as e:
             print(f"[-] Failed patching partition.cpp for format data: {e}")
 
@@ -1906,7 +1906,7 @@ def main():
         print(f"[-] Directory does not exist: {fox_root}")
         sys.exit(1)
 
-    print(f"[*] OrangeFox Patch Engine targeting: {fox_root}")
+    print(f"[*] Applying device patches to {fox_root}...")
     patch_envsetup(fox_root)
     patch_flashlight(fox_root)
     patch_haptics(fox_root)
@@ -1923,7 +1923,7 @@ def main():
     patch_version(fox_root)
     patch_super_partitions(fox_root)
     patch_format_data(fox_root)
-    print("[*] All hardware, architecture, identity, slot, splash, version, addons, scrolling, format data, and UI patches applied cleanly!")
+    print("[*] All patches applied successfully.")
 
 if __name__ == "__main__":
     main()

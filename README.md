@@ -1,54 +1,63 @@
-# OrangeFox Recovery for Infinix GT 20 Pro (X6871)
+# Multi-Recovery Project for Infinix GT 20 Pro (X6871)
 
-Unofficial **OrangeFox Recovery R12.1 (Stable)** device tree and automated build system for the **Infinix GT 20 Pro** (`X6871` / `X6871-OP`), powered by the MediaTek Dimensity 8200 Ultimate (`MT6895` / `MT6896`).
+Unified recovery device tree and automated build configurations for the Infinix GT 20 Pro (`X6871` / `X6871-OP`), powered by the MediaTek Dimensity 8200 Ultimate (`MT6895` / `MT6896`).
 
-Maintained by [@sheikhmehraann](https://github.com/sheikhmehraann) with active community testing.
+Maintained by [sheikhmehraann](https://github.com/sheikhmehraann).
+
+---
+
+## Supported Recoveries
+
+This repository contains build targets and device tree configurations for:
+
+1. **TWRP** (TeamWin Recovery Project) - Target: `twrp_X6871` / `omni_X6871`
+2. **OFRP** (OrangeFox Recovery Project R12.1) - Target: `fox_X6871`
+3. **PBRP** (PitchBlack Recovery Project) - Target: `pb_X6871`
+4. **SHRP** (SkyHawk Recovery Project) - Target: `shrp_X6871`
 
 ---
 
 ## Device Specifications
 
-| Attribute | Specification |
+| Attribute | Value |
 |---|---|
-| **Device Model** | Infinix GT 20 Pro (`Infinix X6871`) |
-| **SoC** | MediaTek Dimensity 8200 Ultimate  |
-| **Platform** | `mt6895` / `mt6896` |
-| **Display** | 1080 x 2436 AMOLED (144Hz, Single-Pipe DRM) |
-| **Kernel Version** | 5.10.237-android12-9 (Header v4) |
-| **Architecture** | ARM64 (aarch64-linux-android) |
-| **Partition Scheme** | Virtual A/B (VAB) + Dynamic Partitions |
-| **Recovery Location** | `vendor_boot` (Header v4, 64 MB budget) |
-| **Target OS** | Android 15 / XOS 15 |
+| Device Model | Infinix GT 20 Pro (`X6871`, `X6871-OP`) |
+| Platform / SoC | MediaTek Dimensity 8200 Ultimate (`MT6895` / `MT6896`) |
+| Display | 1080 x 2436 AMOLED (144Hz refresh rate, single-pipe DRM) |
+| Kernel Version | 5.10.x Android Common Kernel |
+| Architecture | ARM64 (`arm64-v8a`) |
+| Partition Layout | Virtual A/B (VAB) with Dynamic Partitions |
+| Recovery Location | `vendor_boot` (Boot Header v4, 64 MB partition size) |
+| Target Firmware | Android 14 / Android 15 (XOS 14 / XOS 15) |
 
 ---
 
-## Current Status & Verified Features
+## Hardware Support & Status
 
-Tested and verified on live Infinix GT 20 Pro hardware running stock XOS 15:
+All four recovery variants share the common device tree and include:
 
-* **Storage Decryption:** Full File-Based Encryption (FBEv2) support with hardware metadata decryption Decrypts PIN, password, and pattern lock screens cleanly.
-* **Dynamic Super Partitions:** All 14 logical partitions inside are fully mapped and available across Flash Image, Partition Backup, and Mount menus.
-* **Ultra-Fast Splash Engine:** Proprietary in-place Header v4 `vendor_boot` repacker accelerated by multi-core `pigz` parallel gzip compression across all 8 CPU cores. Splash changes execute in **~2.4 seconds** (down from 38 seconds). Dual-slot sync updates both `vendor_boot_a` and `vendor_boot_b` simultaneously.
-* **Boot Slot Management:** Native A/B slot display (`Slot A` / `Slot B`) with direct active slot switching and hardware `bootctl` fallback.
-* **Display & Graphics:** Tailored single-pipe Direct Rendering Manager (`minuitwrp/graphics_drm.cpp`) eliminating MTK panel flicker and atomic commit drops.
-* **Peripherals & Drivers:**
-  * Haptic Feedback: Dedicated AW8697 linear vibrator driver via sysfs `vibrator_single`.
-  * Flashlight: Real rear camera torch control using the OCP81375 LED driver.
-  * Thermals: Real-time CPU temperature readout (`thermal_zone0` / `soc_max`).
-  * Connectivity: MTP file transfer over USB, ADB sideload, and USB-OTG external drives.
-* **AOSP & Custom ROM Flashing:** Full `update_engine_sideload` and dynamic partition resizing support for PixelOS, LineageOS, and GSI packages.
-* **Built-in Root Suite:** Direct integration with Magisk v28.1 
+- **Storage Decryption:** File-Based Encryption (FBEv2) metadata decryption via hardware KeyMint V1. Decrypts lockscreen PIN, pattern, and password.
+- **Dynamic Super Partitions:** Maps all logical partitions (`system`, `vendor`, `product`, `system_ext`, `odm_dlkm`, `vendor_dlkm`, and regional Transsion carrier partitions) for flashing, backup, and mounting.
+- **Display Driver:** Single-pipe direct rendering pipeline (`graphics_drm.cpp`) configured for the 1080x2436 144Hz panel.
+- **A/B Slot Operations:** Slot suffix detection and active boot slot switching via `bootctl`.
+- **Peripherals:**
+  - Rear camera LED torch via OCP81375 sysfs interface.
+  - Linear haptics via `vibrator_single`.
+  - CPU thermal telemetry from `thermal_zone0`.
+  - USB ConfigFS (MTP, ADB sideload, and USB-OTG storage).
+- **OrangeFox Specifics:**
+  - Bundled Fox Addons (Magisk, KernelSU v3.3.1 LKM, VBMeta disabler/enabler, pattern/pin remover, FRP remover).
+  - Parallel pigz compression for in-place splash flashing.
+  - Full-height scrollable addons interface with 144Hz kinetic inertia.
 
 ---
 
 ## Installation
 
-Because the Infinix GT 20 Pro uses Android Header v4 with Virtual A/B, the recovery ramdisk lives inside `vendor_boot`. **Do NOT flash to `boot`.**
+The recovery ramdisk resides inside the `vendor_boot` partition. Do not flash to the `boot` partition.
 
-### Fastboot Installation
-
-1. Download the latest release from the [GitHub Releases](https://github.com/sheikhmehraann/X6871-Recovery-Project/releases) tab.
-2. Put the phone into Fastboot mode:
+1. Download the recovery image for your preferred project from GitHub Releases or actions artifacts.
+2. Put the device into Fastboot mode:
    ```bash
    adb reboot bootloader
    ```
@@ -57,11 +66,48 @@ Because the Infinix GT 20 Pro uses Android Header v4 with Virtual A/B, the recov
    fastboot flash vendor_boot_a vendor_boot.img
    fastboot flash vendor_boot_b vendor_boot.img
    ```
-4. Reboot into recovery:
+4. Reboot to recovery:
    ```bash
    fastboot reboot recovery
    ```
-   *(Or hold `Power + Volume Up` while the phone powers on).*
+
+---
+
+## Building Locally
+
+### Setup
+Sync the minimal recovery manifest (Android 12.1, 14.1, or recovery-specific sync tree), then clone this repository into `device/infinix/Infinix-X6871` and ensure `device/transsion/mt6895-common` is present.
+
+### Build Commands
+Use `scripts/build_x6871.sh` with the target recovery name:
+
+```bash
+# OrangeFox Recovery Project
+./scripts/build_x6871.sh ofox
+
+# TeamWin Recovery Project
+./scripts/build_x6871.sh twrp
+
+# PitchBlack Recovery Project
+./scripts/build_x6871.sh pbrp
+
+# SkyHawk Recovery Project
+./scripts/build_x6871.sh shrp
+```
+
+Or manually with build envsetup:
+```bash
+source build/envsetup.sh
+
+# Select target
+lunch twrp_X6871-eng   # For TWRP
+lunch fox_X6871-eng    # For OrangeFox
+lunch pb_X6871-eng     # For PitchBlack
+lunch shrp_X6871-eng   # For SkyHawk
+
+# Build vendor_boot
+mka adbd vendorbootimage -j$(nproc)
+```
 
 ---
 
@@ -70,35 +116,31 @@ Because the Infinix GT 20 Pro uses Android Header v4 with Virtual A/B, the recov
 ```text
 ├── .github/
 │   └── workflows/
-│       └── orangefox.yml        # CI build and automated release workflow
-├── configs/                     # Extracted stock system dumps, fstabs, file_contexts
+│       ├── orangefox.yml        # OrangeFox automated build and release
+│       ├── twrp.yml             # TWRP automated build workflow
+│       ├── pbrp.yml             # PitchBlack automated build workflow
+│       └── shrp.yml             # SkyHawk automated build workflow
+├── configs/                     # Device properties, file_contexts, and fstabs
 ├── device/
 │   ├── infinix/
-│   │   └── Infinix-X6871/       # Device tree (BoardConfig, fstab, flags, vendorsetup)
+│   │   └── Infinix-X6871/       # Model specific configs (BoardConfig, makefiles)
 │   └── transsion/
-│       └── mt6895-common/       # Common platform tree (init, drm, HAL configs)
+│       └── mt6895-common/       # Platform tree (init scripts, HALs, fstabs)
 ├── scripts/
-│   ├── build_x6871.sh           # Local automated compilation script
-│   ├── gotestrunner.go          # Blueprint test runner stub for minimal tree
-│   ├── graphics_drm.cpp         # Verified MediaTek single-pipe DRM implementation
-│   └── patch_ofox.py            # Hardware, architecture, identity, and pigz patch engine
+│   ├── build_x6871.sh           # Local multi-recovery build script
+│   ├── gotestrunner.go          # Blueprint test bypass stub
+│   ├── graphics_drm.cpp         # MT6895 single-pipe DRM implementation
+│   └── patch_ofox.py            # Device patching script for recovery sources
 └── tools/
-    ├── repack_vendor_boot.py    # Standalone Header v4 vendor_boot repacker
-    ├── unpack_ramdisk.py        # CPIO extraction utility
-    └── unpack_vendor_boot.py    # Header v4 vendor_boot unpacker
+    ├── repack_vendor_boot.py    # Boot header v4 vendor_boot repacker
+    ├── unpack_ramdisk.py        # Ramdisk extractor
+    └── unpack_vendor_boot.py    # Boot header v4 vendor_boot unpacker
 ```
 
 ---
 
 ## Community & Support
 
-* **Release Channel:** [Telegram - GT 20 Pro Updates](https://t.me/Gt20ProINUpdates)
-* **Discussion Group:** [Telegram - GT 20 Pro Discussion](https://t.me/Gt20ProIN)
-* **Bug Reports:** Open an issue on this repository with `/tmp/recovery.log` attached.
-
----
-
-## Credits
-
-* **sheikhmehraann** for maintainership and device-specific bringup.
-
+- Updates Channel: [t.me/Gt20ProINUpdates](https://t.me/Gt20ProINUpdates)
+- Discussion Group: [t.me/Gt20ProIN](https://t.me/Gt20ProIN)
+- Maintainer: [@sheikhmehraann](https://github.com/sheikhmehraann)

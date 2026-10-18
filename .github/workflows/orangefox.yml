@@ -123,7 +123,7 @@ jobs:
           curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/lkm-aarch64-android12-5.10_kernelsu.ko" -o /tmp/ksu_assets/kernelsu.ko
           chmod 0755 /tmp/ksu_assets/ksuinit /tmp/ksu_assets/kernelsu.ko
 
-          echo "Executing OrangeFox Universal Hardware & Architecture Patch Engine..."
+          echo "Applying device patches..."
           python3 $GITHUB_WORKSPACE/scripts/patch_ofox.py $HOME/fox_14.1
 
           echo "Syncing built-in Fox Addons to device recovery trees..."

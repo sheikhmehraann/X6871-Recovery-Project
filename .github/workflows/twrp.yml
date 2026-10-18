@@ -1,0 +1,134 @@
+name: TWRP Recovery Build - Infinix X6871
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build TWRP Recovery (X6871)
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf \
+            /usr/share/dotnet \
+            /usr/local/lib/android \
+            /opt/ghc \
+            /usr/local/share/powershell \
+            /usr/local/share/boost \
+            /usr/local/share/chromium \
+            /usr/share/swift \
+            /opt/hostedtoolcache \
+            /var/lib/docker
+          sudo docker image prune --all --force 2>/dev/null || true
+          df -h
+
+      - name: Setup Swap Space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 12
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git-core gnupg flex bison build-essential zip curl zlib1g-dev \
+            libc6-dev-i386 libncurses5 x11proto-core-dev libx11-dev lib32z1-dev \
+            libgl1-mesa-dev libxml2 libxml2-utils xsltproc unzip fontconfig \
+            python3 python-is-python3 libssl-dev rsync bc liblz4-tool libncurses5-dev \
+            squashfs-tools libtinfo5 openjdk-11-jdk-headless ccache
+
+      - name: Install Repo Tool
+        run: |
+          mkdir -p ~/.bin
+          curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/.bin/repo
+          chmod a+x ~/.bin/repo
+          sudo ln -sf ~/.bin/repo /usr/local/bin/repo
+
+      - name: Set Git Identity
+        run: |
+          git config --global user.name "sheikhmehraann"
+          git config --global user.email "mehraann.19@gmail.com"
+
+      - name: Sync TWRP Minimal Tree
+        run: |
+          mkdir -p $HOME/twrp
+          cd $HOME/twrp
+          repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-12.1 --depth=1
+          repo sync -c --no-clone-bundle --no-tags --optimized-fetch --prune --force-sync -j$(nproc)
+          rm -rf .repo
+
+      - name: Setup Device Trees
+        run: |
+          cd $HOME/twrp
+          mkdir -p device/infinix device/transsion
+          cp -r $GITHUB_WORKSPACE/device/infinix/Infinix-X6871 device/infinix/
+          ln -sf Infinix-X6871 device/infinix/X6871
+          cp -r $GITHUB_WORKSPACE/device/transsion/mt6895-common device/transsion/
+
+          if [ ! -d "external/gflags" ]; then
+            git clone --depth=1 https://android.googlesource.com/platform/external/gflags/ -b android-12.1.0_r4 external/gflags || true
+          fi
+
+          if [ -f "$GITHUB_WORKSPACE/scripts/graphics_drm.cpp" ] && [ -f "bootable/recovery/minuitwrp/graphics_drm.cpp" ]; then
+            cp -f $GITHUB_WORKSPACE/scripts/graphics_drm.cpp bootable/recovery/minuitwrp/graphics_drm.cpp
+          fi
+
+      - name: Build TWRP Recovery Image
+        run: |
+          cd $HOME/twrp
+          export ALLOW_MISSING_DEPENDENCIES=true
+          export TW_DEVICE_VERSION="X6871_sheikhmehraann"
+          export LC_ALL="C"
+          export USE_CCACHE=1
+
+          source build/envsetup.sh
+          lunch twrp_X6871-eng || lunch omni_X6871-eng
+          mka adbd vendorbootimage -j$(nproc)
+
+      - name: Package Artifacts
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/output
+          TARGET_DIR="$HOME/twrp/out/target/product/X6871"
+          if [ ! -d "$TARGET_DIR" ]; then
+            TARGET_DIR="$HOME/twrp/out/target/product/Infinix-X6871"
+          fi
+
+          if [ -f "$TARGET_DIR/vendor_boot.img" ]; then
+            cp -vf "$TARGET_DIR/vendor_boot.img" $GITHUB_WORKSPACE/output/vendor_boot.img
+            cp -vf "$TARGET_DIR/vendor_boot.img" "$GITHUB_WORKSPACE/output/TWRP-$(date +%Y%m%d)-X6871.img"
+            cd $GITHUB_WORKSPACE/output
+            zip -r9 "TWRP-$(date +%Y%m%d)-X6871.zip" vendor_boot.img
+            sha256sum * > SHA256SUMS.txt 2>/dev/null || true
+            md5sum * > MD5SUMS.txt 2>/dev/null || true
+          fi
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: TWRP-X6871-Recovery
+          path: output/*
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: success()
+        with:
+          files: output/*
+          tag_name: twrp-${{ github.run_number }}
+          name: "TWRP Recovery - Infinix GT 20 Pro (X6871) #${{ github.run_number }}"
+          body: |
+            ## TWRP Recovery Unofficial — Infinix GT 20 Pro (X6871)
+            * Maintainer: `sheikhmehraann`
+            * SoC: MediaTek Dimensity 8200 Ultimate (`mt6895`)
+            * Device: Infinix GT 20 Pro (`X6871`)
+            * Target: `vendor_boot` (Header v4, Virtual A/B)
+            * Display: 1080x2436 144Hz AMOLED with single-pipe DRM
+            * Storage: FBEv2 metadata decryption via KeyMint V1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
