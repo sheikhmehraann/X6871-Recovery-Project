@@ -258,10 +258,13 @@ static std::string spr_prop_name;
       0 : obj->props_info[j]->prop_id;                                \
   } while (0)
 
-#define add_prop(res, type, Type, id, id_name, id_val) \
-  find_prop_id(res, type, Type, id, id_name, prop_id); \
-  if (prop_id)                                         \
-    drmModeAtomicAddProperty(atomic_req, id, prop_id, id_val);
+#define add_prop(res, type, Type, id, id_name, id_val)       \
+  do {                                                        \
+    uint32_t __prop_id = 0;                                   \
+    find_prop_id(res, type, Type, id, id_name, __prop_id);    \
+    if (__prop_id)                                            \
+      drmModeAtomicAddProperty(atomic_req, id, __prop_id, id_val); \
+  } while (0)
 
 /**
  * enum sde_rm_topology_name - HW resource use case in use by connector
