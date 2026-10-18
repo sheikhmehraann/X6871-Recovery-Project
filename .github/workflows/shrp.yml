@@ -51,17 +51,18 @@ jobs:
           chmod a+x ~/.bin/repo
           sudo ln -sf ~/.bin/repo /usr/local/bin/repo
 
-      - name: Set Git Identity
+      - name: Set Git Identity & Repo Config
         run: |
           git config --global user.name "sheikhmehraann"
           git config --global user.email "mehraann.19@gmail.com"
+          git config --global color.ui false
 
       - name: Sync SHRP Minimal Tree
         run: |
           mkdir -p $HOME/shrp
           cd $HOME/shrp
-          repo init -u https://github.com/SHRP/manifest.git -b shrp-12.1 --depth=1 || repo init -u https://github.com/SHRP-Reborn/manifest.git -b shrp-12.1 --depth=1
-          repo sync -c --no-clone-bundle --no-tags --optimized-fetch --prune --force-sync -j$(nproc)
+          repo init --no-repo-verify -u https://github.com/SHRP/manifest.git -b shrp-12.1 --depth=1 || repo init --no-repo-verify -u https://github.com/SHRP-Reborn/manifest.git -b shrp-12.1 --depth=1
+          repo sync -c -j$(nproc) --force-sync --no-clone-bundle --no-tags
           rm -rf .repo
 
       - name: Setup Device Trees & Patches
