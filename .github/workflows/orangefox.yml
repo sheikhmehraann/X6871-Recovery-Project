@@ -56,10 +56,10 @@ jobs:
       - name: Cache ccache
         uses: actions/cache@v4
         with:
-          path: /home/runner/fox_14.1/.ccache
-          key: ccache-fox_14.1-${{ github.sha }}
+          path: /home/runner/fox_12.1/.ccache
+          key: ccache-fox_12.1-${{ github.sha }}
           restore-keys: |
-            ccache-fox_14.1-
+            ccache-fox_12.1-
 
       - name: Install Repo Tool
         run: |
@@ -76,17 +76,17 @@ jobs:
 
       - name: Sync OrangeFox Minimal Tree
         run: |
-          mkdir -p $HOME/fox_14.1
-          cd $HOME/fox_14.1
+          mkdir -p $HOME/fox_12.1
+          cd $HOME/fox_12.1
           git clone --depth=1 https://gitlab.com/OrangeFox/sync.git $HOME/OrangeFox_sync
           cd $HOME/OrangeFox_sync
-          ./orangefox_sync.sh --branch 14.1 --path $HOME/fox_14.1
-          rm -rf $HOME/fox_14.1/.repo
+          ./orangefox_sync.sh --branch 12.1 --path $HOME/fox_12.1
+          rm -rf $HOME/fox_12.1/.repo/project-objects $HOME/fox_12.1/.repo/projects
           df -h
 
       - name: Setup Device Trees & Patches
         run: |
-          cd $HOME/fox_14.1
+          cd $HOME/fox_12.1
 
           mkdir -p device/infinix device/transsion
           cp -r $GITHUB_WORKSPACE/device/infinix/Infinix-X6871 device/infinix/
@@ -118,7 +118,7 @@ jobs:
           curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/lkm-aarch64-android12-5.10_kernelsu.ko" -o /tmp/ksu_assets/kernelsu.ko
           chmod 0755 /tmp/ksu_assets/ksuinit /tmp/ksu_assets/kernelsu.ko
 
-          python3 $GITHUB_WORKSPACE/scripts/patch_ofox.py $HOME/fox_14.1
+          python3 $GITHUB_WORKSPACE/scripts/patch_ofox.py $HOME/fox_12.1
 
           mkdir -p device/transsion/mt6895-common/recovery/root/FFiles
           mkdir -p device/infinix/Infinix-X6871/recovery/root/FFiles
@@ -127,7 +127,7 @@ jobs:
 
       - name: Build OrangeFox Recovery Image
         run: |
-          cd $HOME/fox_14.1
+          cd $HOME/fox_12.1
           unset FOX_VERSION
           export FOX_MAINTAINER_PATCH_VERSION=1
           export FOX_BUILD_TYPE="Stable"
@@ -191,9 +191,9 @@ jobs:
           export ALLOW_MISSING_DEPENDENCIES=true
           export USE_CCACHE=1
           export CCACHE_EXEC=/usr/bin/ccache
-          export CCACHE_DIR=$HOME/fox_14.1/.ccache
-          export CCACHE_TEMPDIR=$HOME/fox_14.1/.ccache/tmp
-          mkdir -p $HOME/fox_14.1/.ccache/tmp
+          export CCACHE_DIR=$HOME/fox_12.1/.ccache
+          export CCACHE_TEMPDIR=$HOME/fox_12.1/.ccache/tmp
+          mkdir -p $HOME/fox_12.1/.ccache/tmp
           ccache -M 20G
 
           RELEASE_TAG="ap2a"
@@ -208,20 +208,20 @@ jobs:
           curl -sSL "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -o /tmp/Magisk.zip || true
           if [ -f /tmp/Magisk.zip ]; then
             export FOX_USE_SPECIFIC_MAGISK_ZIP="/tmp/Magisk.zip"
-            mkdir -p $HOME/fox_14.1/vendor/recovery/OrangeFox/FoxFiles/OF_Magisk
-            cp -vf /tmp/Magisk.zip $HOME/fox_14.1/vendor/recovery/OrangeFox/FoxFiles/OF_Magisk/Magisk.zip || true
+            mkdir -p $HOME/fox_12.1/vendor/recovery/OrangeFox/FoxFiles/OF_Magisk
+            cp -vf /tmp/Magisk.zip $HOME/fox_12.1/vendor/recovery/OrangeFox/FoxFiles/OF_Magisk/Magisk.zip || true
           fi
 
           source build/envsetup.sh
-          lunch twrp_X6871-${TARGET_RELEASE}-eng || lunch twrp_X6871-ap2a-eng || lunch twrp_X6871-eng
+          lunch twrp_X6871-eng || lunch omni_X6871-eng || lunch twrp_X6871-${TARGET_RELEASE}-eng || lunch twrp_X6871-ap2a-eng
           mka -j$(nproc) adbd vendorbootimage
 
       - name: Prepare Artifacts
         run: |
           mkdir -p $GITHUB_WORKSPACE/output
-          TARGET_DIR="$HOME/fox_14.1/out/target/product/Infinix-X6871"
+          TARGET_DIR="$HOME/fox_12.1/out/target/product/Infinix-X6871"
           if [ ! -d "$TARGET_DIR" ]; then
-            TARGET_DIR="$HOME/fox_14.1/out/target/product/X6871"
+            TARGET_DIR="$HOME/fox_12.1/out/target/product/X6871"
           fi
 
           if [ -d "$TARGET_DIR" ]; then
