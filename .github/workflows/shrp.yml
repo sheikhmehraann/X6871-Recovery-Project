@@ -72,7 +72,7 @@ jobs:
           cd $HOME/shrp
           repo init --no-repo-verify -u https://github.com/SHRP/manifest.git -b shrp-12.1 --depth=1 || repo init --no-repo-verify -u https://github.com/SHRP-Reborn/manifest.git -b shrp-12.1 --depth=1
           repo sync -c -j4 --force-sync --no-clone-bundle --no-tags --current-branch || repo sync -c -j2 --force-sync
-          rm -rf .repo
+          rm -rf .repo/project-objects .repo/projects
 
       - name: Setup Device Trees & Patches
         run: |
