@@ -19,6 +19,7 @@ tr_preload			/tr_preload		auto		ro																	wait,slotselect,logical
 tr_product			/tr_product		auto		ro																	wait,slotselect,logical
 tr_region			/tr_region		auto		ro																	wait,slotselect,logical
 tr_theme			/tr_theme		auto		ro																	wait,slotselect,logical
+tr_system			/tr_system		auto		ro																	wait,slotselect,logical,nofail
 
 # ColorOS / RealmeUI / OxygenOS logical partitions
 my_product			/my_product		auto		ro																	wait,slotselect,logical,nofail

@@ -172,6 +172,8 @@ tr_preload /tr_preload ext4 ro wait,slotselect,logical,first_stage_mount,avb_key
 tr_preload /tr_preload erofs ro wait,slotselect,logical,first_stage_mount,avb_keys=/vendor/etc/tran_avb.pubkey,nofail
 tr_overlayfs /tr_overlayfs ext4 ro wait,slotselect,logical,first_stage_mount,avb_keys=/vendor/etc/tran_avb.pubkey,nofail
 tr_overlayfs /tr_overlayfs erofs ro wait,slotselect,logical,first_stage_mount,avb_keys=/vendor/etc/tran_avb.pubkey,nofail
+tr_system /tr_system ext4 ro wait,slotselect,logical,first_stage_mount,nofail
+tr_system /tr_system erofs ro wait,slotselect,logical,first_stage_mount,nofail
 
 # ColorOS / RealmeUI / OxygenOS logical partitions
 my_product /my_product ext4 ro wait,slotselect,logical,first_stage_mount,nofail
