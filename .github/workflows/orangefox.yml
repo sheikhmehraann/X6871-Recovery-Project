@@ -2,13 +2,6 @@ name: OrangeFox Recovery Build - Infinix X6871
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '**.md'
-      - 'screenshots/**'
-      - '.gitignore'
 
 jobs:
   build:
@@ -78,7 +71,6 @@ jobs:
           git clone --depth=1 https://gitlab.com/OrangeFox/sync.git $HOME/OrangeFox_sync
           cd $HOME/OrangeFox_sync
           ./orangefox_sync.sh --branch 14.1 --path $HOME/fox_14.1
-          echo "Reclaiming git pack cache from minimal tree..."
           rm -rf $HOME/fox_14.1/.repo
           df -h
 
@@ -86,26 +78,21 @@ jobs:
         run: |
           cd $HOME/fox_14.1
 
-          echo "Deploying Infinix-X6871 device tree from repository..."
           mkdir -p device/infinix device/transsion
           cp -r $GITHUB_WORKSPACE/device/infinix/Infinix-X6871 device/infinix/
           ln -sf Infinix-X6871 device/infinix/X6871
           cp -r $GITHUB_WORKSPACE/device/transsion/mt6895-common device/transsion/
           chmod +x device/transsion/mt6895-common/recovery/root/system/bin/fox_apply_splash.sh 2>/dev/null || true
 
-
           if [ ! -d "external/gflags" ]; then
-            echo "Cloning external/gflags..."
             git clone --depth=1 https://android.googlesource.com/platform/external/gflags/ -b android-14.0.0_r1 external/gflags || git clone --depth=1 https://github.com/gflags/gflags.git external/gflags
           fi
 
-          echo "Applying Dexpreopt fix for minimal tree..."
           echo "WITH_DEXPREOPT := false" >> device/transsion/mt6895-common/BoardConfigCommon.mk
           if grep -q "func shouldBuildBootImages" build/soong/java/dexpreopt_bootjars.go 2>/dev/null; then
             sed -i '/func shouldBuildBootImages(/a \\tif global.DisablePreoptBootImages { return false }' build/soong/java/dexpreopt_bootjars.go
           fi
 
-          echo "Applying Go Unit Test Runner Bypass..."
           if [ -f build/blueprint/gotestrunner/gotestrunner.go ]; then
             cp -f $GITHUB_WORKSPACE/scripts/gotestrunner.go build/blueprint/gotestrunner/gotestrunner.go
           fi
@@ -114,19 +101,15 @@ jobs:
             sed -i 's/Command:     "\$testRunner/Command:     "touch \$out # \$testRunner/g' build/blueprint/bootstrap/bootstrap.go
           fi
 
-          echo "Applying Clang-Tidy Stub..."
           find prebuilts/ -name "clang-tidy" -type f -exec bash -c 'echo -e "#!/bin/sh\nexit 0" > "$1" && chmod +x "$1"' _ {} \; || true
 
-          echo "Fetching KernelSU v3.3.1 LKM assets for built-in Fox Addon..."
           mkdir -p /tmp/ksu_assets
           curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/ksuinit-aarch64" -o /tmp/ksu_assets/ksuinit
           curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/lkm-aarch64-android12-5.10_kernelsu.ko" -o /tmp/ksu_assets/kernelsu.ko
           chmod 0755 /tmp/ksu_assets/ksuinit /tmp/ksu_assets/kernelsu.ko
 
-          echo "Applying device patches..."
           python3 $GITHUB_WORKSPACE/scripts/patch_ofox.py $HOME/fox_14.1
 
-          echo "Syncing built-in Fox Addons to device recovery trees..."
           mkdir -p device/transsion/mt6895-common/recovery/root/FFiles
           mkdir -p device/infinix/Infinix-X6871/recovery/root/FFiles
           cp -rf /tmp/ofox_custom_addons/FFiles/* device/transsion/mt6895-common/recovery/root/FFiles/ || true
@@ -173,11 +156,9 @@ jobs:
           export OF_STATUS_INDENT_LEFT=48
           export OF_STATUS_INDENT_RIGHT=48
           export OF_FLASHLIGHT_ENABLE=1
-          export OF_FL_PATH1="/sys/class/torch/torch/torch_level"
-          export OF_FL_PATH2="/sys/devices/virtual/torch/torch/torch_level"
-
+          export OF_FL_PATH1="/sys/devices/platform/11cb0000.i2c/i2c-7/7-0050/leds/torch/brightness"
+          export OF_FL_PATH2="/sys/class/torch/torch/torch_level"
           export OF_USE_GREEN_LED=0
-
           export OF_USE_MAGISKBOOT=1
           export OF_USE_MAGISKBOOT_FOR_ALL_PATCHES=1
           export OF_KEEP_MAGISKBOOT=1
@@ -189,7 +170,6 @@ jobs:
           export OF_SUPPORT_POST_FLASH_SCRIPT=1
           export OF_SKIP_MULTI_BOOT_CHECK=1
           export TARGET_DEVICE_ALT="X6871,Infinix-X6871,Infinix_X6871,X6871-OP"
-
           export OF_USE_TWRP_SAR_DETECT=1
           export OF_SUPPORT_OZIP_DECRYPTION=1
           export OF_DEFAULT_KEYMASTER_VERSION=2
@@ -214,9 +194,7 @@ jobs:
             fi
           fi
           export TARGET_RELEASE="$RELEASE_TAG"
-          echo "Target release config: $TARGET_RELEASE"
 
-          # Download and bundle Magisk v28.1 directly for native OrangeFox Root Addon
           curl -sSL "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -o /tmp/Magisk.zip || true
           if [ -f /tmp/Magisk.zip ]; then
             export FOX_USE_SPECIFIC_MAGISK_ZIP="/tmp/Magisk.zip"
@@ -224,16 +202,8 @@ jobs:
             cp -vf /tmp/Magisk.zip $HOME/fox_14.1/vendor/recovery/OrangeFox/FoxFiles/OF_Magisk/Magisk.zip || true
           fi
 
-          set +e
           source build/envsetup.sh
           lunch twrp_X6871-${TARGET_RELEASE}-eng || lunch twrp_X6871-ap2a-eng || lunch twrp_X6871-eng
-          LUNCH_STATUS=$?
-          set -e
-          if [ $LUNCH_STATUS -ne 0 ]; then
-            echo "ERROR: lunch failed with exit code $LUNCH_STATUS"
-            exit 1
-          fi
-
           mka -j$(nproc) adbd vendorbootimage
 
       - name: Prepare Artifacts
@@ -249,19 +219,15 @@ jobs:
             cp -vf "$TARGET_DIR"/vendor_boot.img $GITHUB_WORKSPACE/output/ 2>/dev/null || true
           fi
 
-          # Prune any 0-byte corrupted files immediately
           find $GITHUB_WORKSPACE/output -type f -size 0 -delete
 
-          # If the OrangeFox zip is missing or was empty, package vendor_boot into flashable installer zip
           OFOX_ZIP=$(find $GITHUB_WORKSPACE/output -name "OrangeFox-*.zip" -type f 2>/dev/null | head -n 1)
           if [ -z "$OFOX_ZIP" ] && [ -f "$GITHUB_WORKSPACE/output/vendor_boot.img" ]; then
             ZIP_NAME="OrangeFox-R12.1_$(date +%Y%m%d)_15.1.2-Stable-X6871.zip"
-            echo "Packaging fallback flashable recovery zip: $ZIP_NAME"
             cd $GITHUB_WORKSPACE/output
             zip -r9 "$ZIP_NAME" vendor_boot.img
           fi
 
-          echo "Bundling Root Suite (Magisk, KernelSU, APatch)..."
           mkdir -p $GITHUB_WORKSPACE/output/Root_Suite
           cp -vf /tmp/Magisk.zip $GITHUB_WORKSPACE/output/Root_Suite/Magisk-v28.1.zip 2>/dev/null || curl -sSL "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/Magisk-v28.1.zip
           curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/KernelSU_v3.3.1_32680-release.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/KernelSU-v3.3.1.apk || true
@@ -269,13 +235,11 @@ jobs:
           cd $GITHUB_WORKSPACE/output/Root_Suite && zip -r ../OrangeFox-RootSuite-X6871.zip * || true
           rm -rf $GITHUB_WORKSPACE/output/Root_Suite
 
-          # Strict validation: delete any 0-byte files so release asset upload never fails
           find $GITHUB_WORKSPACE/output -type f -size 0 -delete
 
           cd $GITHUB_WORKSPACE/output
           sha256sum * > SHA256SUMS.txt 2>/dev/null || true
           md5sum * > MD5SUMS.txt 2>/dev/null || true
-          echo "Generated artifacts:"
           ls -lh $GITHUB_WORKSPACE/output/
 
       - name: Upload Artifacts
@@ -289,28 +253,27 @@ jobs:
         if: success()
         with:
           files: output/*
-          tag_name: build-${{ github.run_number }}
+          tag_name: ofox-${{ github.run_number }}
           name: "OrangeFox Recovery - Infinix GT 20 Pro (X6871) #${{ github.run_number }}"
           body: |
             ## OrangeFox Recovery Unofficial — Infinix GT 20 Pro (X6871)
-            * **Maintainer:** `sheikhmehraann`
-            * **Updates:** `t.me/Gt20ProINUpdates`
-            * **Community:** `t.me/Gt20ProIN`
-            * **Platform:** `mt6895 (Dimensity 8200 Ultimate)`
-            * **Device:** `Infinix GT 20 Pro (Infinix-X6871)`
-            * **Stock ROM:** XOS Android 15 (SDK 35), `AP3A.240905.015.A2 / 180003`
-            * **Recovery Target:** `vendor_boot` (Header v4, Virtual A/B)
+            * Maintainer: `sheikhmehraann`
+            * Updates: `t.me/Gt20ProINUpdates`
+            * Community: `t.me/Gt20ProIN`
+            * Platform: `mt6895 (Dimensity 8200 Ultimate)`
+            * Device: `Infinix GT 20 Pro (Infinix-X6871)`
+            * Stock Firmware: Android 14 / Android 15 (XOS)
+            * Recovery Target: `vendor_boot` (Header v4, Virtual A/B)
 
-            ### Features & Native Support
-            - **Native 144Hz AMOLED UI:** Smooth 144 FPS recovery rendering (`TW_FRAMERATE := 144`) with single-pipe DRM
-            - **Built-in KernelSU v3.3.1 LKM Addon:** One-tap `Install KernelSU v3.3.1` & `Uninstall KernelSU` directly inside Fox Addons (`/FFiles/KernelSU`)
-            - **Remove Lockscreen PIN/Password Addon:** Built-in `OF_DelPass.zip` in Fox Addons to clear lockscreen credentials without breaking FBEv2 keys
-            - **Remove FRP Lock Addon:** Built-in `OF_DelFRP.zip` in Fox Addons to wipe Factory Reset Protection
-            - **Slot-Aware Disable & Enable VBMeta Addons:** One-tap `Disable Vbmeta` (`0x03`) and `Enable Vbmeta` (`0x00`) across `vbmeta_a/b`, `vbmeta_system_a/b`, and `vbmeta_vendor_a/b`
-            - **Native Vendor_Boot Splash Changer:** Direct unpack & repack of Header v4 vendor_boot recovery image
-            - **Official A/B Boot Slot Support:** Seamless boot slot display and switching via native recovery reboot menu
-            - **Full Dynamic Partitions Support:** All 82 partitions and Transsion vendor partitions mounted and backup-ready
-            - **Exact Stock Identity & Community Links:** Maintainer (`sheikhmehraann`) and Telegram links (`t.me/Gt20ProINUpdates` / `t.me/Gt20ProIN`) in About screen and startup log
-            - **Haptics, Flashlight & Thermals:** AW8697 Linear Vibrator, OCP81375 rear camera torch, and live CPU temperature display (`soc_max`)
+            ### Features
+            * 144Hz AMOLED rendering with single-pipe DRM
+            * KernelSU v3.3.1 LKM installation and removal addon
+            * Lockscreen pattern, PIN, and password removal addon
+            * FRP lock removal addon
+            * Slot-aware VBMeta disable and enable addons
+            * Fastbootd and dynamic super partition mapping
+            * Hardware torch, haptics, battery, and thermals
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -64,7 +64,7 @@ jobs:
           repo sync -c --no-clone-bundle --no-tags --optimized-fetch --prune --force-sync -j$(nproc)
           rm -rf .repo
 
-      - name: Setup Device Trees
+      - name: Setup Device Trees & Patches
         run: |
           cd $HOME/pbrp
           mkdir -p device/infinix device/transsion
@@ -76,8 +76,24 @@ jobs:
             git clone --depth=1 https://android.googlesource.com/platform/external/gflags/ -b android-12.1.0_r4 external/gflags || true
           fi
 
+          echo "WITH_DEXPREOPT := false" >> device/transsion/mt6895-common/BoardConfigCommon.mk
+          if grep -q "func shouldBuildBootImages" build/soong/java/dexpreopt_bootjars.go 2>/dev/null; then
+            sed -i '/func shouldBuildBootImages(/a \\tif global.DisablePreoptBootImages { return false }' build/soong/java/dexpreopt_bootjars.go
+          fi
+
+          if [ -f build/blueprint/gotestrunner/gotestrunner.go ]; then
+            cp -f $GITHUB_WORKSPACE/scripts/gotestrunner.go build/blueprint/gotestrunner/gotestrunner.go
+          fi
+
           if [ -f "$GITHUB_WORKSPACE/scripts/graphics_drm.cpp" ] && [ -f "bootable/recovery/minuitwrp/graphics_drm.cpp" ]; then
             cp -f $GITHUB_WORKSPACE/scripts/graphics_drm.cpp bootable/recovery/minuitwrp/graphics_drm.cpp
+          fi
+
+          if [ -d bootable/recovery ]; then
+            patch_file="$GITHUB_WORKSPACE/device/infinix/Infinix-X6871/patches/0001-Change-haptics-activation-file-path.patch"
+            if [ -f "$patch_file" ]; then
+              git -C bootable/recovery apply "$patch_file" >/dev/null 2>&1 || true
+            fi
           fi
 
       - name: Build PBRP Recovery Image
@@ -85,6 +101,13 @@ jobs:
           cd $HOME/pbrp
           export ALLOW_MISSING_DEPENDENCIES=true
           export PB_DEVICE_SPECIFICATION="Infinix GT 20 Pro (X6871)"
+          export PB_TORCH_PATH="/sys/devices/platform/11cb0000.i2c/i2c-7/7-0050/leds/torch/brightness"
+          export PB_BATTERY_PATH="/sys/class/power_supply/battery"
+          export PB_VIBRATOR_PATH="/sys/class/leds/vibrator_single/activate"
+          export PB_BUILD_TYPE="OFFICIAL"
+          export PBRP_MAINTAINER="sheikhmehraann"
+          export PBRP_BRANCH="12.1"
+          export PBRP_STATUS="STABLE"
           export LC_ALL="C"
           export USE_CCACHE=1
 
@@ -129,10 +152,14 @@ jobs:
           body: |
             ## PitchBlack Recovery Project — Infinix GT 20 Pro (X6871)
             * Maintainer: `sheikhmehraann`
-            * SoC: MediaTek Dimensity 8200 Ultimate (`mt6895`)
-            * Device: Infinix GT 20 Pro (`X6871`)
+            * Updates: `t.me/Gt20ProINUpdates`
+            * Community: `t.me/Gt20ProIN`
+            * Platform: `mt6895 (Dimensity 8200 Ultimate)`
+            * Device: `Infinix GT 20 Pro (X6871)`
             * Target: `vendor_boot` (Header v4, Virtual A/B)
             * Display: 1080x2436 144Hz AMOLED with single-pipe DRM
             * Storage: FBEv2 metadata decryption via KeyMint V1
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
