@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-DEVICE_PATH := device/infinix/Infinix-X6871
+DEVICE_PATH := device/infinix/X6871
 
 # Architecture
 TARGET_ARCH := arm64
@@ -19,7 +19,7 @@ ENABLE_SCHEDBOOST := true
 
 # Bootloader
 TARGET_BOARD_PLATFORM := mt6895
-TARGET_BOOTLOADER_BOARD_NAME := Infinix-X6871
+TARGET_BOOTLOADER_BOARD_NAME := X6871
 TARGET_NO_BOOTLOADER := true
 
 # Build hacks

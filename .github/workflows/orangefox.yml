@@ -84,29 +84,25 @@ jobs:
           cd $HOME/fox_14.1
 
           mkdir -p device/infinix
-          cp -r $GITHUB_WORKSPACE/device/infinix/Infinix-X6871 device/infinix/
-          ln -sf Infinix-X6871 device/infinix/X6871
-          chmod +x device/infinix/Infinix-X6871/vendorsetup.sh
+          cp -r $GITHUB_WORKSPACE/device/infinix/Infinix-X6871 device/infinix/X6871
+          chmod +x device/infinix/X6871/vendorsetup.sh
 
       - name: Build OrangeFox Recovery Image
         run: |
           cd $HOME/fox_14.1
           source build/envsetup.sh
-          source device/infinix/Infinix-X6871/vendorsetup.sh
+          source device/infinix/X6871/vendorsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           export FOX_USE_ZSTD_BINARY=1
-          export FOX_BUILD_DEVICE=Infinix-X6871
-          lunch twrp_Infinix-X6871-ap2a-eng || lunch twrp_X6871-ap2a-eng
+          export FOX_BUILD_DEVICE=X6871
+          lunch twrp_X6871-ap2a-eng
           make clean
           mka adbd vendorbootimage -j$(nproc --all)
 
       - name: Prepare Artifacts
         run: |
           mkdir -p $GITHUB_WORKSPACE/output
-          TARGET_DIR="$HOME/fox_14.1/out/target/product/Infinix-X6871"
-          if [ ! -d "$TARGET_DIR" ]; then
-            TARGET_DIR="$HOME/fox_14.1/out/target/product/X6871"
-          fi
+          TARGET_DIR="$HOME/fox_14.1/out/target/product/X6871"
 
           if [ -d "$TARGET_DIR" ]; then
             ls -la "$TARGET_DIR"
