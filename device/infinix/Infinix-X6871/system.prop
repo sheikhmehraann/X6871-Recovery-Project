@@ -1,0 +1,66 @@
+# Device Identity (Stock Infinix GT 20 Pro X6871)
+ro.product.model=Infinix X6871
+ro.product.name=X6871-OP
+ro.product.brand=Infinix
+ro.product.manufacturer=INFINIX
+ro.product.device=Infinix-X6871
+ro.build.product=X6871
+ro.product.board=mt6895
+ro.product.marketname=Infinix GT 20 Pro
+ro.orangefox.device_model=Infinix GT 20 Pro
+ro.board.platform=mt6895
+ro.hardware=mt6895
+ro.hardware.chipname=MT6895
+ro.soc.manufacturer=MediaTek
+ro.soc.model=Dimensity 8200 Ultimate
+ro.build.fingerprint=Infinix/X6871-OP/Infinix-X6871:16/BP2A.250605.031.A3/301550057:user/release-keys
+ro.product.build.fingerprint=Infinix/X6871-OP/Infinix-X6871:16/BP2A.250605.031.A3/301550057:user/release-keys
+ro.product.tran.version.release=X6871-16.3.0.155SP20(OP008PF001AZ)
+ro.twrp.target.devices=X6871,Infinix-X6871,Infinix_X6871,X6871-OP
+
+# OS & Platform
+ro.treble.enabled=true
+
+# Display & UI
+ro.sf.lcd_density=480
+
+# Hardware & Peripherals
+persist.sys.tran_led_support=1
+persist.sys.tran_led_gt_support=1
+ro.os_alldegree_flashlight_support=1
+ro.vendor.tran.vibrator.option=single
+ro.tran_vibrate_ontouch.support=1
+ro.tran_vibrate_ontouch2.0.support=1
+
+# Thermals
+ro.vendor.mtk_thermal_2_0=1
+ro.vendor.thermalspace.support=1
+
+# Fstab
+ro.postinstall.fstab.prefix=/system
+
+# USB MTP
+ro.sys.usb.storage.type=mtp
+
+# Crypto & KeyMint AIDL
+keymaster_ver=4.1
+ro.crypto.volume.filenames_mode=aes-256-cts
+ro.hardware.gatekeeper=trustonic
+ro.hardware.kmsetkey=trustonic
+ro.vendor.keymaster_version=4.1
+ro.vendor.build.security_patch=2099-12-31
+
+# TEE
+ro.vendor.mtk_svp_on_mtee_support=1
+ro.vendor.mtk_tee_gp_support=1
+ro.vendor.mtk_trustonic_tee_support=1
+
+# Virtual A/B & Snapshot OTA properties
+ro.virtual_ab.enabled=true
+ro.virtual_ab.compression.enabled=true
+ro.virtual_ab.batch_writes=true
+ro.virtual_ab.userspace.snapshots.enabled=true
+ro.virtual_ab.io_uring.enabled=true
+ro.virtual_ab.retrofit=false
+ro.boot.dynamic_partitions=true
+ro.boot.dynamic_partitions_retrofit=false

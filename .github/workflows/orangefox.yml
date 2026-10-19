@@ -38,7 +38,7 @@ jobs:
       - name: Setup Swap Space
         uses: pierotofy/set-swap-space@master
         with:
-          swap-size-gb: 6
+          swap-size-gb: 12
 
       - name: Install Build Dependencies
         run: |
@@ -48,16 +48,8 @@ jobs:
             libc6-dev-i386 libncurses5 x11proto-core-dev libx11-dev lib32z1-dev \
             libgl1-mesa-dev libxml2 libxml2-utils xsltproc unzip fontconfig \
             python3 python3-pip python-is-python3 libssl-dev rsync bc liblz4-tool libncurses5-dev \
-            squashfs-tools libtinfo5 openjdk-11-jdk-headless ccache zstd
+            squashfs-tools libtinfo5 openjdk-11-jdk-headless ccache zstd patch
           pip3 install zstandard lz4
-
-      - name: Cache ccache
-        uses: actions/cache@v4
-        with:
-          path: /home/runner/fox_12.1/.ccache
-          key: ccache-fox_12.1-${{ github.sha }}
-          restore-keys: |
-            ccache-fox_12.1-
 
       - name: Install Repo Tool
         run: |
@@ -72,165 +64,65 @@ jobs:
           git config --global user.email "mehraann.19@gmail.com"
           git config --global color.ui false
 
-      - name: Sync OrangeFox Minimal Tree
+      - name: Sync OrangeFox 14.1 Manifest
         run: |
-          mkdir -p $HOME/fox_12.1
-          cd $HOME/fox_12.1
+          mkdir -p $HOME/fox_14.1
+          cd $HOME/fox_14.1
           git clone --depth=1 https://gitlab.com/OrangeFox/sync.git $HOME/OrangeFox_sync
           cd $HOME/OrangeFox_sync
-          ./orangefox_sync.sh --branch 12.1 --path $HOME/fox_12.1
-          rm -rf $HOME/fox_12.1/.repo/project-objects $HOME/fox_12.1/.repo/projects
+          ./orangefox_sync.sh --branch 14.1 --path $HOME/fox_14.1
+          cd $HOME/fox_14.1
+          rm -rf .repo/project-objects .repo/projects
+          repo sync external/gflags || true
+          repo sync external/guava || true
+          repo sync hardware/google/interfaces || true
+          repo sync hardware/google/pixel || true
           df -h
 
       - name: Setup Device Trees & Patches
         run: |
-          cd $HOME/fox_12.1
+          cd $HOME/fox_14.1
 
-          mkdir -p device/infinix device/transsion
+          mkdir -p device/infinix
           cp -r $GITHUB_WORKSPACE/device/infinix/Infinix-X6871 device/infinix/
           ln -sf Infinix-X6871 device/infinix/X6871
-          cp -r $GITHUB_WORKSPACE/device/transsion/mt6895-common device/transsion/
-          chmod +x device/transsion/mt6895-common/recovery/root/system/bin/fox_apply_splash.sh 2>/dev/null || true
-
-          if [ ! -d "external/gflags" ]; then
-            git clone --depth=1 https://android.googlesource.com/platform/external/gflags/ -b android-14.0.0_r1 external/gflags || git clone --depth=1 https://github.com/gflags/gflags.git external/gflags
-          fi
-
-          echo "WITH_DEXPREOPT := false" >> device/transsion/mt6895-common/BoardConfigCommon.mk
-          if grep -q "func shouldBuildBootImages" build/soong/java/dexpreopt_bootjars.go 2>/dev/null; then
-            sed -i '/func shouldBuildBootImages(/a \\tif global.DisablePreoptBootImages { return false }' build/soong/java/dexpreopt_bootjars.go
-          fi
-
-          if [ -f build/blueprint/gotestrunner/gotestrunner.go ]; then
-            cp -f $GITHUB_WORKSPACE/scripts/gotestrunner.go build/blueprint/gotestrunner/gotestrunner.go
-          fi
-
-          if [ -f build/blueprint/bootstrap/bootstrap.go ]; then
-            sed -i 's/Command:     "\$testRunner/Command:     "touch \$out # \$testRunner/g' build/blueprint/bootstrap/bootstrap.go
-          fi
-
-          find prebuilts/ -name "clang-tidy" -type f -exec bash -c 'echo -e "#!/bin/sh\nexit 0" > "$1" && chmod +x "$1"' _ {} \; || true
-
-          mkdir -p /tmp/ksu_assets
-          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/ksuinit-aarch64" -o /tmp/ksu_assets/ksuinit
-          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/lkm-aarch64-android12-5.10_kernelsu.ko" -o /tmp/ksu_assets/kernelsu.ko
-          chmod 0755 /tmp/ksu_assets/ksuinit /tmp/ksu_assets/kernelsu.ko
-
-          python3 $GITHUB_WORKSPACE/scripts/patch_ofox.py $HOME/fox_12.1
-
-          mkdir -p device/transsion/mt6895-common/recovery/root/FFiles
-          mkdir -p device/infinix/Infinix-X6871/recovery/root/FFiles
-          cp -rf /tmp/ofox_custom_addons/FFiles/* device/transsion/mt6895-common/recovery/root/FFiles/ || true
-          cp -rf /tmp/ofox_custom_addons/FFiles/* device/infinix/Infinix-X6871/recovery/root/FFiles/ || true
+          chmod +x device/infinix/Infinix-X6871/vendorsetup.sh
 
       - name: Build OrangeFox Recovery Image
         run: |
-          cd $HOME/fox_12.1
-          unset FOX_VERSION
-          export FOX_MAINTAINER_PATCH_VERSION=1
-          export FOX_BUILD_TYPE="Stable"
-          export FOX_BUILD_DEVICE="X6871"
-          export FOX_VIRTUAL_AB_DEVICE=1
-          export OF_ALLOW_DISABLE_NAVBAR=1
-          export OF_CHECK_OVERWRITE_ATTEMPTS=1
-          export OF_ENABLE_LPTOOLS=1
-          export OF_ENABLE_ALL_PARTITION_TOOLS=1
-          export OF_SUPPORT_ALL_BLOCK_SU_MOUNTS=1
-          export OF_SUPPORT_ALL_PAYLOAD_EXTRACTOR=1
-          export OF_ALLOW_DISABLE_FORCE_ENCRYPTION=1
-          export OF_SETTINGS_CUSTOM_PATH="/sdcard/Fox"
-          export OF_DYNAMIC_FULL_SIZE=12426428416
-          export FOX_ENABLE_APP_MANAGER=1
-          export FOX_RECOVERY_SYSTEM_PARTITION="/dev/block/mapper/system"
-          export FOX_RECOVERY_VENDOR_PARTITION="/dev/block/mapper/vendor"
-          export FOX_RECOVERY_INSTALL_PARTITION="/dev/block/by-name/vendor_boot"
-          export FOX_RECOVERY_BOOT_PARTITION="/dev/block/by-name/boot"
-          export FOX_USE_BASH_SHELL=1
-          export FOX_ASH_IS_BASH=1
-          export FOX_USE_TAR_BINARY=1
-          export FOX_USE_LZ4_BINARY=1
-          export FOX_USE_SED_BINARY=1
-          export FOX_USE_XZ_UTILS=1
-          export FOX_USE_ZSTD_BINARY=1
-          export FOX_USE_NANO_EDITOR=1
-          export FOX_DELETE_AROMAFM=1
-          export FOX_VARIANT="16.3.0"
-          export OF_MAINTAINER="sheikhmehraann"
-          export OF_ENABLE_FRP_ADDON=1
-          export FOX_SUPPORT_KSU=1
-          export OF_SCREEN_H=2436
-          export OF_STATUS_H=90
-          export OF_CLOCK_POS=0
-          export OF_STATUS_INDENT_LEFT=48
-          export OF_STATUS_INDENT_RIGHT=48
-          export OF_FLASHLIGHT_ENABLE=1
-          export OF_FL_PATH1="/sys/devices/platform/11cb0000.i2c/i2c-7/7-0050/leds/torch/brightness"
-          export OF_FL_PATH2="/sys/class/torch/torch/torch_level"
-          export OF_USE_GREEN_LED=0
-          export OF_USE_MAGISKBOOT=1
-          export OF_USE_MAGISKBOOT_FOR_ALL_PATCHES=1
-          export OF_KEEP_MAGISKBOOT=1
-          export OF_PATCH_AVB20=1
-          export OF_ADVANCED_SECURITY=1
-          export OF_REPORT_DECRYPT_STATUS=1
-          export FOX_REPLACE_TOOLBOX_GETPROP=1
-          export OF_USE_HEXDUMP=1
-          export OF_SUPPORT_POST_FLASH_SCRIPT=1
-          export OF_SKIP_MULTI_BOOT_CHECK=1
-          export TARGET_DEVICE_ALT="X6871,Infinix-X6871,Infinix_X6871,X6871-OP"
-          export OF_USE_TWRP_SAR_DETECT=1
-          export OF_SUPPORT_OZIP_DECRYPTION=1
-          export OF_DEFAULT_KEYMASTER_VERSION=2
-          export OF_FBE_METADATA_MOUNT_IGNORE=0
-          export OF_SKIP_DECRYPTED_ADOPTED_STORAGE=1
-          export OF_SPLASH_MAX_SIZE=8192
-          export OF_FAST_CHARGE_PATH="/sys/class/power_supply/charger/input_current_limit"
-          export LC_ALL="C"
-          export ALLOW_MISSING_DEPENDENCIES=true
-          export USE_CCACHE=1
-          export CCACHE_EXEC=/usr/bin/ccache
-          export CCACHE_DIR=$HOME/fox_12.1/.ccache
-          export CCACHE_TEMPDIR=$HOME/fox_12.1/.ccache/tmp
-          mkdir -p $HOME/fox_12.1/.ccache/tmp
-          ccache -M 20G
-
-          RELEASE_TAG="ap2a"
-          if [ -d build/release/flag_values ]; then
-            AVAIL_REL=$(ls -1 build/release/flag_values 2>/dev/null | head -n 1)
-            if [ -n "$AVAIL_REL" ]; then
-              RELEASE_TAG="$AVAIL_REL"
-            fi
-          fi
-          export TARGET_RELEASE="$RELEASE_TAG"
-
-          curl -sSL "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -o /tmp/Magisk.zip || true
-          if [ -f /tmp/Magisk.zip ]; then
-            export FOX_USE_SPECIFIC_MAGISK_ZIP="/tmp/Magisk.zip"
-            mkdir -p $HOME/fox_12.1/vendor/recovery/OrangeFox/FoxFiles/OF_Magisk
-            cp -vf /tmp/Magisk.zip $HOME/fox_12.1/vendor/recovery/OrangeFox/FoxFiles/OF_Magisk/Magisk.zip || true
-          fi
-
-          set +e
+          cd $HOME/fox_14.1
           source build/envsetup.sh
-          set -e
-          lunch twrp_X6871-eng || lunch omni_X6871-eng || lunch fox_X6871-eng
-          mka -j$(nproc) adbd vendorbootimage
-          ccache -s
+          source device/infinix/Infinix-X6871/vendorsetup.sh
+          export ALLOW_MISSING_DEPENDENCIES=true
+          export FOX_USE_ZSTD_BINARY=1
+          export FOX_BUILD_DEVICE=Infinix-X6871
+          lunch twrp_Infinix-X6871-ap2a-eng || lunch twrp_X6871-ap2a-eng
+          make clean
+          mka adbd vendorbootimage -j$(nproc --all)
 
       - name: Prepare Artifacts
         run: |
           mkdir -p $GITHUB_WORKSPACE/output
-          TARGET_DIR="$HOME/fox_12.1/out/target/product/Infinix-X6871"
+          TARGET_DIR="$HOME/fox_14.1/out/target/product/Infinix-X6871"
           if [ ! -d "$TARGET_DIR" ]; then
-            TARGET_DIR="$HOME/fox_12.1/out/target/product/X6871"
+            TARGET_DIR="$HOME/fox_14.1/out/target/product/X6871"
           fi
 
           if [ -d "$TARGET_DIR" ]; then
-            echo "--- Repacking vendor_boot.img with stock Android 16 platform modules and bootconfig ---"
-            python3 $GITHUB_WORKSPACE/scripts/repack_vendor_boot_a16.py \
-              $GITHUB_WORKSPACE/reference/stock_vendor_boot.img.gz \
-              "$TARGET_DIR/vendor_boot.img" \
-              "$TARGET_DIR/vendor_boot.img"
+            ls -la "$TARGET_DIR"
+
+            # Check if vendor_boot.img was built natively
+            if [ -f "$TARGET_DIR/vendor_boot.img" ]; then
+              VBOOT_SZ=$(stat -c%s "$TARGET_DIR/vendor_boot.img")
+              echo "Built vendor_boot.img size: $VBOOT_SZ bytes"
+              if [ "$VBOOT_SZ" -ne 67108864 ]; then
+                echo "--- Repacking vendor_boot.img to exact 64MB partition boundary ---"
+                python3 $GITHUB_WORKSPACE/scripts/repack_vendor_boot_a16.py \
+                  $GITHUB_WORKSPACE/reference/stock_vendor_boot.img.gz \
+                  "$TARGET_DIR/vendor_boot.img" \
+                  "$TARGET_DIR/vendor_boot.img"
+              fi
+            fi
 
             for img in "$TARGET_DIR"/OrangeFox*.img; do
               if [ -f "$img" ]; then
@@ -257,7 +149,7 @@ jobs:
           fi
 
           mkdir -p $GITHUB_WORKSPACE/output/Root_Suite
-          cp -vf /tmp/Magisk.zip $GITHUB_WORKSPACE/output/Root_Suite/Magisk-v28.1.zip 2>/dev/null || curl -sSL "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/Magisk-v28.1.zip
+          curl -sSL "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/Magisk-v28.1.zip || true
           curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/KernelSU_v3.3.1_32680-release.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/KernelSU-v3.3.1.apk || true
           curl -sSL "https://github.com/bmax121/APatch/releases/download/11224/APatch_11224_9a63e0f_HEAD-release-signed.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/APatch-11224.apk || true
           cd $GITHUB_WORKSPACE/output/Root_Suite && zip -r ../OrangeFox-RootSuite-X6871.zip * || true
@@ -292,15 +184,15 @@ jobs:
             * Device: `Infinix GT 20 Pro (Infinix-X6871)`
             * Stock Firmware: Android 16 (XOS 16 / Kernel 6.12)
             * Recovery Target: `vendor_boot` (Header v4, Virtual A/B)
+            * Base Manifest: OrangeFox 14.1 (AOSP AP2A / SDK 34)
 
             ### Features
             * 144Hz AMOLED rendering with single-pipe DRM
-            * KernelSU v3.3.1 LKM installation and removal addon
-            * Lockscreen pattern, PIN, and password removal addon
-            * FRP lock removal addon
-            * Slot-aware VBMeta disable and enable addons
-            * Fastbootd and dynamic super partition mapping
-            * Hardware torch, haptics, battery, and thermals
+            * Native Kernel 6.12 GKI / Android 16 vendor ramdisk integration
+            * 242 Stock MT6895 Kernel 6.12 modules and metadata
+            * Dual ZSTD compressed ramdisk fragments (PLATFORM + RECOVERY)
+            * KeyMint v3, Gatekeeper AIDL, and Enforcing SELinux support
+            * Dynamic partitions, Transsion logical partitions (`tr_system`, `mi_ext`, `my_*`)
           draft: false
           prerelease: false
         env:
