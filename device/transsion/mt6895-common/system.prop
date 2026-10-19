@@ -13,9 +13,9 @@ ro.hardware=mt6895
 ro.hardware.chipname=MT6895
 ro.soc.manufacturer=MediaTek
 ro.soc.model=Dimensity 8200 Ultimate
-ro.build.fingerprint=Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys
-ro.product.build.fingerprint=Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys
-ro.product.tran.version.release=X6871-15.1.2.180SP05(BASE001PF001AZ)
+ro.build.fingerprint=Infinix/X6871-OP/Infinix-X6871:16/BP2A.250605.031.A3/301550057:user/release-keys
+ro.product.build.fingerprint=Infinix/X6871-OP/Infinix-X6871:16/BP2A.250605.031.A3/301550057:user/release-keys
+ro.product.tran.version.release=X6871-16.3.0.155SP20(OP008PF001AZ)
 ro.twrp.target.devices=X6871,Infinix-X6871,Infinix_X6871,X6871-OP
 
 
@@ -45,7 +45,8 @@ ro.sys.usb.storage.type=mtp
 
 # Crypto & KeyMint AIDL
 keymaster_ver=2
-ro.vendor.build.security_patch=2026-07-01
+ro.vendor.keymaster_version=7.0
+ro.vendor.build.security_patch=2026-09-05
 
 # Gatekeeper
 ro.hardware.gatekeeper=trustonic

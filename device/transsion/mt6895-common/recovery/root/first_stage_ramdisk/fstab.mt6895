@@ -31,6 +31,12 @@ vendor_dlkm /vendor_dlkm ext4 ro wait,slotselect,avb,logical,first_stage_mount
 odm_dlkm /odm_dlkm erofs ro wait,slotselect,avb,logical,first_stage_mount
 odm_dlkm /odm_dlkm ext4 ro wait,slotselect,avb,logical,first_stage_mount
 
+odm /odm erofs ro wait,slotselect,avb,logical,first_stage_mount
+odm /odm ext4 ro wait,slotselect,avb,logical,first_stage_mount
+
+system_dlkm /system_dlkm erofs ro wait,slotselect,avb,logical,first_stage_mount
+system_dlkm /system_dlkm ext4 ro wait,slotselect,avb,logical,first_stage_mount
+
 
 /dev/block/by-name/metadata /metadata ext4 noatime,nosuid,nodev,discard wait,check,formattable,first_stage_mount
 
@@ -174,6 +180,10 @@ tr_overlayfs /tr_overlayfs ext4 ro wait,slotselect,logical,first_stage_mount,avb
 tr_overlayfs /tr_overlayfs erofs ro wait,slotselect,logical,first_stage_mount,avb_keys=/vendor/etc/tran_avb.pubkey,nofail
 tr_system /tr_system ext4 ro wait,slotselect,logical,first_stage_mount,nofail
 tr_system /tr_system erofs ro wait,slotselect,logical,first_stage_mount,nofail
+tr_misc /tr_misc ext4 ro wait,slotselect,logical,first_stage_mount,nofail
+tr_misc /tr_misc erofs ro wait,slotselect,logical,first_stage_mount,nofail
+tr_manifest /tr_manifest ext4 ro wait,slotselect,logical,first_stage_mount,nofail
+tr_manifest /tr_manifest erofs ro wait,slotselect,logical,first_stage_mount,nofail
 
 # ColorOS / RealmeUI / OxygenOS logical partitions
 my_product /my_product ext4 ro wait,slotselect,logical,first_stage_mount,nofail

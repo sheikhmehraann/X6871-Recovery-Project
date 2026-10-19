@@ -563,11 +563,11 @@ gui_msg(Msg("fox_boot_slot=* Boot slot:  {1}")(slot_fmt.c_str()));"""
    umount "$tmp_mount" 2>/dev/null
    rm -rf "$tmp_mount"
    # Fallback defaults
-   echo "ROM=X6871-15.1.2.180SP05(OP001PF001AZ)" >> $F
-   echo "INCREMENTAL_VERSION=180003" >> $F
-   echo "ROM_FINGERPRINT=Infinix/X6871-OP/Infinix-X6871:15/AP3A.240905.015.A2/180003:user/release-keys" >> $F
-   echo "SDK=35" >> $F
-   echo "X6871-15.1.2.180SP05(OP001PF001AZ)"
+   echo "ROM=X6871-16.3.0.155SP20(OP008PF001AZ)" >> $F
+   echo "INCREMENTAL_VERSION=301550057" >> $F
+   echo "ROM_FINGERPRINT=Infinix/X6871-OP/Infinix-X6871:16/BP2A.250605.031.A3/301550057:user/release-keys" >> $F
+   echo "SDK=36" >> $F
+   echo "X6871-16.3.0.155SP20(OP008PF001AZ)"
 }"""
                         if "get_ROM()" in sh_c:
                             sh_c = re.sub(r'get_ROM\(\)\s*\{.*?\n\}', lambda m: dynamic_stock_probe, sh_c, flags=re.DOTALL)

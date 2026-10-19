@@ -69,7 +69,9 @@
 /product_image		emmc		/dev/block/bootdevice/by-name/product		/dev/block/by-name/product			flags=display="Product Image";backup=1;flashimg=1
 /system_ext_image	emmc		/dev/block/bootdevice/by-name/system_ext	/dev/block/by-name/system_ext		flags=display="System EXT Image";backup=1;flashimg=1
 /vendor_dlkm_image	emmc		/dev/block/bootdevice/by-name/vendor_dlkm	/dev/block/by-name/vendor_dlkm		flags=display="Vendor DLKM Image";backup=1;flashimg=1
+/odm_image			emmc		/dev/block/bootdevice/by-name/odm			/dev/block/by-name/odm				flags=display="ODM Image";backup=1;flashimg=1
 /odm_dlkm_image		emmc		/dev/block/bootdevice/by-name/odm_dlkm		/dev/block/by-name/odm_dlkm			flags=display="ODM DLKM Image";backup=1;flashimg=1
+/system_dlkm_image	emmc		/dev/block/bootdevice/by-name/system_dlkm	/dev/block/by-name/system_dlkm		flags=display="System DLKM Image";backup=1;flashimg=1
 /tr_product_image	emmc		/dev/block/bootdevice/by-name/tr_product	/dev/block/by-name/tr_product		flags=display="TR Product Image";backup=1;flashimg=1
 /tr_preload_image	emmc		/dev/block/bootdevice/by-name/tr_preload	/dev/block/by-name/tr_preload		flags=display="TR Preload Image";backup=1;flashimg=1
 /tr_carrier_image	emmc		/dev/block/bootdevice/by-name/tr_carrier	/dev/block/by-name/tr_carrier		flags=display="TR Carrier Image";backup=1;flashimg=1
@@ -78,6 +80,8 @@
 /tr_overlayfs_image	emmc		/dev/block/bootdevice/by-name/tr_overlayfs	/dev/block/by-name/tr_overlayfs		flags=display="TR OverlayFS Image";backup=1;flashimg=1
 /tr_region_image	emmc		/dev/block/bootdevice/by-name/tr_region		/dev/block/by-name/tr_region		flags=display="TR Region Image";backup=1;flashimg=1
 /tr_theme_image		emmc		/dev/block/bootdevice/by-name/tr_theme		/dev/block/by-name/tr_theme			flags=display="TR Theme Image";backup=1;flashimg=1
+/tr_misc_image		emmc		/dev/block/bootdevice/by-name/tr_misc		/dev/block/by-name/tr_misc			flags=display="TR Misc Image";backup=1;flashimg=1
+/tr_manifest_image	emmc		/dev/block/bootdevice/by-name/tr_manifest	/dev/block/by-name/tr_manifest		flags=display="TR Manifest Image";backup=1;flashimg=1
 /tr_system_image	emmc		/dev/block/bootdevice/by-name/tr_system		/dev/block/by-name/tr_system		flags=display="TR System Image";backup=1;flashimg=1
 /mi_ext_image		emmc		/dev/block/bootdevice/by-name/mi_ext		/dev/block/by-name/mi_ext			flags=display="MI EXT Image";backup=1;flashimg=1
 /my_product_image	emmc		/dev/block/bootdevice/by-name/my_product	/dev/block/by-name/my_product		flags=display="My Product Image";backup=1;flashimg=1

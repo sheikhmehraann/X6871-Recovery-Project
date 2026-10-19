@@ -24,11 +24,11 @@ This repository contains build targets and device tree configurations for:
 | Device Model | Infinix GT 20 Pro (`X6871`, `X6871-OP`) |
 | Platform / SoC | MediaTek Dimensity 8200 Ultimate (`MT6895` / `MT6896`) |
 | Display | 1080 x 2436 AMOLED (144Hz refresh rate, single-pipe DRM) |
-| Kernel Version | 5.10.x Android Common Kernel |
+| Kernel Version | 6.12.x GKI (Android 16) |
 | Architecture | ARM64 (`arm64-v8a`) |
-| Partition Layout | Virtual A/B (VAB) with Dynamic Partitions |
+| Partition Layout | Virtual A/B (VAB) with Dynamic Partitions (12.4 GB Super) |
 | Recovery Location | `vendor_boot` (Boot Header v4, 64 MB partition size) |
-| Target Firmware | Android 14 / Android 15 (XOS 14 / XOS 15) |
+| Target Firmware | Android 16 (XOS 16 / X6871-16.3.0.155) |
 
 ---
 
@@ -36,8 +36,8 @@ This repository contains build targets and device tree configurations for:
 
 All four recovery variants share the common device tree and include:
 
-- **Storage Decryption:** File-Based Encryption (FBEv2) metadata decryption via hardware KeyMint V1. Decrypts lockscreen PIN, pattern, and password.
-- **Dynamic Super Partitions:** Maps all logical partitions (`system`, `vendor`, `product`, `system_ext`, `odm_dlkm`, `vendor_dlkm`, and regional Transsion carrier partitions) for flashing, backup, and mounting.
+- **Storage Decryption:** File-Based Encryption (FBEv2) metadata decryption via hardware KeyMint. Decrypts lockscreen PIN, pattern, and password.
+- **Dynamic Super Partitions:** Maps all logical partitions (`system`, `vendor`, `product`, `system_ext`, `odm`, `odm_dlkm`, `system_dlkm`, `vendor_dlkm`, and regional Transsion/ColorOS/Xiaomi partitions) for flashing, backup, and mounting.
 - **Display Driver:** Single-pipe direct rendering pipeline (`graphics_drm.cpp`) configured for the 1080x2436 144Hz panel.
 - **A/B Slot Operations:** Slot suffix detection and active boot slot switching via `bootctl`.
 - **Peripherals:**

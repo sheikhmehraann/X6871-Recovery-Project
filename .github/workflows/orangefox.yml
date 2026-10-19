@@ -138,7 +138,7 @@ jobs:
           export OF_SUPPORT_ALL_PAYLOAD_EXTRACTOR=1
           export OF_ALLOW_DISABLE_FORCE_ENCRYPTION=1
           export OF_SETTINGS_CUSTOM_PATH="/sdcard/Fox"
-          export OF_DYNAMIC_FULL_SIZE=9126805504
+          export OF_DYNAMIC_FULL_SIZE=12426428416
           export FOX_ENABLE_APP_MANAGER=1
           export FOX_RECOVERY_SYSTEM_PARTITION="/dev/block/mapper/system"
           export FOX_RECOVERY_VENDOR_PARTITION="/dev/block/mapper/vendor"
@@ -153,7 +153,7 @@ jobs:
           export FOX_USE_ZSTD_BINARY=1
           export FOX_USE_NANO_EDITOR=1
           export FOX_DELETE_AROMAFM=1
-          export FOX_VARIANT="15.1.2"
+          export FOX_VARIANT="16.3.0"
           export OF_MAINTAINER="sheikhmehraann"
           export OF_ENABLE_FRP_ADDON=1
           export FOX_SUPPORT_KSU=1
@@ -233,7 +233,7 @@ jobs:
 
           OFOX_ZIP=$(find $GITHUB_WORKSPACE/output -name "OrangeFox-*.zip" -type f 2>/dev/null | head -n 1)
           if [ -z "$OFOX_ZIP" ] && [ -f "$GITHUB_WORKSPACE/output/vendor_boot.img" ]; then
-            ZIP_NAME="OrangeFox-R12.1_$(date +%Y%m%d)_15.1.2-Stable-X6871.zip"
+            ZIP_NAME="OrangeFox-R12.1_$(date +%Y%m%d)_16.3.0-Stable-X6871.zip"
             cd $GITHUB_WORKSPACE/output
             zip -r9 "$ZIP_NAME" vendor_boot.img
           fi
@@ -272,7 +272,7 @@ jobs:
             * Community: `t.me/Gt20ProIN`
             * Platform: `mt6895 (Dimensity 8200 Ultimate)`
             * Device: `Infinix GT 20 Pro (Infinix-X6871)`
-            * Stock Firmware: Android 14 / Android 15 (XOS)
+            * Stock Firmware: Android 16 (XOS 16 / Kernel 6.12)
             * Recovery Target: `vendor_boot` (Header v4, Virtual A/B)
 
             ### Features

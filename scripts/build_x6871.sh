@@ -49,7 +49,8 @@ case "${TARGET_RECOVERY}" in
         export FOX_MAINTAINER_PATCH_VERSION=$(date +"%Y%m%d")
         unset FOX_VERSION || true
         export FOX_BUILD_TYPE="Stable"
-        export FOX_VARIANT="15.1.2"
+        export FOX_VARIANT="16.3.0"
+        export OF_DYNAMIC_FULL_SIZE=12426428416
         export OF_MAINTAINER="sheikhmehraann"
         export OF_ENABLE_FRP_ADDON=1
         export FOX_SUPPORT_KSU=1

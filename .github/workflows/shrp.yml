@@ -176,9 +176,10 @@ jobs:
             * Community: `t.me/Gt20ProIN`
             * Platform: `mt6895 (Dimensity 8200 Ultimate)`
             * Device: `Infinix GT 20 Pro (X6871)`
+            * Stock Firmware: `Android 16 (XOS 16 / Kernel 6.12)`
             * Target: `vendor_boot` (Header v4, Virtual A/B)
             * Display: 1080x2436 144Hz AMOLED with single-pipe DRM
-            * Storage: FBEv2 metadata decryption via KeyMint V1
+            * Storage: FBEv2 metadata decryption via KeyMint
           draft: false
           prerelease: false
         env:
