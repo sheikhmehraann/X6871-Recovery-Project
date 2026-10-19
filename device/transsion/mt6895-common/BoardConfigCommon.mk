@@ -47,6 +47,7 @@ BOARD_PAGE_SIZE := 4096
 BOARD_TAGS_OFFSET := 0x07c88000
 BOARD_RAMDISK_OFFSET := 0x26f08000
 BOARD_DTB_SIZE := 337316
+BOARD_DTB_OFFSET := 0x07c88000
 BOARD_VENDOR_CMDLINE := bootopt=64S3,32N2,64N2 bootconfig androidboot.selinux=permissive
 BOARD_KERNEL_CMDLINE := bootopt=64S3,32N2,64N2 bootconfig androidboot.selinux=permissive
 BOARD_BOOTCONFIG += kernel.rcu_nocbs=all
