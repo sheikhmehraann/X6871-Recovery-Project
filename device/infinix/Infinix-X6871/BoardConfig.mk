@@ -48,7 +48,8 @@ BOARD_DTB_SIZE := 337316
 BOARD_DTB_OFFSET := 0x07c88000
 BOARD_VENDOR_BASE := 0x3fff8000
 
-BOARD_VENDOR_CMDLINE := bootopt=64S3,32N2,64N2 bootconfig
+BOARD_VENDOR_CMDLINE := bootopt=64S3,32N2,64N2 androidboot.selinux=permissive bootconfig
+BOARD_BOOTCONFIG += androidboot.selinux=permissive
 BOARD_BOOTCONFIG += kernel.rcu_nocbs=all
 BOARD_BOOTCONFIG += kernel.rcutree.enable_rcu_lazy=1
 BOARD_BOOTCONFIG += kernel.rcupdate.rcu_cpu_stall_cputime=1

@@ -24,13 +24,30 @@ on init
     setprop ro.build.product "X6871"
     setprop ro.twrp.target.devices "X6871,Infinix-X6871,Infinix_X6871,X6871-OP"
 
-    start vendor.boot-default
-
 on fs
     wait /dev/block/platform/soc/112b0000.ufshci
     symlink /dev/block/platform/soc/112b0000.ufshci /dev/block/bootdevice
     symlink /dev/block/by-name /dev/block/bootdevice/by-name
+    wait /dev/block/by-name/metadata
+    mount ext4 /dev/block/by-name/metadata /metadata noatime nosuid nodev discard
+    mkdir /metadata/recovery 0770 root root
+    chmod 0770 /metadata/recovery
+    rm /cache
+    symlink /metadata/recovery /cache
+    wait /dev/block/by-name/persist
+    mkdir /mnt/vendor/persist 0771 system system
+    mount ext4 /dev/block/by-name/persist /mnt/vendor/persist noatime nosuid nodev
+    chown system system /mnt/vendor/persist
+    chmod 0771 /mnt/vendor/persist
+    mkdir /mnt/vendor/persist/mcRegistry 0771 system system
+    chown system system /mnt/vendor/persist/mcRegistry
+    chmod 0771 /mnt/vendor/persist/mcRegistry
     install_keyring
+
+on post-fs
+    start mobicore
+    start vendor.gatekeeper-1-0
+    start vendor.keymint-trustonic
 
 on property:persist.vendor.mtk.pl_lnk=1
     symlink /dev/block/mapper/pl_a /dev/block/by-name/preloader_raw_a
@@ -59,11 +76,9 @@ on property:vendor.mtk.boot1_linkb=1
 on property:vendor.mtk.boot1_linkc=1
     symlink /dev/block/sdc /dev/block/mmcblk0boot1
 
-on property:ro.crypto.state=encrypted && property:ro.boot.dynamic_partitions=true
+on property:ro.crypto.state=encrypted
     start mobicore
-
-on property:ro.vendor.trustonic.ready=true
-    start vendor.gatekeeper-default
+    start vendor.gatekeeper-1-0
     start vendor.keymint-trustonic
 
 on property:servicemanager.ready=true
@@ -83,29 +98,19 @@ on boot
     chmod 0666 /sys/class/leds/vibrator/brightness
 
 # Gatekeeper
-service vendor.gatekeeper-default /vendor/bin/hw/android.hardware.gatekeeper-service.trustonic
+service vendor.gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-service
     class early_hal
     interface android.hardware.gatekeeper@1.0::IGatekeeper default
-    user system
-    group system
-    seclabel u:r:hal_gatekeeper_default:s0
-
-# Keymint
-service vendor.keymint-trustonic /vendor/bin/hw/android.hardware.security.keymint-service.trustonic --rkp_version=v1
-    class early_hal
-    interface android.hardware.keymaster@4.0::IKeymasterDevice default
-    interface android.hardware.keymaster@4.1::IKeymasterDevice default
-    user system
-    group system
-    seclabel u:r:hal_keymint_default:s0
-
-# MTK AIDL Boot HAL
-service vendor.boot-default /system/bin/hw/android.hardware.boot-service.mtk
-    class early_hal
     user root
     group root
-    interface aidl android.hardware.boot.IBootControl/default
-    seclabel u:r:hal_bootctl_default:s0
+    seclabel u:r:recovery:s0
+
+# Keymint
+service vendor.keymint-trustonic /vendor/bin/hw/android.hardware.security.keymint-service.trustonic
+    class early_hal
+    user system
+    group system drmrpc
+    seclabel u:r:recovery:s0
 
 # Override Health HAL service definition
 service vendor.health-default /system/bin/hw/android.hardware.health-service.example_recovery
