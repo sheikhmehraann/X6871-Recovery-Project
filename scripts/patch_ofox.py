@@ -1696,8 +1696,10 @@ def patch_super_partitions(fox_root):
 		LOGINFO("Keymaster_Ver::Force Keymaster_Ver flag found.\\n");
 	}
 #endif
-	if (version.empty()) // defective device tree - apply a default
-		version = "4.x";
+	if (version.empty()) {
+		LOGINFO("Keymaster_Ver::No legacy HIDL keymaster found; skipping HIDL keymaster initialization for KeyMint AIDL\\n");
+		return;
+	}
 
 	LOGINFO("Keymaster_Ver::Using keymaster version '%s' for decryption\\n", version.c_str());
 	android::base::SetProperty(TW_KEYMASTER_VERSION_PROP, version.c_str());
