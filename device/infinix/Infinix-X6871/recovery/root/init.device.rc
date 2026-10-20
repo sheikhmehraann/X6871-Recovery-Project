@@ -36,11 +36,23 @@ on boot
     chmod 0666 /sys/devices/virtual/torch/torch/torch_level
 
     # Touchscreen drivers (Goodix GT9896S / GT9916 & Focaltech FT3683G)
+    insmod /vendor/lib/modules/spi-mt65xx.ko
+    insmod /system/lib/modules/spi-mt65xx.ko
     insmod /lib/modules/spi-mt65xx.ko
+    insmod /vendor/lib/modules/tui-common.ko
+    insmod /system/lib/modules/tui-common.ko
     insmod /lib/modules/tui-common.ko
+    insmod /vendor/lib/modules/adaptive-ts.ko
+    insmod /system/lib/modules/adaptive-ts.ko
     insmod /lib/modules/adaptive-ts.ko
+    insmod /vendor/lib/modules/gt9916_common.ko
+    insmod /system/lib/modules/gt9916_common.ko
     insmod /lib/modules/gt9916_common.ko
+    insmod /vendor/lib/modules/focaltech_ft3683g.ko
+    insmod /system/lib/modules/focaltech_ft3683g.ko
     insmod /lib/modules/focaltech_ft3683g.ko
+    insmod /vendor/lib/modules/gt9896s.ko
+    insmod /system/lib/modules/gt9896s.ko
     insmod /lib/modules/gt9896s.ko
     chmod 0666 /dev/input/*
 
