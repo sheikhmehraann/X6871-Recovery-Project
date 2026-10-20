@@ -105,7 +105,6 @@ jobs:
           export CCACHE_DIR=$HOME/fox_14.1/out/.ccache
           export CCACHE_EXEC=$(which ccache)
           export BUILD_BROKEN_SRC_DIR_IS_WRITABLE=true
-          export BUILD_BROKEN_SRC_DIR_RW_ALLOWLIST="$HOME/fox_14.1/out/.ccache"
           ccache -M 15G
           ccache -z
           source build/envsetup.sh
