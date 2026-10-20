@@ -8,6 +8,36 @@ import lz4.block
 def page_align(val, page_size=4096):
     return (val + page_size - 1) & ~(page_size - 1)
 
+def make_cpio_entry(path, data, mode=0o100644, ino=1):
+    name_bytes = path.encode('utf-8') + b'\x00'
+    name_pad = (4 - (len(name_bytes) % 4)) % 4
+    data_pad = (4 - (len(data) % 4)) % 4
+    header = (
+        f"070701"
+        f"{ino:08x}"
+        f"{mode:08x}"
+        f"{0:08x}"
+        f"{0:08x}"
+        f"{1:08x}"
+        f"{0:08x}"
+        f"{len(data):08x}"
+        f"{0:08x}"
+        f"{0:08x}"
+        f"{0:08x}"
+        f"{0:08x}"
+        f"{len(name_bytes):08x}"
+        f"{0:08x}"
+    ).encode('ascii')
+    return header + name_bytes + (b'\x00' * name_pad) + data + (b'\x00' * data_pad)
+
+def make_cpio_trailer():
+    name_bytes = b"TRAILER!!!\x00"
+    name_pad = (4 - (len(name_bytes) % 4)) % 4
+    header = f"070701{0:08x}{0:08x}{0:08x}{0:08x}{1:08x}{0:08x}{0:08x}{0:08x}{0:08x}{0:08x}{0:08x}{len(name_bytes):08x}{0:08x}".encode('ascii')
+    t = header + name_bytes + (b'\x00' * name_pad)
+    pad = (512 - (len(t) % 512)) % 512
+    return t + (b'\x00' * pad)
+
 def repack(stock_path, built_path, output_path):
     print(f"Reading stock vendor_boot: {stock_path}")
     if stock_path.endswith('.gz'):
@@ -74,7 +104,54 @@ def repack(stock_path, built_path, output_path):
             
     uncompressed_frag0 = b''.join(blocks)
     print(f"Fragment 0 uncompressed size: {len(uncompressed_frag0)} bytes")
-    
+
+    # Inject touch modules into Fragment 0 CPIO so they exist in /lib/modules/ on boot
+    trailer_idx = uncompressed_frag0.rfind(b'TRAILER!!!')
+    if trailer_idx != -1:
+        hdr_start = trailer_idx - 110
+        body = uncompressed_frag0[:hdr_start]
+
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        candidate_dirs = [
+            os.path.join(repo_root, 'device', 'infinix', 'Infinix-X6871', 'prebuilt', 'modules'),
+            os.path.join(repo_root, 'device', 'infinix', 'X6871', 'prebuilt', 'modules'),
+            os.path.join(os.environ.get('GITHUB_WORKSPACE', ''), 'device', 'infinix', 'Infinix-X6871', 'prebuilt', 'modules'),
+            os.path.join(os.environ.get('GITHUB_WORKSPACE', ''), 'device', 'infinix', 'X6871', 'prebuilt', 'modules'),
+        ]
+
+        mod_dir = None
+        for cd in candidate_dirs:
+            if cd and os.path.isdir(cd) and os.path.exists(os.path.join(cd, 'adaptive-ts.ko')):
+                mod_dir = cd
+                break
+
+        if mod_dir:
+            print(f"Found touch module source directory: {mod_dir}")
+            touch_mod_names = [
+                'tui-common.ko',
+                'adaptive-ts.ko',
+                'gt9916_common.ko',
+                'focaltech_ft3683g.ko',
+                'gt9896s.ko',
+                'touch_boost.ko',
+                'ts_scp_common.ko',
+            ]
+            new_entries = []
+            ino = 0x9000
+            for mname in touch_mod_names:
+                mpath = os.path.join(mod_dir, mname)
+                if os.path.exists(mpath):
+                    with open(mpath, 'rb') as mf:
+                        mdata = mf.read()
+                    rel = f"lib/modules/{mname}"
+                    new_entries.append(make_cpio_entry(rel, mdata, ino=ino))
+                    ino += 1
+                    print(f"Injected {rel} ({len(mdata)} bytes) into Fragment 0 CPIO")
+            uncompressed_frag0 = body + b''.join(new_entries) + make_cpio_trailer()
+            print(f"Fragment 0 CPIO with touch modules: {len(uncompressed_frag0)} bytes")
+        else:
+            print("Warning: Touch module source directory not found, skipping Fragment 0 injection")
+
     cctx = zstd.ZstdCompressor(level=12)
     frag0_zstd = cctx.compress(uncompressed_frag0)
     print(f"Fragment 0 ZSTD size: {len(frag0_zstd)} bytes ({len(frag0_zstd)/1024/1024:.2f} MB)")
