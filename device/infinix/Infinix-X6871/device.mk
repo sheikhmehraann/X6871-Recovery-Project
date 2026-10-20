@@ -109,6 +109,8 @@ PRODUCT_PACKAGES_DEBUG += \
     bootctrl
 
 PRODUCT_PACKAGES += \
+    android.hardware.boot@1.2-mtkimpl \
+    android.hardware.boot@1.2-mtkimpl.recovery \
     bootctrl.mt6895 \
     bootctrl.mt6895.recovery
 
