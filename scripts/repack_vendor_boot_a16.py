@@ -8,80 +8,6 @@ import lz4.block
 def page_align(val, page_size=4096):
     return (val + page_size - 1) & ~(page_size - 1)
 
-def parse_cpio(data):
-    files = {}
-    pos = 0
-    while pos + 110 <= len(data):
-        magic = data[pos:pos+6]
-        if magic != b'070701' and magic != b'070702':
-            break
-        ino = int(data[pos+6:pos+14], 16)
-        mode = int(data[pos+14:pos+22], 16)
-        uid = int(data[pos+22:pos+30], 16)
-        gid = int(data[pos+30:pos+38], 16)
-        nlink = int(data[pos+38:pos+46], 16)
-        mtime = int(data[pos+46:pos+54], 16)
-        filesize = int(data[pos+54:pos+62], 16)
-        devmajor = int(data[pos+62:pos+70], 16)
-        devminor = int(data[pos+70:pos+78], 16)
-        rdevmajor = int(data[pos+78:pos+86], 16)
-        rdevminor = int(data[pos+86:pos+94], 16)
-        namesize = int(data[pos+94:pos+102], 16)
-        check = int(data[pos+102:pos+110], 16)
-        pos += 110
-        name = data[pos:pos+namesize-1].decode('utf-8', errors='ignore')
-        pos = (pos + namesize + 3) & ~3
-        file_data = data[pos:pos+filesize]
-        pos = (pos + filesize + 3) & ~3
-        if name == 'TRAILER!!!':
-            break
-        files[name] = {
-            'ino': ino, 'mode': mode, 'uid': uid, 'gid': gid,
-            'nlink': nlink, 'mtime': mtime, 'devmajor': devmajor,
-            'devminor': devminor, 'rdevmajor': rdevmajor,
-            'rdevminor': rdevminor, 'check': check, 'data': file_data
-        }
-    return files
-
-def pad4(stream):
-    rem = stream.tell() % 4
-    if rem:
-        stream.write(b'\x00' * (4 - rem))
-
-def build_cpio(files):
-    out = io.BytesIO()
-    for name, info in files.items():
-        name_bytes = name.encode('utf-8') + b'\x00'
-        namesize = len(name_bytes)
-        file_data = info['data']
-        filesize = len(file_data)
-        header = f"070701{info['ino']:08X}{info['mode']:08X}{info['uid']:08X}{info['gid']:08X}{info['nlink']:08X}{info['mtime']:08X}{filesize:08X}{info['devmajor']:08X}{info['devminor']:08X}{info['rdevmajor']:08X}{info['rdevminor']:08X}{namesize:08X}{info['check']:08X}".encode('ascii')
-        out.write(header)
-        out.write(name_bytes)
-        pad4(out)
-        out.write(file_data)
-        pad4(out)
-    
-    trailer = b"TRAILER!!!\x00"
-    t_namesize = len(trailer)
-    trailer_hdr = f"070701{0:08X}{0:08X}{0:08X}{0:08X}{1:08X}{0:08X}{0:08X}{0:08X}{0:08X}{0:08X}{0:08X}{t_namesize:08X}{0:08X}".encode('ascii')
-    out.write(trailer_hdr)
-    out.write(trailer)
-    pad4(out)
-    total = out.tell()
-    pad_512 = (512 - (total % 512)) % 512
-    if pad_512:
-        out.write(b'\x00' * pad_512)
-    return out.getvalue()
-
-def make_entry(data, mode=0o100644):
-    return {
-        'ino': 100000, 'mode': mode, 'uid': 0, 'gid': 0,
-        'nlink': 1, 'mtime': 0, 'devmajor': 0,
-        'devminor': 0, 'rdevmajor': 0, 'rdevminor': 0,
-        'check': 0, 'data': data
-    }
-
 def repack(stock_path, built_path, output_path):
     print(f"Reading stock vendor_boot: {stock_path}")
     if stock_path.endswith('.gz'):
@@ -115,16 +41,21 @@ def repack(stock_path, built_path, output_path):
         stock_file.seek(offset_ramdisk + frag0_offset)
         raw_frag0_data = stock_file.read(frag0_size)
         
-        # Read bootconfig
+        # Read stock bootconfig
         stock_file.seek(offset_bootconfig)
-        bootconfig_data = stock_file.read(bootconfig_size)
+        raw_bc = stock_file.read(bootconfig_size)
+        bc_str = raw_bc.decode('utf-8', errors='ignore')
+        if "androidboot.selinux=permissive" not in bc_str:
+            bc_str = "androidboot.selinux=permissive\n" + bc_str.strip() + "\n"
+        bootconfig_data = bc_str.encode('utf-8')
     finally:
         stock_file.close()
         
     print(f"Stock header: version={v}, dtb_size={dtb_size}, bootconfig_size={bootconfig_size}")
     print(f"Stock Fragment 0 size: {frag0_size} bytes")
     
-    # Decompress Fragment 0 (LZ4 legacy in stock) to uncompressed cpio
+    # Decompress Fragment 0 (it is LZ4 legacy in stock) to uncompressed cpio
+    # Then compress with ZSTD level 12 so it fits cleanly
     pos = 4
     blocks = []
     while pos < len(raw_frag0_data):
@@ -144,86 +75,8 @@ def repack(stock_path, built_path, output_path):
     uncompressed_frag0 = b''.join(blocks)
     print(f"Fragment 0 uncompressed size: {len(uncompressed_frag0)} bytes")
     
-    # Parse Fragment 0 CPIO and inject recovery touch modules + firmware
-    frag0_files = parse_cpio(uncompressed_frag0)
-    print(f"Fragment 0 parsed entries: {len(frag0_files)}")
-    
-    # Locate touch assets from repo root
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    repo_root = os.path.dirname(script_dir)
-    
-    def find_file(candidates):
-        for c in candidates:
-            if os.path.exists(c):
-                return c
-        return None
-
-    adaptive_ts = find_file([
-        os.path.join(repo_root, "device", "infinix", "Infinix-X6871", "recovery", "root", "lib", "modules", "adaptive-ts.ko"),
-        os.path.join(repo_root, "device", "infinix", "X6871", "recovery", "root", "lib", "modules", "adaptive-ts.ko")
-    ])
-    gt9916 = find_file([
-        os.path.join(repo_root, "device", "infinix", "Infinix-X6871", "recovery", "root", "lib", "modules", "gt9916_common.ko"),
-        os.path.join(repo_root, "device", "infinix", "X6871", "recovery", "root", "lib", "modules", "gt9916_common.ko")
-    ])
-    ft3683g = find_file([
-        os.path.join(repo_root, "device", "infinix", "Infinix-X6871", "recovery", "root", "lib", "modules", "focaltech_ft3683g.ko"),
-        os.path.join(repo_root, "device", "infinix", "X6871", "recovery", "root", "lib", "modules", "focaltech_ft3683g.ko")
-    ])
-    fw_bin = find_file([
-        os.path.join(repo_root, "device", "infinix", "Infinix-X6871", "recovery", "root", "vendor", "firmware", "goodix_firmware.bin"),
-        os.path.join(repo_root, "device", "infinix", "X6871", "recovery", "root", "vendor", "firmware", "goodix_firmware.bin")
-    ])
-    fw_cfg = find_file([
-        os.path.join(repo_root, "device", "infinix", "Infinix-X6871", "recovery", "root", "vendor", "firmware", "goodix_cfg_group.bin"),
-        os.path.join(repo_root, "device", "infinix", "X6871", "recovery", "root", "vendor", "firmware", "goodix_cfg_group.bin")
-    ])
-
-    if adaptive_ts and os.path.exists(adaptive_ts):
-        with open(adaptive_ts, 'rb') as f:
-            frag0_files['lib/modules/adaptive-ts.ko'] = make_entry(f.read())
-            print(f"Injected adaptive-ts.ko ({os.path.getsize(adaptive_ts)} bytes)")
-
-    if gt9916 and os.path.exists(gt9916):
-        with open(gt9916, 'rb') as f:
-            frag0_files['lib/modules/gt9916_common.ko'] = make_entry(f.read())
-            print(f"Injected gt9916_common.ko ({os.path.getsize(gt9916)} bytes)")
-
-    if ft3683g and os.path.exists(ft3683g):
-        with open(ft3683g, 'rb') as f:
-            frag0_files['lib/modules/focaltech_ft3683g.ko'] = make_entry(f.read())
-            print(f"Injected focaltech_ft3683g.ko ({os.path.getsize(ft3683g)} bytes)")
-
-    if fw_bin and os.path.exists(fw_bin):
-        with open(fw_bin, 'rb') as f:
-            bin_data = f.read()
-            frag0_files['odm/firmware/goodix_firmware.bin'] = make_entry(bin_data)
-            frag0_files['vendor/firmware/goodix_firmware.bin'] = make_entry(bin_data)
-            print(f"Injected goodix_firmware.bin into odm/firmware and vendor/firmware ({len(bin_data)} bytes)")
-
-    if fw_cfg and os.path.exists(fw_cfg):
-        with open(fw_cfg, 'rb') as f:
-            cfg_data = f.read()
-            frag0_files['odm/firmware/goodix_cfg_group.bin'] = make_entry(cfg_data)
-            frag0_files['vendor/firmware/goodix_cfg_group.bin'] = make_entry(cfg_data)
-            print(f"Injected goodix_cfg_group.bin into odm/firmware and vendor/firmware ({len(cfg_data)} bytes)")
-
-    # Update Fragment 0's modules.load.recovery to append touch modules
-    if 'lib/modules/modules.load.recovery' in frag0_files:
-        orig_load = frag0_files['lib/modules/modules.load.recovery']['data'].decode('utf-8', errors='ignore')
-        needed = ['adaptive-ts.ko', 'gt9916_common.ko', 'focaltech_ft3683g.ko']
-        to_append = [m for m in needed if m not in orig_load]
-        if to_append:
-            new_load = orig_load.strip() + '\n' + '\n'.join(to_append) + '\n'
-            frag0_files['lib/modules/modules.load.recovery']['data'] = new_load.encode('utf-8')
-            print(f"Appended touch modules to modules.load.recovery: {to_append}")
-
-    # Rebuild modified Fragment 0 CPIO
-    rebuilt_frag0 = build_cpio(frag0_files)
-    print(f"Modified Fragment 0 CPIO size: {len(rebuilt_frag0)} bytes")
-
     cctx = zstd.ZstdCompressor(level=12)
-    frag0_zstd = cctx.compress(rebuilt_frag0)
+    frag0_zstd = cctx.compress(uncompressed_frag0)
     print(f"Fragment 0 ZSTD size: {len(frag0_zstd)} bytes ({len(frag0_zstd)/1024/1024:.2f} MB)")
     
     # Read built recovery ramdisk from built_path
@@ -234,7 +87,7 @@ def repack(stock_path, built_path, output_path):
         built_file = io.BytesIO(built_bytes)
     else:
         built_file = open(built_path, 'rb')
-
+        
     try:
         built_hdr = built_file.read(4096)
         b_table_size, b_table_entry_num, b_table_entry_size = struct.unpack_from('<III', built_hdr, 2112)
@@ -251,7 +104,6 @@ def repack(stock_path, built_path, output_path):
             built_file.seek(page_size + rec_offset)
             raw_rec_data = built_file.read(rec_size)
         else:
-            # If only 1 entry, use entry 0
             rec_entry = b_table_data[:b_table_entry_size]
             rec_size, rec_offset, rec_type = struct.unpack_from('<III', rec_entry, 0)
             built_file.seek(page_size + rec_offset)
@@ -261,24 +113,17 @@ def repack(stock_path, built_path, output_path):
         
     print(f"Built recovery raw size: {rec_size} bytes (magic: {raw_rec_data[:4].hex()})")
     
-    # Decompress recovery ramdisk (gzip or raw or zstd)
-    if raw_rec_data[:2] == b'\x1f\x8b':
+    # Check if recovery ramdisk is already ZSTD
+    if raw_rec_data[:4] == b'\x28\xb5\x2f\xfd':
+        print("Built recovery ramdisk is already ZSTD compressed, using directly.")
+        frag1_zstd = raw_rec_data
+    elif raw_rec_data[:2] == b'\x1f\x8b':
         uncompressed_rec = gzip.decompress(raw_rec_data)
-        print(f"Uncompressed recovery ramdisk size: {len(uncompressed_rec)} bytes")
+        print(f"Uncompressed gzip recovery ramdisk size: {len(uncompressed_rec)} bytes")
         frag1_zstd = cctx.compress(uncompressed_rec)
-    elif raw_rec_data[:4] == b'\x28\xb5\x2f\xfd':
-        dctx = zstd.ZstdDecompressor()
-        try:
-            uncompressed_rec = dctx.stream_reader(io.BytesIO(raw_rec_data)).read()
-            print(f"Uncompressed recovery ramdisk size: {len(uncompressed_rec)} bytes")
-            frag1_zstd = cctx.compress(uncompressed_rec)
-        except Exception as e:
-            print(f"Zstd stream decompress fallback, preserving built zstd stream: {e}")
-            frag1_zstd = raw_rec_data
     else:
-        uncompressed_rec = raw_rec_data
-        print(f"Uncompressed recovery ramdisk size: {len(uncompressed_rec)} bytes")
-        frag1_zstd = cctx.compress(uncompressed_rec)
+        print(f"Raw recovery ramdisk size: {len(raw_rec_data)} bytes")
+        frag1_zstd = cctx.compress(raw_rec_data)
         
     print(f"Fragment 1 ZSTD size: {len(frag1_zstd)} bytes ({len(frag1_zstd)/1024/1024:.2f} MB)")
     
@@ -300,7 +145,6 @@ def repack(stock_path, built_path, output_path):
     new_table_size = len(new_table_data)
     
     # Build Header v4
-    # Ensure cmdline has bootconfig
     cmdline_str = cmdline.decode('utf-8', errors='ignore')
     if "bootconfig" not in cmdline_str:
         cmdline_str = (cmdline_str + " bootconfig").strip()
