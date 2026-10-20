@@ -1,4 +1,5 @@
 import /init.tee.rc
+import /init.device.rc
 
 on init
     restorecon /kmsg
@@ -27,7 +28,8 @@ on init
 on fs
     wait /dev/block/platform/soc/112b0000.ufshci
     symlink /dev/block/platform/soc/112b0000.ufshci /dev/block/bootdevice
-    symlink /dev/block/by-name /dev/block/bootdevice/by-name
+    symlink /dev/block/platform/soc/112b0000.ufshci/by-name /dev/block/bootdevice/by-name
+    symlink /dev/block/platform/soc/112b0000.ufshci/by-name /dev/block/by-name
     wait /dev/block/by-name/metadata
     mount ext4 /dev/block/by-name/metadata /metadata noatime nosuid nodev discard
     mkdir /metadata/recovery 0770 root root
@@ -113,7 +115,7 @@ service vendor.keymint-trustonic /vendor/bin/hw/android.hardware.security.keymin
     seclabel u:r:recovery:s0
 
 # Override Health HAL service definition
-service vendor.health-default /system/bin/hw/android.hardware.health-service.example_recovery
+service vendor.health-default /vendor/bin/hw/android.hardware.health@2.1-service
     class hal
     user root
     group root

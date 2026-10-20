@@ -205,6 +205,10 @@ transsion_tranlog.ko
 tran_usb_ctrl.ko
 adaptive-ts.ko
 gt9916_common.ko
+focaltech_ft3683g.ko
+gt9896s.ko
+touch_boost.ko
+ts_scp_common.ko
 tran_fp.ko
 tran_expand_key.ko
 nfc_i2c.ko
