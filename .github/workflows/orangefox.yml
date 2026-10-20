@@ -58,6 +58,14 @@ jobs:
           chmod a+x ~/.bin/repo
           sudo ln -sf ~/.bin/repo /usr/local/bin/repo
 
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-fox_14.1-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            ccache-fox_14.1-${{ runner.os }}-
+
       - name: Set Git Identity
         run: |
           git config --global user.name "sheikhmehraann"
@@ -92,14 +100,19 @@ jobs:
       - name: Build OrangeFox Recovery Image
         run: |
           cd $HOME/fox_14.1
+          export USE_CCACHE=1
+          export CCACHE_DIR=$HOME/.ccache
+          export CCACHE_EXEC=$(which ccache)
+          ccache -M 15G
+          ccache -z
           source build/envsetup.sh
           source device/infinix/X6871/vendorsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           export FOX_USE_ZSTD_BINARY=1
           export FOX_BUILD_DEVICE=X6871
           lunch twrp_X6871-ap2a-eng
-          make clean
           mka adbd vendorbootimage -j$(nproc --all)
+          ccache -s
 
       - name: Prepare Artifacts
         run: |
@@ -109,17 +122,13 @@ jobs:
           if [ -d "$TARGET_DIR" ]; then
             ls -la "$TARGET_DIR"
 
-            # Check if vendor_boot.img was built natively
+            # Always repack vendor_boot.img with stock Android 16 platform modules, touch drivers, firmware, and bootconfig
             if [ -f "$TARGET_DIR/vendor_boot.img" ]; then
-              VBOOT_SZ=$(stat -c%s "$TARGET_DIR/vendor_boot.img")
-              echo "Built vendor_boot.img size: $VBOOT_SZ bytes"
-              if [ "$VBOOT_SZ" -ne 67108864 ]; then
-                echo "--- Repacking vendor_boot.img to exact 64MB partition boundary ---"
-                python3 $GITHUB_WORKSPACE/scripts/repack_vendor_boot_a16.py \
-                  $GITHUB_WORKSPACE/reference/stock_vendor_boot.img.gz \
-                  "$TARGET_DIR/vendor_boot.img" \
-                  "$TARGET_DIR/vendor_boot.img"
-              fi
+              echo "--- Repacking vendor_boot.img with stock Android 16 platform modules, touch drivers, firmware, and bootconfig ---"
+              python3 $GITHUB_WORKSPACE/scripts/repack_vendor_boot_a16.py \
+                $GITHUB_WORKSPACE/reference/stock_vendor_boot.img.gz \
+                "$TARGET_DIR/vendor_boot.img" \
+                "$TARGET_DIR/vendor_boot.img"
             fi
 
             for img in "$TARGET_DIR"/OrangeFox*.img; do
