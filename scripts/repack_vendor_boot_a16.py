@@ -264,15 +264,22 @@ def repack(stock_path, built_path, output_path):
     # Decompress recovery ramdisk (gzip or raw or zstd)
     if raw_rec_data[:2] == b'\x1f\x8b':
         uncompressed_rec = gzip.decompress(raw_rec_data)
+        print(f"Uncompressed recovery ramdisk size: {len(uncompressed_rec)} bytes")
+        frag1_zstd = cctx.compress(uncompressed_rec)
     elif raw_rec_data[:4] == b'\x28\xb5\x2f\xfd':
         dctx = zstd.ZstdDecompressor()
-        uncompressed_rec = dctx.decompress(raw_rec_data)
+        try:
+            uncompressed_rec = dctx.stream_reader(io.BytesIO(raw_rec_data)).read()
+            print(f"Uncompressed recovery ramdisk size: {len(uncompressed_rec)} bytes")
+            frag1_zstd = cctx.compress(uncompressed_rec)
+        except Exception as e:
+            print(f"Zstd stream decompress fallback, preserving built zstd stream: {e}")
+            frag1_zstd = raw_rec_data
     else:
         uncompressed_rec = raw_rec_data
+        print(f"Uncompressed recovery ramdisk size: {len(uncompressed_rec)} bytes")
+        frag1_zstd = cctx.compress(uncompressed_rec)
         
-    print(f"Uncompressed recovery ramdisk size: {len(uncompressed_rec)} bytes")
-    
-    frag1_zstd = cctx.compress(uncompressed_rec)
     print(f"Fragment 1 ZSTD size: {len(frag1_zstd)} bytes ({len(frag1_zstd)/1024/1024:.2f} MB)")
     
     total_ramdisk = frag0_zstd + frag1_zstd
