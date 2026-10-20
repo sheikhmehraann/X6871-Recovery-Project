@@ -61,7 +61,7 @@ jobs:
       - name: Cache ccache
         uses: actions/cache@v4
         with:
-          path: ~/.ccache
+          path: /home/runner/fox_14.1/out/.ccache
           key: ccache-fox_14.1-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
             ccache-fox_14.1-${{ runner.os }}-
@@ -100,9 +100,12 @@ jobs:
       - name: Build OrangeFox Recovery Image
         run: |
           cd $HOME/fox_14.1
+          mkdir -p $HOME/fox_14.1/out/.ccache
           export USE_CCACHE=1
-          export CCACHE_DIR=$HOME/.ccache
+          export CCACHE_DIR=$HOME/fox_14.1/out/.ccache
           export CCACHE_EXEC=$(which ccache)
+          export BUILD_BROKEN_SRC_DIR_IS_WRITABLE=true
+          export BUILD_BROKEN_SRC_DIR_RW_ALLOWLIST="$HOME/fox_14.1/out/.ccache"
           ccache -M 15G
           ccache -z
           source build/envsetup.sh
