@@ -70,6 +70,8 @@ jobs:
           cd $HOME/fox_14.1
           git clone --depth=1 https://gitlab.com/OrangeFox/sync.git $HOME/OrangeFox_sync
           cd $HOME/OrangeFox_sync
+          sed -i 's/-j\$(nproc --all)/-j4/g' orangefox_sync.sh
+          sed -i 's/repo_sync;/repo_sync || (sleep 15 \&\& repo_sync) || (sleep 15 \&\& repo_sync);/g' orangefox_sync.sh
           ./orangefox_sync.sh --branch 14.1 --path $HOME/fox_14.1
           cd $HOME/fox_14.1
           rm -rf .repo/project-objects .repo/projects
