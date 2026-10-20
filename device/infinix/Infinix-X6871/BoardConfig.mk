@@ -51,6 +51,8 @@ BOARD_VENDOR_BASE := 0x3fff8000
 
 BOARD_VENDOR_CMDLINE := bootopt=64S3,32N2,64N2 androidboot.selinux=permissive bootconfig
 BOARD_BOOTCONFIG += androidboot.selinux=permissive
+BOARD_BOOTCONFIG += androidboot.boot_devices=bootdevice,soc/112b0000.ufshci,112b0000.ufshci
+BOARD_BOOTCONFIG += firmware_class.path=/odm/firmware,/vendor/firmware
 BOARD_BOOTCONFIG += kernel.rcu_nocbs=all
 BOARD_BOOTCONFIG += kernel.rcutree.enable_rcu_lazy=1
 BOARD_BOOTCONFIG += kernel.rcupdate.rcu_cpu_stall_cputime=1
@@ -137,11 +139,6 @@ TARGET_RECOVERY_DEVICE_MODULES += debuggerd
 RECOVERY_BINARY_SOURCE_FILES += $(TARGET_OUT_EXECUTABLES)/debuggerd
 TARGET_RECOVERY_DEVICE_MODULES += strace
 RECOVERY_BINARY_SOURCE_FILES += $(TARGET_OUT_EXECUTABLES)/strace
-
-# Crypto / KeyMint v3
-TW_INCLUDE_CRYPTO := true
-TW_CRYPTO_USE_SYSTEM_VOLD := false
-BOARD_USES_KEYMINT := true
 
 # Battery
 TW_CUSTOM_BATTERY_PATH := /sys/class/power_supply/battery

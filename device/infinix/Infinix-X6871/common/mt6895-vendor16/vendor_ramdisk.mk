@@ -17,10 +17,4 @@ PRODUCT_COPY_FILES += $(foreach file,$(MTK_VENDOR16_RAMDISK_MODULE_FILES), \
 PRODUCT_COPY_FILES += $(foreach file,$(MTK_VENDOR16_RAMDISK_FSTABS), \
     $(file):$(TARGET_COPY_OUT_VENDOR_RAMDISK)/first_stage_ramdisk/$(notdir $(file)))
 
-# Goodix touch controller firmware & configuration for vendor ramdisk (Fragment 0)
-GOODIX_FW_DIR := $(DEVICE_PATH)/recovery/root/vendor/firmware
-PRODUCT_COPY_FILES += \
-    $(GOODIX_FW_DIR)/goodix_firmware.bin:$(TARGET_COPY_OUT_VENDOR_RAMDISK)/odm/firmware/goodix_firmware.bin \
-    $(GOODIX_FW_DIR)/goodix_firmware.bin:$(TARGET_COPY_OUT_VENDOR_RAMDISK)/vendor/firmware/goodix_firmware.bin \
-    $(GOODIX_FW_DIR)/goodix_cfg_group.bin:$(TARGET_COPY_OUT_VENDOR_RAMDISK)/odm/firmware/goodix_cfg_group.bin \
-    $(GOODIX_FW_DIR)/goodix_cfg_group.bin:$(TARGET_COPY_OUT_VENDOR_RAMDISK)/vendor/firmware/goodix_cfg_group.bin
+

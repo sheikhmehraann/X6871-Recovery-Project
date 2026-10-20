@@ -206,6 +206,7 @@ tran_usb_ctrl.ko
 adaptive-ts.ko
 gt9916_common.ko
 focaltech_ft3683g.ko
+tui-common.ko
 gt9896s.ko
 touch_boost.ko
 ts_scp_common.ko

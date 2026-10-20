@@ -35,11 +35,14 @@ on boot
     chmod 0666 /sys/class/sub_torch/sub_torch/sub_torch_level
     chmod 0666 /sys/devices/virtual/torch/torch/torch_level
 
-    # Touchscreen drivers (Goodix GT9916 & Focaltech FT3683G)
+    # Touchscreen drivers (Goodix GT9896S / GT9916 & Focaltech FT3683G)
+    insmod /lib/modules/spi-mt65xx.ko
+    insmod /lib/modules/tui-common.ko
     insmod /lib/modules/adaptive-ts.ko
     insmod /lib/modules/gt9916_common.ko
     insmod /lib/modules/focaltech_ft3683g.ko
     insmod /lib/modules/gt9896s.ko
+    chmod 0666 /dev/input/*
 
     # Infinix GT 20 Pro (X6871) AW8697 Linear Haptics
     insmod /lib/modules/richtap_haptic_hv.ko
