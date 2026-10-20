@@ -36,9 +36,13 @@ on boot
     chmod 0666 /sys/devices/virtual/torch/torch/torch_level
 
     # Touchscreen drivers fallback (if not already loaded by first-stage init)
+    insmod /vendor/lib/modules/adaptive-ts.ko
+    insmod /vendor/lib/modules/gt9916_common.ko
+    insmod /vendor/lib/modules/focaltech_ft3683g.ko
     insmod /lib/modules/adaptive-ts.ko
     insmod /lib/modules/gt9916_common.ko
     insmod /lib/modules/focaltech_ft3683g.ko
+    chmod 0666 /dev/input/*
 
     # Haptics & Vibration permissions
     rm /sys/class/leds/vibrator
