@@ -99,17 +99,18 @@ on boot
     chmod 0666 /sys/class/leds/vibrator/state
     chmod 0666 /sys/class/leds/vibrator/brightness
 
-# Gatekeeper
-service vendor.gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-service
+# Gatekeeper AIDL
+service vendor.gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper-service.trustonic
     class early_hal
-    interface android.hardware.gatekeeper@1.0::IGatekeeper default
+    interface aidl android.hardware.gatekeeper.IGatekeeper/default
     user root
     group root
     seclabel u:r:recovery:s0
 
-# Keymint
-service vendor.keymint-trustonic /vendor/bin/hw/android.hardware.security.keymint-service.trustonic
+# Keymint AIDL
+service vendor.keymint-trustonic /vendor/bin/hw/android.hardware.security.keymint@3.0-service.trustonic
     class early_hal
+    interface aidl android.hardware.security.keymint.IKeyMintDevice/default
     user system
     group system drmrpc
     seclabel u:r:recovery:s0

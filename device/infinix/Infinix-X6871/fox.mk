@@ -33,11 +33,17 @@ OF_DYNAMIC_FULL_SIZE := 12426428416
 OF_CLOCK_POS := 0
 OF_FORCE_CASEFOLDING := 1
 
-# Flashlight (MediaTek OCP81375 camera flash driver)
+# Flashlight (MediaTek OCP81375 / SGM37864 camera flash driver)
 OF_FLASHLIGHT_ENABLE := 1
-OF_FL_PATH1 := /sys/devices/platform/11cb0000.i2c/i2c-7/7-0050/leds/torch/brightness
+OF_FL_PATH1 := /flashlight/brightness
 OF_FL_PATH2 := /sys/class/torch/torch/torch_level
+OF_FLASHLIGHT_PATH := /sys/class/torch/torch/torch_level
 OF_USE_GREEN_LED := 0
+
+# Vibration & Haptics (MT6368 Regulator-Vibrator)
+OF_ENABLE_VIBRATION := 1
+OF_VIBRATION_DEFAULT_DURATION := 25
+CUSTOM_VIBRATOR_PATH := /sys/class/leds/vibrator/brightness
 
 
 # Backup & Storage

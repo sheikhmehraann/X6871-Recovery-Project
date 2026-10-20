@@ -133,8 +133,8 @@ MTK_VENDOR16_RAMDISK_MODULES_DIR := $(DEVICE_PATH)/prebuilt/modules
 MTK_VENDOR16_RAMDISK_FSTABS := $(DEVICE_PATH)/recovery/root/first_stage_ramdisk/fstab.mt6895
 $(call inherit-product, $(DEVICE_PATH)/common/mt6895-vendor16/vendor_ramdisk.mk)
 
-# Recovery touch modules (Goodix GT9896S / GT9916 & Focaltech FT3683G)
-RECOVERY_TOUCH_MODULES := \
+# Recovery touch & flashlight hardware modules
+RECOVERY_HARDWARE_MODULES := \
     adaptive-ts.ko \
     gt9916_common.ko \
     tui-common.ko \
@@ -142,9 +142,15 @@ RECOVERY_TOUCH_MODULES := \
     gt9896s.ko \
     touch_boost.ko \
     ts_scp_common.ko \
-    spi-mt65xx.ko
+    spi-mt65xx.ko \
+    mtk_mdpm.ko \
+    mtk_dynamic_loading_throttling.ko \
+    mtk_pbm.ko \
+    flashlight.ko \
+    ocp81375_v4l2.ko \
+    sgm37864_v4l2.ko
 
-PRODUCT_COPY_FILES += $(foreach mod,$(RECOVERY_TOUCH_MODULES), \
+PRODUCT_COPY_FILES += $(foreach mod,$(RECOVERY_HARDWARE_MODULES), \
     $(DEVICE_PATH)/prebuilt/modules/$(mod):$(TARGET_COPY_OUT_RECOVERY)/root/vendor/lib/modules/$(mod) \
     $(DEVICE_PATH)/prebuilt/modules/$(mod):$(TARGET_COPY_OUT_RECOVERY)/root/system/lib/modules/$(mod) \
     $(DEVICE_PATH)/prebuilt/modules/$(mod):$(TARGET_COPY_OUT_RECOVERY)/root/lib/modules/$(mod))
