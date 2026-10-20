@@ -56,7 +56,6 @@
 /transec			emmc		/dev/block/by-name/transec										flags=display="TranSec";backup=1
 /boot_para			emmc		/dev/block/by-name/boot_para									flags=display="Boot Para";backup=1
 /para				emmc		/dev/block/by-name/para											flags=display="Para";backup=1
-/metadata			ext4		/dev/block/by-name/metadata										flags=display="Metadata";backup=1
 /misc				emmc		/dev/block/by-name/misc											flags=display="Misc";backup=1
 
 # Removable Storage (USB-OTG)

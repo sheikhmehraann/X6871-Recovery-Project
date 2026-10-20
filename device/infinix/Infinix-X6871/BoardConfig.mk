@@ -51,8 +51,6 @@ BOARD_VENDOR_BASE := 0x3fff8000
 
 BOARD_VENDOR_CMDLINE := bootopt=64S3,32N2,64N2 androidboot.selinux=permissive bootconfig
 BOARD_BOOTCONFIG += androidboot.selinux=permissive
-BOARD_BOOTCONFIG += androidboot.boot_devices=bootdevice,soc/112b0000.ufshci,112b0000.ufshci
-BOARD_BOOTCONFIG += firmware_class.path=/odm/firmware,/vendor/firmware
 BOARD_BOOTCONFIG += kernel.rcu_nocbs=all
 BOARD_BOOTCONFIG += kernel.rcutree.enable_rcu_lazy=1
 BOARD_BOOTCONFIG += kernel.rcupdate.rcu_cpu_stall_cputime=1
