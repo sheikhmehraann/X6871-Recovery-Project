@@ -74,6 +74,13 @@ def repack(stock_path, built_path, output_path):
             
     uncompressed_frag0 = b''.join(blocks)
     print(f"Fragment 0 uncompressed size: {len(uncompressed_frag0)} bytes")
+
+    # In stock Android 16 vendor ramdisk (Fragment 0), health and bootctl AIDL manifests carry version="9.0".
+    # Recovery servicemanager is built with libvintf 8.0, causing parse abort (-22)
+    # and breaking keystore2/keymint registration. Patch to version="8.0" in-place.
+    if b'version="9.0"' in uncompressed_frag0:
+        print("Sanitizing VINTF manifest version 9.0 -> 8.0 in Fragment 0 CPIO...")
+        uncompressed_frag0 = uncompressed_frag0.replace(b'version="9.0"', b'version="8.0"')
     
     cctx = zstd.ZstdCompressor(level=12)
     frag0_zstd = cctx.compress(uncompressed_frag0)
