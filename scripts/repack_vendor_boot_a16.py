@@ -116,7 +116,8 @@ def repack(stock_path, built_path, output_path):
     # Decompress recovery ramdisk to sanitize VINTF manifests if needed
     dctx = zstd.ZstdDecompressor()
     if raw_rec_data[:4] == b'\x28\xb5\x2f\xfd':
-        uncompressed_rec = dctx.decompress(raw_rec_data)
+        reader = dctx.stream_reader(io.BytesIO(raw_rec_data))
+        uncompressed_rec = reader.read()
         print(f"Decompressed ZSTD recovery ramdisk size: {len(uncompressed_rec)} bytes")
     elif raw_rec_data[:2] == b'\x1f\x8b':
         uncompressed_rec = gzip.decompress(raw_rec_data)
