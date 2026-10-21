@@ -1,28 +1,23 @@
 import /init.tee.rc
 import /init.device.rc
-import /system/etc/init/create_pl_dev.rc
-import /create_pl_dev.rc
 
 on early-init
-    symlink /system/etc/recovery.fstab /etc/recovery.fstab
-    symlink /system/etc/recovery.fstab /fstab.mt6895
-    symlink /system/etc/recovery.fstab /fstab.default
-    symlink /system/etc/recovery.fstab /vendor/etc/fstab.mt6895
-    symlink /system/etc/recovery.fstab /odm/etc/fstab.mt6895
-    symlink /system/etc/twrp.flags /etc/twrp.flags
-    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.build.version.release 15
-    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.build.version.release_or_codename 15
-    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.build.version.sdk 35
-    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.build.version.security_patch 2026-07-01
-    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.vendor.build.security_patch 2026-07-01
+    wait /dev/block/platform/soc/112b0000.ufshci
+    symlink /dev/block/platform/soc/112b0000.ufshci /dev/block/bootdevice
+    symlink /dev/block/platform/soc/112b0000.ufshci/by-name /dev/block/bootdevice/by-name
+    symlink /dev/block/platform/soc/112b0000.ufshci/by-name /dev/block/by-name
 
 on init
+    restorecon /kmsg
+    restorecon_recursive /sys/devices/platform/soc/soc:mtk-leds
+    restorecon_recursive /sys/devices/platform/soc/soc:regulator-vibrator/leds/vibrator
+    restorecon /sys/devices/platform/soc/mt_usb/saving
+    symlink /tmp/fstab /etc/fstab
+    export LD_LIBRARY_PATH /system/lib64:/vendor/lib64:/vendor/lib64/hw
     setprop sys.usb.configfs 1
     setprop sys.usb.controller "11201000.usb0"
-    setprop sys.usb.ffs.aio_compat 0
-    export LD_LIBRARY_PATH /system/lib64:/vendor/lib64:/vendor/lib64/hw
+    setprop sys.usb.ffs.aio_compat 1
     setprop crypto.ready 1
-    start boot-hal-1-2
 
     # Exact Stock Device Identity (Infinix GT 20 Pro - X6871)
     setprop ro.product.model "Infinix X6871"
@@ -36,91 +31,77 @@ on init
     setprop ro.build.product "X6871"
     setprop ro.twrp.target.devices "X6871,Infinix-X6871,Infinix_X6871,X6871-OP"
 
-on fs
+    # Hardware blockdevice symlinks
     wait /dev/block/platform/soc/112b0000.ufshci
     symlink /dev/block/platform/soc/112b0000.ufshci /dev/block/bootdevice
-    symlink /dev/block/by-name /dev/block/bootdevice/by-name
+    symlink /dev/block/platform/soc/112b0000.ufshci/by-name /dev/block/bootdevice/by-name
+    symlink /dev/block/platform/soc/112b0000.ufshci/by-name /dev/block/by-name
+
+    # Mount /metadata for vold metadata encryption key (Android 16 GKI)
     wait /dev/block/by-name/metadata
     mount ext4 /dev/block/by-name/metadata /metadata noatime nosuid nodev discard
-    restorecon -R /metadata
+    mkdir /metadata/vold 0700 root root
+    mkdir /metadata/vold/metadata_encryption 0700 root root
     mkdir /metadata/recovery 0770 root root
     chmod 0770 /metadata/recovery
     rm /cache
     symlink /metadata/recovery /cache
+
+    # Mount /mnt/vendor/persist for Trustonic TEE (mobicore mcRegistry)
     wait /dev/block/by-name/persist
     mkdir /mnt/vendor/persist 0771 system system
     mount ext4 /dev/block/by-name/persist /mnt/vendor/persist noatime nosuid nodev
     chown system system /mnt/vendor/persist
     chmod 0771 /mnt/vendor/persist
-    restorecon -R /mnt/vendor/persist
     mkdir /mnt/vendor/persist/mcRegistry 0771 system system
     chown system system /mnt/vendor/persist/mcRegistry
     chmod 0771 /mnt/vendor/persist/mcRegistry
+    mkdir /data/vendor 0775 system system
+    mkdir /data/vendor/mcRegistry 0775 system system
+
+    # Install session keyring for dm-default-key
     install_keyring
-    start mobicore
 
-on post-fs
-    start mobicore
-    start vendor.gatekeeper-1-0
-    start vendor.keymint-trustonic
-    start health-hal-2-1
-
-    # Load MediaTek Dimensity 8200 Hardware CPUFreq / Performance Governor driver
-    insmod /lib/modules/mediatek-cpufreq-hw.ko
-
-    # Load LVTS CPU thermal driver for real soc_max readings
-    insmod /lib/modules/soc_temp_lvts.ko
-
-    # Load flashlight core then camera flash driver
+    # Hardware drivers for touch & flashlight
+    insmod /lib/modules/spi-mt65xx.ko
+    insmod /lib/modules/tui-common.ko
+    insmod /lib/modules/adaptive-ts.ko
+    insmod /lib/modules/gt9916_common.ko
+    insmod /lib/modules/focaltech_ft3683g.ko
+    insmod /lib/modules/gt9896s.ko
+    insmod /lib/modules/mtk_mdpm.ko
+    insmod /lib/modules/mtk_dynamic_loading_throttling.ko
+    insmod /lib/modules/mtk_pbm.ko
     insmod /lib/modules/flashlight.ko
-    insmod /lib/modules/ocp81375.ko
-    insmod /lib/modules/sgm37864.ko
+    insmod /lib/modules/ocp81375_v4l2.ko
+    insmod /lib/modules/sgm37864_v4l2.ko
 
-    # Load AWINIC / Richtap haptics driver
-    insmod /lib/modules/richtap_haptic_hv.ko
-
-    # Haptics legacy symlink for TWRP/OrangeFox UI (after driver load)
-    symlink /sys/class/leds/vibrator_single /sys/class/leds/vibrator
-
-on boot
-    setprop sys.usb.config adb
-    start mtk.plpath.utils.link
-    chmod 0755 /system/bin/fox_apply_splash.sh
-
-    # Rear camera flashlight permissions (MediaTek OCP81375)
+    # Flashlight bridge for OrangeFox GUI (real rear camera torch)
+    mkdir /flashlight 0777 root root
+    rm /flashlight/brightness
+    symlink /sys/class/torch/torch/torch_level /flashlight/brightness
+    write /flashlight/max_brightness 1
+    chmod 0777 /flashlight
+    chmod 0666 /flashlight/brightness
+    chmod 0666 /flashlight/max_brightness
     chmod 0666 /sys/class/torch/torch/torch_level
     chmod 0666 /sys/devices/virtual/torch/torch/torch_level
 
-    # Haptics & Vibration permissions (MediaTek AW8697 / vibrator_single)
-    chmod 0666 /sys/class/leds/vibrator_single/duration
-    chmod 0666 /sys/class/leds/vibrator_single/activate
-    chmod 0666 /sys/class/leds/vibrator_single/state
-    chmod 0666 /sys/class/leds/vibrator_single/vibr_level
-    chmod 0666 /sys/class/leds/vibrator_single/brightness
-    chmod 0666 /sys/class/leds/vibrator_single/gain
+    # Haptics & Vibration (both AW8697 vibrator_single and MT6368 regulator-vibrator)
     chmod 0666 /sys/class/leds/vibrator/duration
     chmod 0666 /sys/class/leds/vibrator/activate
     chmod 0666 /sys/class/leds/vibrator/state
     chmod 0666 /sys/class/leds/vibrator/brightness
+    chmod 0666 /sys/class/leds/vibrator_single/duration
+    chmod 0666 /sys/class/leds/vibrator_single/activate
+    chmod 0666 /sys/class/leds/vibrator_single/state
+    chmod 0666 /sys/class/leds/vibrator_single/brightness
+    symlink /sys/class/leds/vibrator_single /sys/class/leds/vibrator
 
-    # Thermal sensor permissions (MT6895 soc_max)
-    chmod 0666 /sys/class/thermal/thermal_zone0/temp
-    chmod 0666 /sys/devices/virtual/thermal/thermal_zone0/temp
-
-    # CPU governor & recovery performance mode permissions
-    chmod 0666 /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
-    chmod 0666 /sys/devices/system/cpu/cpufreq/policy4/scaling_governor
-    chmod 0666 /sys/devices/system/cpu/cpufreq/policy7/scaling_governor
-    chmod 0666 /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
-    chmod 0666 /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
-    chmod 0666 /sys/devices/system/cpu/cpu7/cpufreq/scaling_governor
-
-    # Fast Charge permissions (MediaTek MT6375 / Charger)
-    chmod 0666 /sys/class/power_supply/charger/input_current_limit
-    chmod 0666 /sys/class/power_supply/charger/constant_charge_current
-    chmod 0666 /sys/class/power_supply/battery/current_now
-
-
+    # TEE Device node permissions for KeyMint and Keystore2
+    chmod 0666 /dev/mobicore
+    chmod 0666 /dev/mobicore-user
+    chmod 0666 /dev/teeperf
 
 on property:persist.vendor.mtk.pl_lnk=1
     symlink /dev/block/mapper/pl_a /dev/block/by-name/preloader_raw_a
@@ -149,49 +130,82 @@ on property:vendor.mtk.boot1_linkb=1
 on property:vendor.mtk.boot1_linkc=1
     symlink /dev/block/sdc /dev/block/mmcblk0boot1
 
-service mtk.plpath.utils.link /system/bin/mtk_plpath_utils
-    class main
-    user root
-    group root system
-    oneshot
-    disabled
-    seclabel u:r:recovery:s0
-
-service vendor.gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-service
-    interface android.hardware.gatekeeper@1.0::IGatekeeper default
-    user root
-    group root
-    disabled
-    seclabel u:r:recovery:s0
-
-service vendor.keymint-trustonic /vendor/bin/hw/android.hardware.security.keymint-service.trustonic
-    class early_hal
-    user system
-    group system drmrpc
-    disabled
-    seclabel u:r:recovery:s0
-
-service health-hal-2-1 /vendor/bin/hw/android.hardware.health@2.1-service
-    class hal
-    user system
-    group system
-    disabled
-    capabilities WAKE_ALARM BLOCK_SUSPEND
-    file /dev/kmsg w
-    seclabel u:r:recovery:s0
+on property:servicemanager.ready=true
+    setprop sys.boot_completed 1
+    mkdir /tmp/misc 0777 root root
+    mkdir /tmp/misc/keystore 0777 root root
+    start mobicore
+    start keystore2
+    start vendor.keymint-trustonic
+    start vendor.gatekeeper-default
+    start tee-service
 
 on property:ro.crypto.state=encrypted
     start mobicore
-    start vendor.gatekeeper-1-0
+    start keystore2
     start vendor.keymint-trustonic
-    start health-hal-2-1
+    start vendor.gatekeeper-default
+    start tee-service
 
-on property:servicemanager.ready=true
-    setprop sys.boot_completed 1
+on property:ro.vendor.trustonic.ready=true
+    start tee-service
+    start vendor.gatekeeper-default
 
-on property:twrp.decrypt.done=true
-    mkdir /data/media/0/Fox 0777 media_rw media_rw
-    chmod 0777 /data/media/0/Fox
-    chown media_rw media_rw /data/media/0/Fox
-    chmod 0666 /data/media/0/Fox/*
+on boot
+    setprop sys.usb.config adb
+    mkdir /tmp/misc 0777 root root
+    mkdir /tmp/misc/keystore 0777 root root
+    start mobicore
+    start keystore2
+    start vendor.keymint-trustonic
+    start vendor.gatekeeper-default
+    start tee-service
+    write /sys/fs/selinux/enforce 0
 
+# Gatekeeper AIDL service
+service vendor.gatekeeper-default /vendor/bin/hw/android.hardware.gatekeeper-service.trustonic
+    class early_hal
+    interface aidl android.hardware.gatekeeper.IGatekeeper/default
+    user root
+    group root system
+    disabled
+    seclabel u:r:recovery:s0
+
+# Keymint AIDL service (Trustonic RKP v1)
+service vendor.keymint-trustonic /vendor/bin/hw/android.hardware.security.keymint@3.0-service.trustonic --rkp_version=v1
+    class early_hal
+    interface aidl android.hardware.security.keymint.IKeyMintDevice/default
+    interface aidl android.hardware.security.sharedsecret.ISharedSecret/default
+    interface aidl android.hardware.security.secureclock.ISecureClock/default
+    user root
+    group root system drmrpc
+    disabled
+    seclabel u:r:recovery:s0
+
+# Tee service AIDL
+service tee-service /vendor/bin/hw/vendor.trustonic.tee-service
+    class early_hal
+    user root
+    group root system
+    disabled
+    seclabel u:r:recovery:s0
+
+# Health HAL service definition (root permissions for sysfs battery nodes)
+service vendor.health-default /system/bin/hw/android.hardware.health-service.example_recovery
+    class hal
+    user root
+    group root
+    capabilities WAKE_ALARM BLOCK_SUSPEND
+    file /dev/kmsg w
+    seclabel u:r:recovery:s0
+    override
+
+# Keystore2 service definition
+service keystore2 /system/bin/keystore2 /tmp/misc/keystore
+    class early_hal
+    interface aidl android.system.keystore2.IKeystoreService/default
+    user root
+    group root keystore readproc log
+    writepid /dev/cpuset/foreground/tasks
+    seclabel u:r:recovery:s0
+    override
