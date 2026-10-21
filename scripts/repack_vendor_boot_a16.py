@@ -75,9 +75,18 @@ def repack(stock_path, built_path, output_path):
     uncompressed_frag0 = b''.join(blocks)
     print(f"Fragment 0 uncompressed size: {len(uncompressed_frag0)} bytes")
 
-    # In stock Android 16 vendor ramdisk (Fragment 0), health and bootctl AIDL manifests carry version="9.0".
-    # Recovery servicemanager is built with libvintf 8.0, causing parse abort (-22)
-    # and breaking keystore2/keymint registration. Patch to version="8.0" in-place.
+    # In Android 16, bootctl and health manifests are typed as 'device' but placed in 'system/etc/vintf/manifest/'.
+    # Recovery servicemanager parses /system as framework, failing with:
+    # "Cannot add a device manifest to a framework manifest" and "Unrecognized manifest.version 9.0 (libvintf@8.0)".
+    # Rewrite paths to vendor/etc/vintf/manifest/ and version to 8.0 in-place (100% byte length identical).
+    p1 = b'system/etc/vintf/manifest/android.hardware.boot-service.mtk.xml'
+    t1 = b'vendor/etc/vintf/manifest/android.hardware.boot-service.mtk.xml'
+    p2 = b'system/etc/vintf/manifest/android.hardware.health-service.example.xml'
+    t2 = b'vendor/etc/vintf/manifest/android.hardware.health-service.example.xml'
+
+    if p1 in uncompressed_frag0 or p2 in uncompressed_frag0:
+        print("Redirecting device manifest fragments from /system to /vendor in Fragment 0 CPIO...")
+        uncompressed_frag0 = uncompressed_frag0.replace(p1, t1).replace(p2, t2)
     if b'version="9.0"' in uncompressed_frag0:
         print("Sanitizing VINTF manifest version 9.0 -> 8.0 in Fragment 0 CPIO...")
         uncompressed_frag0 = uncompressed_frag0.replace(b'version="9.0"', b'version="8.0"')
@@ -133,11 +142,14 @@ def repack(stock_path, built_path, output_path):
         uncompressed_rec = raw_rec_data
         print(f"Raw uncompressed recovery ramdisk size: {len(uncompressed_rec)} bytes")
 
-    # In AOSP Android 16, health and bootctl AIDL manifests carry version="9.0".
-    # Recovery servicemanager is built with libvintf 8.0, causing parse abort (-22)
-    # and breaking keystore2/keymint registration. Patch to version="8.0" in-place.
+    # In AOSP Android 16, health and bootctl AIDL manifests carry version="9.0" and type="device".
+    # Recovery servicemanager parses /system as framework, causing parse aborts.
+    # Rewrite paths to vendor and version to 8.0 in-place.
+    if p1 in uncompressed_rec or p2 in uncompressed_rec:
+        print("Redirecting device manifest fragments from /system to /vendor in Fragment 1 CPIO...")
+        uncompressed_rec = uncompressed_rec.replace(p1, t1).replace(p2, t2)
     if b'version="9.0"' in uncompressed_rec:
-        print("Sanitizing VINTF manifest version 9.0 -> 8.0 in recovery ramdisk CPIO...")
+        print("Sanitizing VINTF manifest version 9.0 -> 8.0 in Fragment 1 CPIO...")
         uncompressed_rec = uncompressed_rec.replace(b'version="9.0"', b'version="8.0"')
 
     frag1_zstd = cctx.compress(uncompressed_rec)
