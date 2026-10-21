@@ -5,8 +5,10 @@ on init
     # Flashlight hardware bridge for OrangeFox GUI
     mkdir /flashlight 0777 root root
     symlink /sys/class/torch/torch/torch_level /flashlight/brightness
+    write /flashlight/max_brightness 1
     chmod 0777 /flashlight
     chmod 0666 /flashlight/brightness
+    chmod 0666 /flashlight/max_brightness
     chmod 0666 /sys/class/torch/torch/torch_level
     chmod 0666 /sys/class/sub_torch/sub_torch/sub_torch_level
     chmod 0666 /sys/devices/virtual/torch/torch/torch_level
@@ -19,8 +21,10 @@ on post-fs-data
     mkdir /flashlight 0777 root root
     rm /flashlight/brightness
     symlink /sys/class/torch/torch/torch_level /flashlight/brightness
+    write /flashlight/max_brightness 1
     chmod 0777 /flashlight
     chmod 0666 /flashlight/brightness
+    chmod 0666 /flashlight/max_brightness
     chmod 0666 /sys/class/torch/torch/torch_level
     chmod 0666 /sys/class/sub_torch/sub_torch/sub_torch_level
 
@@ -70,8 +74,10 @@ on boot
     mkdir /flashlight 0777 root root
     rm /flashlight/brightness
     symlink /sys/class/torch/torch/torch_level /flashlight/brightness
+    write /flashlight/max_brightness 1
     chmod 0777 /flashlight
     chmod 0666 /flashlight/brightness
+    chmod 0666 /flashlight/max_brightness
     chmod 0666 /sys/class/torch/torch/torch_level
     chmod 0666 /sys/devices/virtual/torch/torch/torch_level
     chmod 0666 /sys/devices/virtual/flashlight_core/flashlight/flashlight_torch

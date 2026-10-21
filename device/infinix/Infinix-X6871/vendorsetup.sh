@@ -21,6 +21,15 @@ export FOX_INSTALLER_VENDOR_BOOT_RAMDISK_INSTALL=0
 unset FOX_VENDOR_BOOT_POSTPROCESS_SCRIPT FOX_REFERENCE_VENDOR_BOOT_IMAGE
 export FOX_USE_ZSTD_BINARY=1
 export FOX_USE_DMSETUP=1
+export OF_FLASHLIGHT_ENABLE=1
+export OF_FL_PATH1="/flashlight"
+export OF_ENABLE_VIBRATION=1
+export OF_VIBRATION_DEFAULT_DURATION=100
+export OF_USE_NEW_HAPTICS=1
+export OF_SCREEN_H=2436
+export OF_STATUS_H=90
+export OF_STATUS_INDENT_LEFT=48
+export OF_STATUS_INDENT_RIGHT=48
 
 legacy_patch="${device_dir}/patches/03-patch-vendor-boot-postprocess.patch"
 if (cd "${workspace_root}" && patch -p1 -R --dry-run --silent < "${legacy_patch}" >/dev/null 2>&1); then

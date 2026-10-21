@@ -113,18 +113,26 @@ def repack(stock_path, built_path, output_path):
         
     print(f"Built recovery raw size: {rec_size} bytes (magic: {raw_rec_data[:4].hex()})")
     
-    # Check if recovery ramdisk is already ZSTD
+    # Decompress recovery ramdisk to sanitize VINTF manifests if needed
+    dctx = zstd.ZstdDecompressor()
     if raw_rec_data[:4] == b'\x28\xb5\x2f\xfd':
-        print("Built recovery ramdisk is already ZSTD compressed, using directly.")
-        frag1_zstd = raw_rec_data
+        uncompressed_rec = dctx.decompress(raw_rec_data)
+        print(f"Decompressed ZSTD recovery ramdisk size: {len(uncompressed_rec)} bytes")
     elif raw_rec_data[:2] == b'\x1f\x8b':
         uncompressed_rec = gzip.decompress(raw_rec_data)
         print(f"Uncompressed gzip recovery ramdisk size: {len(uncompressed_rec)} bytes")
-        frag1_zstd = cctx.compress(uncompressed_rec)
     else:
-        print(f"Raw recovery ramdisk size: {len(raw_rec_data)} bytes")
-        frag1_zstd = cctx.compress(raw_rec_data)
-        
+        uncompressed_rec = raw_rec_data
+        print(f"Raw uncompressed recovery ramdisk size: {len(uncompressed_rec)} bytes")
+
+    # In AOSP Android 16, health and bootctl AIDL manifests carry version="9.0".
+    # Recovery servicemanager is built with libvintf 8.0, causing parse abort (-22)
+    # and breaking keystore2/keymint registration. Patch to version="8.0" in-place.
+    if b'version="9.0"' in uncompressed_rec:
+        print("Sanitizing VINTF manifest version 9.0 -> 8.0 in recovery ramdisk CPIO...")
+        uncompressed_rec = uncompressed_rec.replace(b'version="9.0"', b'version="8.0"')
+
+    frag1_zstd = cctx.compress(uncompressed_rec)
     print(f"Fragment 1 ZSTD size: {len(frag1_zstd)} bytes ({len(frag1_zstd)/1024/1024:.2f} MB)")
     
     total_ramdisk = frag0_zstd + frag1_zstd

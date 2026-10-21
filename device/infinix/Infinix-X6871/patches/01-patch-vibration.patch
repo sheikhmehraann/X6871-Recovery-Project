@@ -14,7 +14,7 @@
  #else
 -    if (std::ifstream(LEDS_HAPTICS_ACTIVATE_FILE).good()) {
 +    if (std::ifstream(LEDS_VIBRATOR_BRIGHTNESS_FILE).good()) {
-+        if (timeout_ms < 80) timeout_ms = 80;
++        if (timeout_ms < 100) timeout_ms = 100;
 +        write_to_file(LEDS_VIBRATOR_BRIGHTNESS_FILE, "255");
 +        usleep(timeout_ms * 1000);
 +        write_to_file(LEDS_VIBRATOR_BRIGHTNESS_FILE, "0");
