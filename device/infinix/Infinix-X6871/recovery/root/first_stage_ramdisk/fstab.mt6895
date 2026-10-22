@@ -162,10 +162,6 @@ system_dlkm /system_dlkm ext4 ro wait,slotselect,avb,logical,first_stage_mount
 
 
 
-tr_mi /tr_mi ext4 ro wait,slotselect,logical,first_stage_mount,avb_keys=/vendor/etc/tran_avb.pubkey,nofail
-tr_mi /tr_mi erofs ro wait,slotselect,logical,first_stage_mount,avb_keys=/vendor/etc/tran_avb.pubkey,nofail
-tr_theme /tr_theme ext4 ro wait,slotselect,logical,first_stage_mount,avb_keys=/vendor/etc/tran_avb.pubkey,nofail
-tr_theme /tr_theme erofs ro wait,slotselect,logical,first_stage_mount,avb_keys=/vendor/etc/tran_avb.pubkey,nofail
 tr_region /tr_region ext4 ro wait,slotselect,logical,first_stage_mount,avb_keys=/vendor/etc/tran_avb.pubkey,nofail
 tr_region /tr_region erofs ro wait,slotselect,logical,first_stage_mount,avb_keys=/vendor/etc/tran_avb.pubkey,nofail
 tr_company /tr_company ext4 ro wait,slotselect,logical,first_stage_mount,avb_keys=/vendor/etc/tran_avb.pubkey,nofail
@@ -178,35 +174,7 @@ tr_preload /tr_preload ext4 ro wait,slotselect,logical,first_stage_mount,avb_key
 tr_preload /tr_preload erofs ro wait,slotselect,logical,first_stage_mount,avb_keys=/vendor/etc/tran_avb.pubkey,nofail
 tr_overlayfs /tr_overlayfs ext4 ro wait,slotselect,logical,first_stage_mount,avb_keys=/vendor/etc/tran_avb.pubkey,nofail
 tr_overlayfs /tr_overlayfs erofs ro wait,slotselect,logical,first_stage_mount,avb_keys=/vendor/etc/tran_avb.pubkey,nofail
-tr_system /tr_system ext4 ro wait,slotselect,logical,first_stage_mount,nofail
-tr_system /tr_system erofs ro wait,slotselect,logical,first_stage_mount,nofail
 tr_misc /tr_misc ext4 ro wait,slotselect,logical,first_stage_mount,nofail
 tr_misc /tr_misc erofs ro wait,slotselect,logical,first_stage_mount,nofail
 tr_manifest /tr_manifest ext4 ro wait,slotselect,logical,first_stage_mount,nofail
 tr_manifest /tr_manifest erofs ro wait,slotselect,logical,first_stage_mount,nofail
-
-# ColorOS / RealmeUI / OxygenOS logical partitions
-my_product /my_product ext4 ro wait,slotselect,logical,first_stage_mount,nofail
-my_product /my_product erofs ro wait,slotselect,logical,first_stage_mount,nofail
-my_engineering /my_engineering ext4 ro wait,slotselect,logical,first_stage_mount,nofail
-my_engineering /my_engineering erofs ro wait,slotselect,logical,first_stage_mount,nofail
-my_company /my_company ext4 ro wait,slotselect,logical,first_stage_mount,nofail
-my_company /my_company erofs ro wait,slotselect,logical,first_stage_mount,nofail
-my_carrier /my_carrier ext4 ro wait,slotselect,logical,first_stage_mount,nofail
-my_carrier /my_carrier erofs ro wait,slotselect,logical,first_stage_mount,nofail
-my_region /my_region ext4 ro wait,slotselect,logical,first_stage_mount,nofail
-my_region /my_region erofs ro wait,slotselect,logical,first_stage_mount,nofail
-my_heytap /my_heytap ext4 ro wait,slotselect,logical,first_stage_mount,nofail
-my_heytap /my_heytap erofs ro wait,slotselect,logical,first_stage_mount,nofail
-my_stock /my_stock ext4 ro wait,slotselect,logical,first_stage_mount,nofail
-my_stock /my_stock erofs ro wait,slotselect,logical,first_stage_mount,nofail
-my_preload /my_preload ext4 ro wait,slotselect,logical,first_stage_mount,nofail
-my_preload /my_preload erofs ro wait,slotselect,logical,first_stage_mount,nofail
-my_bigball /my_bigball ext4 ro wait,slotselect,logical,first_stage_mount,nofail
-my_bigball /my_bigball erofs ro wait,slotselect,logical,first_stage_mount,nofail
-my_manifest /my_manifest ext4 ro wait,slotselect,logical,first_stage_mount,nofail
-my_manifest /my_manifest erofs ro wait,slotselect,logical,first_stage_mount,nofail
-
-# Xiaomi / HyperOS / MIUI logical partition
-mi_ext /mi_ext ext4 ro wait,slotselect,logical,first_stage_mount,nofail
-mi_ext /mi_ext erofs ro wait,slotselect,logical,first_stage_mount,nofail

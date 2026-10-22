@@ -61,6 +61,9 @@ for patch_file in "${patch_files[@]}"; do
     fi
 done
 
+# Ensure Unmap_Super_Devices does not abort Format Data on unmap errors
+python3 "${device_dir}/patch_pm.py" "${workspace_root}" 2>/dev/null || true
+
 if [[ "${patches_ok}" != true ]]; then
     unset device_dir workspace_root patch_files patch_file patches_ok
     return 1
