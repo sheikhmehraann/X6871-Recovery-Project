@@ -177,6 +177,15 @@ service fox_flashlight_bridge /system/bin/sh /system/bin/fox_flashlight_bridge.s
     seclabel u:r:recovery:s0
     oneshot
 
+# MediaTek AIDL BootControl HAL
+service vendor.boot-default /system/bin/hw/android.hardware.boot-service.mtk
+    class early_hal
+    user root
+    group root
+    interface aidl android.hardware.boot.IBootControl/default
+    seclabel u:r:recovery:s0
+    override
+
 # Health HAL service definition (root permissions for sysfs battery nodes)
 service vendor.health-default /system/bin/hw/android.hardware.health-service.example_recovery
     class hal
