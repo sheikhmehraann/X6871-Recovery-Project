@@ -15,12 +15,11 @@ on init
     symlink /tmp/fstab /etc/fstab
     symlink /first_stage_ramdisk/fstab.mt6895 /fstab.mt6895
     symlink /first_stage_ramdisk/fstab.mt6895 /vendor/etc/fstab.mt6895
-    symlink /vendor/bin/hw/android.hardware.security.keymint-service.trustonic /vendor/bin/hw/android.hardware.security.keymint@3.0-service.trustonic
+    symlink /vendor/bin/hw/android.hardware.security.keymint@3.0-service.trustonic /vendor/bin/hw/android.hardware.security.keymint-service.trustonic
     export LD_LIBRARY_PATH /system/lib64:/vendor/lib64:/vendor/lib64/hw
     setprop sys.usb.configfs 1
     setprop sys.usb.controller "11201000.usb0"
     setprop sys.usb.ffs.aio_compat 1
-    setprop crypto.ready 1
     setprop ro.crypto.set_dun true
 
     # Exact Stock Device Identity (Infinix GT 20 Pro - X6871)
@@ -125,21 +124,22 @@ on property:vendor.mtk.boot1_linkb=1
 on property:vendor.mtk.boot1_linkc=1
     symlink /dev/block/sdc /dev/block/mmcblk0boot1
 
+# Sequential Trustonic TEE bringup
+on property:ro.crypto.state=encrypted && property:ro.boot.dynamic_partitions=true
+    start mobicore
+
+on property:ro.vendor.trustonic.ready=true
+    start vendor.gatekeeper-default
+    start vendor.keymint-trustonic
+    setprop crypto.ready 1
+
 on property:servicemanager.ready=true
     setprop sys.boot_completed 1
     mkdir /tmp/misc 0777 root root
     mkdir /tmp/misc/keystore 0777 root root
     start mobicore
     start keystore2
-    start vendor.keymint-trustonic
-    start vendor.gatekeeper-default
     start fox_flashlight_bridge
-
-on property:ro.crypto.state=encrypted
-    start mobicore
-    start keystore2
-    start vendor.keymint-trustonic
-    start vendor.gatekeeper-default
 
 on boot
     setprop sys.usb.config adb
@@ -147,22 +147,23 @@ on boot
     mkdir /tmp/misc/keystore 0777 root root
     start mobicore
     start keystore2
-    start vendor.keymint-trustonic
-    start vendor.gatekeeper-default
     start fox_flashlight_bridge
     write /sys/fs/selinux/enforce 0
 
-# Gatekeeper HIDL service (Android 14/15/16 Trustonic)
-service vendor.gatekeeper-default /vendor/bin/hw/android.hardware.gatekeeper@1.0-service
+# Gatekeeper service (Trustonic)
+service vendor.gatekeeper-default /vendor/bin/hw/android.hardware.gatekeeper-service.trustonic
     class early_hal
+    interface android.hardware.gatekeeper@1.0::IGatekeeper default
     user root
     group root system
     disabled
     seclabel u:r:recovery:s0
 
-# Keymint AIDL service (Trustonic RKP v1)
-service vendor.keymint-trustonic /vendor/bin/hw/android.hardware.security.keymint-service.trustonic --rkp_version=v1
+# Keymint service (Trustonic RKP v1 with Keymaster 4.0/4.1 HIDL fallback)
+service vendor.keymint-trustonic /vendor/bin/hw/android.hardware.security.keymint@3.0-service.trustonic --rkp_version=v1
     class early_hal
+    interface android.hardware.keymaster@4.0::IKeymasterDevice default
+    interface android.hardware.keymaster@4.1::IKeymasterDevice default
     interface aidl android.hardware.security.keymint.IKeyMintDevice/default
     interface aidl android.hardware.security.sharedsecret.ISharedSecret/default
     interface aidl android.hardware.security.secureclock.ISecureClock/default

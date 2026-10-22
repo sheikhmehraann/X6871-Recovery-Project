@@ -43,6 +43,7 @@ ro.postinstall.fstab.prefix=/system
 ro.sys.usb.storage.type=mtp
 
 # Crypto & KeyMint AIDL
+keymaster_ver=4.1
 ro.crypto.volume.filenames_mode=aes-256-cts
 ro.hardware.gatekeeper=trustonic
 ro.hardware.kmsetkey=trustonic

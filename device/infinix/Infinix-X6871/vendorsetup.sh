@@ -9,8 +9,10 @@ patch_files=(
     "${device_dir}/patches/01-patch-vibration.patch"
     "${device_dir}/patches/02-patch-health-hal.patch"
     "${device_dir}/patches/04-patch-native-vendor-ramdisk.patch"
+    "${device_dir}/patches/05-patch-enforcing-recovery.patch"
     "${device_dir}/patches/06-patch-fbe-auth-token.patch"
     "${device_dir}/patches/07-patch-sideload-install-once.patch"
+    "${device_dir}/patches/08-patch-enforcing-runtime.patch"
 )
 
 export ALLOW_MISSING_DEPENDENCIES=true
@@ -21,6 +23,8 @@ export FOX_INSTALLER_VENDOR_BOOT_RAMDISK_INSTALL=0
 unset FOX_VENDOR_BOOT_POSTPROCESS_SCRIPT FOX_REFERENCE_VENDOR_BOOT_IMAGE
 export FOX_USE_ZSTD_BINARY=1
 export FOX_USE_DMSETUP=1
+export OF_DEFAULT_KEYMASTER_VERSION=4.1
+export OF_USE_AIDL_BOOT_CONTROL=1
 export OF_FLASHLIGHT_ENABLE=1
 export OF_FL_PATH1="/flashlight"
 export OF_ENABLE_VIBRATION=1
