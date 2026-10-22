@@ -90,6 +90,29 @@ def repack(stock_path, built_path, output_path):
     if b'version="9.0"' in uncompressed_frag0:
         print("Sanitizing VINTF manifest version 9.0 -> 8.0 in Fragment 0 CPIO...")
         uncompressed_frag0 = uncompressed_frag0.replace(b'version="9.0"', b'version="8.0"')
+
+    # Patch Trustonic TEE kernel module (mcDrvModule.ko) version check:
+    # Kernel 6.12 reports API version 10, but user-space daemons expect version 9.
+    name_idx = uncompressed_frag0.find(b'mcDrvModule.ko')
+    if name_idx != -1:
+        elf_idx = uncompressed_frag0.find(b'\x7fELF', name_idx)
+        if elf_idx != -1:
+            ko_len = 311296
+            ko_data = uncompressed_frag0[elf_idx:elf_idx+ko_len]
+            patches = [
+                (b'\x40\x01\x80\x52', b'\x20\x01\x80\x52'),
+                (b'\x4d\x01\x80\x52', b'\x2d\x01\x80\x52'),
+                (b'\x48\x01\x80\x52', b'\x28\x01\x80\x52'),
+                (b'\x43\x01\x80\x52', b'\x23\x01\x80\x52'),
+            ]
+            for old_bytes, new_bytes in patches:
+                count = ko_data.count(old_bytes)
+                if count > 0:
+                    print(f"Patching mcDrvModule.ko inside Frag0 ({old_bytes.hex()} -> {new_bytes.hex()}, {count} matches)...")
+                    ko_data = ko_data.replace(old_bytes, new_bytes)
+            uncompressed_frag0 = uncompressed_frag0[:elf_idx] + ko_data + uncompressed_frag0[elf_idx+ko_len:]
+    else:
+        print("Warning: mcDrvModule.ko not found in Fragment 0 CPIO!")
     
     cctx = zstd.ZstdCompressor(level=12)
     frag0_zstd = cctx.compress(uncompressed_frag0)

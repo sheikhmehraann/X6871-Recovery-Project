@@ -13,11 +13,15 @@ on init
     restorecon_recursive /sys/devices/platform/soc/soc:regulator-vibrator/leds/vibrator
     restorecon /sys/devices/platform/soc/mt_usb/saving
     symlink /tmp/fstab /etc/fstab
+    symlink /first_stage_ramdisk/fstab.mt6895 /fstab.mt6895
+    symlink /first_stage_ramdisk/fstab.mt6895 /vendor/etc/fstab.mt6895
+    symlink /vendor/bin/hw/android.hardware.security.keymint-service.trustonic /vendor/bin/hw/android.hardware.security.keymint@3.0-service.trustonic
     export LD_LIBRARY_PATH /system/lib64:/vendor/lib64:/vendor/lib64/hw
     setprop sys.usb.configfs 1
     setprop sys.usb.controller "11201000.usb0"
     setprop sys.usb.ffs.aio_compat 1
     setprop crypto.ready 1
+    setprop ro.crypto.set_dun true
 
     # Exact Stock Device Identity (Infinix GT 20 Pro - X6871)
     setprop ro.product.model "Infinix X6871"
@@ -78,25 +82,16 @@ on init
 
     # Flashlight bridge for OrangeFox GUI (real rear camera torch)
     mkdir /flashlight 0777 root root
-    rm /flashlight/brightness
-    symlink /sys/class/torch/torch/torch_level /flashlight/brightness
+    exec_background /system/bin/sh -c "rm -f /flashlight/brightness && mkfifo /flashlight/brightness && chmod 0666 /flashlight/brightness"
     write /flashlight/max_brightness 1
     chmod 0777 /flashlight
-    chmod 0666 /flashlight/brightness
     chmod 0666 /flashlight/max_brightness
-    chmod 0666 /sys/class/torch/torch/torch_level
-    chmod 0666 /sys/devices/virtual/torch/torch/torch_level
 
-    # Haptics & Vibration (both AW8697 vibrator_single and MT6368 regulator-vibrator)
+    # Haptics & Vibration (MT6368 regulator-vibrator)
     chmod 0666 /sys/class/leds/vibrator/duration
     chmod 0666 /sys/class/leds/vibrator/activate
     chmod 0666 /sys/class/leds/vibrator/state
     chmod 0666 /sys/class/leds/vibrator/brightness
-    chmod 0666 /sys/class/leds/vibrator_single/duration
-    chmod 0666 /sys/class/leds/vibrator_single/activate
-    chmod 0666 /sys/class/leds/vibrator_single/state
-    chmod 0666 /sys/class/leds/vibrator_single/brightness
-    symlink /sys/class/leds/vibrator_single /sys/class/leds/vibrator
 
     # TEE Device node permissions for KeyMint and Keystore2
     chmod 0666 /dev/mobicore
@@ -138,17 +133,12 @@ on property:servicemanager.ready=true
     start keystore2
     start vendor.keymint-trustonic
     start vendor.gatekeeper-default
-    start tee-service
+    start fox_flashlight_bridge
 
 on property:ro.crypto.state=encrypted
     start mobicore
     start keystore2
     start vendor.keymint-trustonic
-    start vendor.gatekeeper-default
-    start tee-service
-
-on property:ro.vendor.trustonic.ready=true
-    start tee-service
     start vendor.gatekeeper-default
 
 on boot
@@ -159,20 +149,19 @@ on boot
     start keystore2
     start vendor.keymint-trustonic
     start vendor.gatekeeper-default
-    start tee-service
+    start fox_flashlight_bridge
     write /sys/fs/selinux/enforce 0
 
-# Gatekeeper AIDL service
-service vendor.gatekeeper-default /vendor/bin/hw/android.hardware.gatekeeper-service.trustonic
+# Gatekeeper HIDL service (Android 14/15/16 Trustonic)
+service vendor.gatekeeper-default /vendor/bin/hw/android.hardware.gatekeeper@1.0-service
     class early_hal
-    interface aidl android.hardware.gatekeeper.IGatekeeper/default
     user root
     group root system
     disabled
     seclabel u:r:recovery:s0
 
 # Keymint AIDL service (Trustonic RKP v1)
-service vendor.keymint-trustonic /vendor/bin/hw/android.hardware.security.keymint@3.0-service.trustonic --rkp_version=v1
+service vendor.keymint-trustonic /vendor/bin/hw/android.hardware.security.keymint-service.trustonic --rkp_version=v1
     class early_hal
     interface aidl android.hardware.security.keymint.IKeyMintDevice/default
     interface aidl android.hardware.security.sharedsecret.ISharedSecret/default
@@ -182,13 +171,12 @@ service vendor.keymint-trustonic /vendor/bin/hw/android.hardware.security.keymin
     disabled
     seclabel u:r:recovery:s0
 
-# Tee service AIDL
-service tee-service /vendor/bin/hw/vendor.trustonic.tee-service
-    class early_hal
+# Flashlight FIFO bridge service
+service fox_flashlight_bridge /system/bin/sh /system/bin/fox_flashlight_bridge.sh
     user root
-    group root system
-    disabled
+    group root
     seclabel u:r:recovery:s0
+    oneshot
 
 # Health HAL service definition (root permissions for sysfs battery nodes)
 service vendor.health-default /system/bin/hw/android.hardware.health-service.example_recovery
