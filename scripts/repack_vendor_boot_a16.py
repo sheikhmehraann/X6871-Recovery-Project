@@ -114,7 +114,7 @@ def repack(stock_path, built_path, output_path):
     else:
         print("Warning: mcDrvModule.ko not found in Fragment 0 CPIO!")
     
-    cctx = zstd.ZstdCompressor(level=12)
+    cctx = zstd.ZstdCompressor(level=19)
     frag0_zstd = cctx.compress(uncompressed_frag0)
     print(f"Fragment 0 ZSTD size: {len(frag0_zstd)} bytes ({len(frag0_zstd)/1024/1024:.2f} MB)")
     
