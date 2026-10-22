@@ -9,11 +9,12 @@ done
 chmod 0666 "$TORCH_NODE"
 
 while true; do
-    if read -r val < "$FIFO"; then
+    while read -r val; do
         if [ "$val" -gt 0 ] 2>/dev/null; then
             echo "0 0 0 1" > "$TORCH_NODE"
         else
             echo "0 0 0 0" > "$TORCH_NODE"
         fi
-    fi
+    done < "$FIFO"
+    sleep 0.1
 done
