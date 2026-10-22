@@ -153,9 +153,9 @@ on boot
 # Gatekeeper service (Trustonic)
 service vendor.gatekeeper-default /vendor/bin/hw/android.hardware.gatekeeper-service.trustonic
     class early_hal
-    interface android.hardware.gatekeeper@1.0::IGatekeeper default
-    user root
-    group root system
+    interface aidl android.hardware.gatekeeper.IGatekeeper/default
+    user system
+    group system
     disabled
     seclabel u:r:recovery:s0
 
@@ -167,8 +167,8 @@ service vendor.keymint-trustonic /vendor/bin/hw/android.hardware.security.keymin
     interface aidl android.hardware.security.keymint.IKeyMintDevice/default
     interface aidl android.hardware.security.sharedsecret.ISharedSecret/default
     interface aidl android.hardware.security.secureclock.ISecureClock/default
-    user root
-    group root system drmrpc
+    user system
+    group system
     disabled
     seclabel u:r:recovery:s0
 
