@@ -1,140 +1,125 @@
-# Multi-Recovery Project for Infinix GT 20 Pro (X6871)
+# Infinix GT 20 Pro (X6871) — Android 16 (Kernel 6.12 GKI) Recovery Project
 
-Unified recovery device tree and automated build configurations for the Infinix GT 20 Pro (`X6871` / `X6871-OP`), powered by the MediaTek Dimensity 8200 Ultimate (`MT6895` / `MT6896`).
+> [!IMPORTANT]
+> **Branch Architecture:** This branch is dedicated to **Android 16 (Stock XOS 16 / Linux 6.12 GKI)** with OrangeFox Recovery 14.1 (AOSP AP2A / SDK 34).
+>
+> 👉 For **Android 15 (Stock XOS 14/15 / Kernel 5.10 / 5.15)**, switch to the [`main`](https://github.com/sheikhmehraann/X6871-Recovery-Project/tree/main) branch.
+
+Automated build configurations and device tree for the Infinix GT 20 Pro (`X6871` / `X6871-OP`), powered by the MediaTek Dimensity 8200 Ultimate (`MT6895` / `MT6896`) running official Android 16.
 
 Maintained by [sheikhmehraann](https://github.com/sheikhmehraann).
 
 ---
 
-## Supported Recoveries
+## Latest Verified Release (Android 16 / Kernel 6.12)
 
-This repository contains build targets and device tree configurations for:
-
-1. **TWRP** (TeamWin Recovery Project) - Target: `twrp_X6871` / `omni_X6871`
-2. **OFRP** (OrangeFox Recovery Project R12.1) - Target: `fox_X6871`
-3. **PBRP** (PitchBlack Recovery Project) - Target: `pb_X6871`
-4. **SHRP** (SkyHawk Recovery Project) - Target: `shrp_X6871`
+* **Current Stable Release:** [`ofox-133`](https://github.com/sheikhmehraann/X6871-Recovery-Project/releases/tag/ofox-133)
+* **Direct Download:** [vendor_boot.img](https://github.com/sheikhmehraann/X6871-Recovery-Project/releases/download/ofox-133/vendor_boot.img)
+* **Checksum (SHA-256):** `77c5ee97589884675e833696a702dca74c3d94b6ea33d175fb3ef74930fa7f67`
+* **Size:** Exactly `67,108,864` bytes (64.0 MB strict physical hardware boundary)
 
 ---
 
-## Device Specifications
+## Device & Architecture Specifications
 
 | Attribute | Value |
 |---|---|
-| Device Model | Infinix GT 20 Pro (`X6871`, `X6871-OP`) |
+| Device Model | Infinix GT 20 Pro (`X6871`, `Infinix-X6871`) |
 | Platform / SoC | MediaTek Dimensity 8200 Ultimate (`MT6895` / `MT6896`) |
-| Display | 1080 x 2436 AMOLED (144Hz refresh rate, single-pipe DRM) |
-| Kernel Version | 6.12.x GKI (Android 16) |
+| Target Firmware | Android 16 (Stock XOS 16 · Build `BP2A.250605.031.A3`) |
+| Kernel Version | Linux 6.12.38 Generic Kernel Image (GKI) |
 | Architecture | ARM64 (`arm64-v8a`) |
-| Partition Layout | Virtual A/B (VAB) with Dynamic Partitions (12.4 GB Super) |
-| Recovery Location | `vendor_boot` (Boot Header v4, 64 MB partition size) |
-| Target Firmware | Android 16 (XOS 16 / X6871-16.3.0.155) |
+| Recovery Location | `vendor_boot` (Boot Header v4, Virtual A/B) |
+| Base Manifest | OrangeFox 14.1 (AOSP AP2A / SDK 34) |
+| Ramdisk Architecture | Dual ZSTD Ramdisk Fragments (Fragment 0: Vendor Platform, Fragment 1: Recovery) |
 
 ---
 
-## Hardware Support & Status
+## Key Hardware Features & Fixes in Android 16
 
-All four recovery variants share the common device tree and include:
-
-- **Storage Decryption:** File-Based Encryption (FBEv2) metadata decryption via hardware KeyMint. Decrypts lockscreen PIN, pattern, and password.
-- **Dynamic Super Partitions:** Maps all logical partitions (`system`, `vendor`, `product`, `system_ext`, `odm`, `odm_dlkm`, `system_dlkm`, `vendor_dlkm`, and regional Transsion/ColorOS/Xiaomi partitions) for flashing, backup, and mounting.
-- **Display Driver:** Single-pipe direct rendering pipeline (`graphics_drm.cpp`) configured for the 1080x2436 144Hz panel.
-- **A/B Slot Operations:** Slot suffix detection and active boot slot switching via `bootctl`.
-- **Peripherals:**
-  - Rear camera LED torch via OCP81375 sysfs interface.
-  - Linear haptics via `vibrator_single`.
-  - CPU thermal telemetry from `thermal_zone0`.
-  - USB ConfigFS (MTP, ADB sideload, and USB-OTG storage).
-- **OrangeFox Specifics:**
-  - Bundled Fox Addons (Magisk, KernelSU v3.3.1 LKM, VBMeta disabler/enabler, pattern/pin remover, FRP remover).
-  - Parallel pigz compression for in-place splash flashing.
-  - Full-height scrollable addons interface with 144Hz kinetic inertia.
+1. **Dual ZSTD Ramdisk Repacker:**
+   - Seamlessly repacks stock Android 16 Fragment 0 (242 MTK kernel modules and firmware) alongside OrangeFox Fragment 1 into the 64 MB hardware boundary.
+2. **Pure AIDL KeyMint & Gatekeeper Decryption:**
+   - Upgraded to KeyMint AIDL v3.0 (`android.hardware.security.keymint@3.0-service.trustonic`) with authenticated Kinibi trustlets.
+   - Decrypts FBEv2 userdata without freezing or dropping credentials.
+3. **AIDL BootControl Linker Integration:**
+   - Shims `android.hardware.boot-service.mtk` against the Android 16 C-library environment, resolving the splash-screen freeze.
+4. **Dynamic Super Partition Table:**
+   - Calibrated exclusively for the 16 real logical hardware volumes (`system`, `system_ext`, `vendor`, `product`, `odm`, `*_dlkm`, and Transsion partitions `tr_carrier`, `tr_company`, `tr_overlayfs`, `tr_preload`, `tr_product`, `tr_region`, `tr_misc`, `tr_manifest`).
+   - Format Data unmaps cleanly without hanging on phantom devices.
+5. **144Hz AMOLED Display Engine:**
+   - Single-pipe Direct Rendering Manager (`graphics_drm.cpp`) configured for 1080x2436 resolution with zero tear.
 
 ---
 
-## Installation
+## Flashing Instructions
 
-The recovery ramdisk resides inside the `vendor_boot` partition. Do not flash to the `boot` partition.
+Flash the compiled `vendor_boot.img` directly to the active boot slot via fastboot:
 
-1. Download the recovery image for your preferred project from GitHub Releases or actions artifacts.
-2. Put the device into Fastboot mode:
-   ```bash
-   adb reboot bootloader
-   ```
-3. Flash the recovery image to both boot slots:
-   ```bash
-   fastboot flash vendor_boot_a vendor_boot.img
-   fastboot flash vendor_boot_b vendor_boot.img
-   ```
-4. Reboot to recovery:
-   ```bash
-   fastboot reboot recovery
-   ```
+```bash
+# 1. Download Build #133 vendor_boot.img
+curl -L -o vendor_boot.img "https://github.com/sheikhmehraann/X6871-Recovery-Project/releases/download/ofox-133/vendor_boot.img"
+
+# 2. Flash to vendor_boot partition
+fastboot flash vendor_boot vendor_boot.img
+
+# 3. Reboot into OrangeFox Recovery
+fastboot reboot recovery
+```
 
 ---
 
 ## Building Locally
 
 ### Setup
-Sync the minimal recovery manifest (Android 12.1, 14.1, or recovery-specific sync tree), then clone this repository into `device/infinix/Infinix-X6871` and ensure `device/transsion/mt6895-common` is present.
-
-### Build Commands
-Use `scripts/build_x6871.sh` with the target recovery name:
-
+Sync OrangeFox 14.1 manifest:
 ```bash
-# OrangeFox Recovery Project
-./scripts/build_x6871.sh ofox
-
-# TeamWin Recovery Project
-./scripts/build_x6871.sh twrp
-
-# PitchBlack Recovery Project
-./scripts/build_x6871.sh pbrp
-
-# SkyHawk Recovery Project
-./scripts/build_x6871.sh shrp
+mkdir -p ~/fox_14.1 && cd ~/fox_14.1
+git clone --depth=1 https://gitlab.com/OrangeFox/sync.git ~/OrangeFox_sync
+~/OrangeFox_sync/orangefox_sync.sh --branch 14.1 --path ~/fox_14.1
 ```
 
-Or manually with build envsetup:
+Clone this repository into `device/infinix/X6871`:
+```bash
+git clone -b android-16 https://github.com/sheikhmehraann/X6871-Recovery-Project.git device/infinix/X6871
+```
+
+### Build Command
 ```bash
 source build/envsetup.sh
-
-# Select target
-lunch twrp_X6871-eng   # For TWRP
-lunch fox_X6871-eng    # For OrangeFox
-lunch pb_X6871-eng     # For PitchBlack
-lunch shrp_X6871-eng   # For SkyHawk
-
-# Build vendor_boot
+source device/infinix/X6871/vendorsetup.sh
+lunch twrp_X6871-ap2a-eng
 mka adbd vendorbootimage -j$(nproc)
+```
+
+Post-build, repack with stock Fragment 0 using:
+```bash
+python3 device/infinix/X6871/../../scripts/repack_vendor_boot_a16.py \
+    reference/stock_vendor_boot.img.gz \
+    out/target/product/X6871/vendor_boot.img \
+    out/target/product/X6871/vendor_boot.img
 ```
 
 ---
 
-## Repository Structure
+## Repository Structure (Android 16 Branch)
 
 ```text
 ├── .github/
 │   └── workflows/
-│       ├── orangefox.yml        # OrangeFox automated build and release
-│       ├── twrp.yml             # TWRP automated build workflow
-│       ├── pbrp.yml             # PitchBlack automated build workflow
-│       └── shrp.yml             # SkyHawk automated build workflow
+│       └── orangefox.yml        # CI build & release pipeline for Android 16
 ├── configs/                     # Device properties, file_contexts, and fstabs
 ├── device/
 │   ├── infinix/
-│   │   └── Infinix-X6871/       # Model specific configs (BoardConfig, makefiles)
+│   │   └── Infinix-X6871/       # Model specific configs (BoardConfig, makefiles, patches)
 │   └── transsion/
 │       └── mt6895-common/       # Platform tree (init scripts, HALs, fstabs)
-├── scripts/
-│   ├── build_x6871.sh           # Local multi-recovery build script
-│   ├── gotestrunner.go          # Blueprint test bypass stub
-│   ├── graphics_drm.cpp         # MT6895 single-pipe DRM implementation
-│   └── patch_ofox.py            # Device patching script for recovery sources
-└── tools/
-    ├── repack_vendor_boot.py    # Boot header v4 vendor_boot repacker
-    ├── unpack_ramdisk.py        # Ramdisk extractor
-    └── unpack_vendor_boot.py    # Boot header v4 vendor_boot unpacker
+├── reference/
+│   └── stock_vendor_boot.img.gz # Compressed stock Android 16 vendor_boot reference
+└── scripts/
+    ├── graphics_drm.cpp         # MT6895 single-pipe DRM implementation
+    ├── patch_ofox.py            # Device patching script for recovery sources
+    └── repack_vendor_boot_a16.py# Dual-ramdisk v4 vendor_boot repacker
 ```
 
 ---
