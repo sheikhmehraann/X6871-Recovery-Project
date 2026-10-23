@@ -1,4 +1,9 @@
-# Multi-Recovery Project for Infinix GT 20 Pro (X6871)
+# Infinix GT 20 Pro (X6871) — Android 15 (Kernel 5.10 / 5.15) Recovery Project
+
+> [!NOTE]
+> **Branch Architecture:** This is the default **Android 15 (Kernel 5.10 / 5.15)** branch supporting TWRP, OrangeFox, PBRP, and SHRP on stock XOS 14 / XOS 15.
+>
+> 👉 For **Android 16 (Stock XOS 16 / Linux 6.12 GKI)**, switch to the [`android-16`](https://github.com/sheikhmehraann/X6871-Recovery-Project/tree/android-16) branch.
 
 Unified recovery device tree and automated build configurations for the Infinix GT 20 Pro (`X6871` / `X6871-OP`), powered by the MediaTek Dimensity 8200 Ultimate (`MT6895` / `MT6896`).
 
@@ -6,12 +11,12 @@ Maintained by [sheikhmehraann](https://github.com/sheikhmehraann).
 
 ---
 
-## Supported Recoveries
+## Supported Recoveries (Android 15 / Kernel 5.10)
 
-This repository contains build targets and device tree configurations for:
+This branch contains verified build targets and configurations for:
 
 1. **TWRP** (TeamWin Recovery Project) - Target: `twrp_X6871` / `omni_X6871`
-2. **OFRP** (OrangeFox Recovery Project R12.1) - Target: `fox_X6871`
+2. **OFRP** (OrangeFox Recovery Project R12.1) - Target: `fox_X6871` (Release: [`ofox-96`](https://github.com/sheikhmehraann/X6871-Recovery-Project/releases/tag/ofox-96))
 3. **PBRP** (PitchBlack Recovery Project) - Target: `pb_X6871`
 4. **SHRP** (SkyHawk Recovery Project) - Target: `shrp_X6871`
 
@@ -24,10 +29,10 @@ This repository contains build targets and device tree configurations for:
 | Device Model | Infinix GT 20 Pro (`X6871`, `X6871-OP`) |
 | Platform / SoC | MediaTek Dimensity 8200 Ultimate (`MT6895` / `MT6896`) |
 | Display | 1080 x 2436 AMOLED (144Hz refresh rate, single-pipe DRM) |
-| Kernel Version | 5.10.x Android Common Kernel |
+| Kernel Version | 5.10.x Android Common Kernel (Stock A15) |
 | Architecture | ARM64 (`arm64-v8a`) |
 | Partition Layout | Virtual A/B (VAB) with Dynamic Partitions |
-| Recovery Location | `vendor_boot` (Boot Header v4, 64 MB partition size) |
+| Recovery Target | `vendor_boot` (Boot Header v4, 64 MB partition boundary) |
 | Target Firmware | Android 14 / Android 15 (XOS 14 / XOS 15) |
 
 ---
@@ -56,7 +61,7 @@ All four recovery variants share the common device tree and include:
 
 The recovery ramdisk resides inside the `vendor_boot` partition. Do not flash to the `boot` partition.
 
-1. Download the recovery image for your preferred project from GitHub Releases or actions artifacts.
+1. Download the recovery image from GitHub Releases (`ofox-96` for stable A15 OrangeFox).
 2. Put the device into Fastboot mode:
    ```bash
    adb reboot bootloader
@@ -76,7 +81,7 @@ The recovery ramdisk resides inside the `vendor_boot` partition. Do not flash to
 ## Building Locally
 
 ### Setup
-Sync the minimal recovery manifest (Android 12.1, 14.1, or recovery-specific sync tree), then clone this repository into `device/infinix/Infinix-X6871` and ensure `device/transsion/mt6895-common` is present.
+Sync the minimal recovery manifest (Android 12.1), clone this repository into `device/infinix/Infinix-X6871`, and ensure `device/transsion/mt6895-common` is present.
 
 ### Build Commands
 Use `scripts/build_x6871.sh` with the target recovery name:
@@ -95,7 +100,7 @@ Use `scripts/build_x6871.sh` with the target recovery name:
 ./scripts/build_x6871.sh shrp
 ```
 
-Or manually with build envsetup:
+Or manually:
 ```bash
 source build/envsetup.sh
 
@@ -111,12 +116,12 @@ mka adbd vendorbootimage -j$(nproc)
 
 ---
 
-## Repository Structure
+## Repository Structure (Android 15 Branch)
 
 ```text
 ├── .github/
 │   └── workflows/
-│       ├── orangefox.yml        # OrangeFox automated build and release
+│       ├── orangefox.yml        # OrangeFox automated build and release (A15)
 │       ├── twrp.yml             # TWRP automated build workflow
 │       ├── pbrp.yml             # PitchBlack automated build workflow
 │       └── shrp.yml             # SkyHawk automated build workflow
