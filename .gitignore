@@ -6,7 +6,6 @@ __pycache__/
 *.bak
 *.tmp
 *.log
-*.txt
 downloaded_release*/
 unpacked_build*/
 *.png
@@ -15,4 +14,6 @@ Builds/
 .DS_Store
 Thumbs.db
 temp/
+reference/stock_firmware/*.img
+
 

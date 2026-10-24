@@ -1,24 +1,24 @@
 #
-#This file is part of the OrangeFox Recovery Project
-# Copyright (C) 2024-2025 The OrangeFox Recovery Project
+# This file is part of the OrangeFox Recovery Project
+# Copyright (C) 2024-2026 The OrangeFox Recovery Project
 #
-#OrangeFox is free software: you can redistribute it and/or modify
-#it under the terms of the GNU General Public License as published by
-#the Free Software Foundation, either version 3 of the License, or
-#any later version.
+# OrangeFox is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# any later version.
 #
-#OrangeFox is distributed in the hope that it will be useful,
-#but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#GNU General Public License for more details.
+# OrangeFox is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
 # This software is released under GPL version 3 or any later version.
-#See <http://www.gnu.org/licenses/>.
+# See <http://www.gnu.org/licenses/>.
 #
 # Please maintain this if you use this script or any part of it
 #
 
-# screen settings (Infinix GT 20 Pro 1080x2436 AMOLED)
+# Screen settings (Infinix GT 20 Pro 1080x2436 AMOLED)
 OF_SCREEN_H := 2436
 OF_STATUS_H := 90
 OF_STATUS_INDENT_LEFT := 48
@@ -46,7 +46,6 @@ OF_VIBRATION_DEFAULT_DURATION := 100
 CUSTOM_VIBRATOR_PATH := /sys/class/leds/vibrator/brightness
 OF_USE_NEW_HAPTICS := 1
 
-
 # Backup & Storage
 OF_QUICK_BACKUP_LIST := /boot;/data;
 OF_ENABLE_LPTOOLS := 1
@@ -57,11 +56,15 @@ OF_UNBIND_SDCARD_F2FS := 1
 OF_WIPE_METADATA_AFTER_DATAFORMAT := 1
 OF_BIND_MOUNT_SDCARD_ON_FORMAT := 0
 OF_LOOP_DEVICE_ERRORS_TO_LOG := 1
-# OF_USE_LZ4_COMPRESSION := 0 (Standard GZIP for 64MB partition budget)
+
+# Device Identity & Compatibility
 OF_MAINTAINER := sheikhmehraann
-FOX_TARGET_DEVICES := X6871,Infinix-X6871,Infinix_X6871,X6871-OP
-FOX_DEVICE_MODEL := Infinix GT 20 Pro
+FOX_TARGET_DEVICES := Infinix-X6871,X6871,X6871-OP,Infinix_X6871
+FOX_DEVICE_MODEL := Infinix X6871
 FOX_COMPATIBILITY_DEVICE := Infinix GT 20 Pro (Infinix X6871)
+
+# Build configuration per OrangeFox Wiki
+FOX_VANILLA_BUILD := 1
 
 # Magisk & AVB
 OF_USE_MAGISKBOOT := 1
@@ -70,7 +73,6 @@ OF_PATCH_AVB20 := 1
 
 # Advanced Security & Decryption
 OF_DEFAULT_KEYMASTER_VERSION := 5.0
-OF_USE_TWRP_SAR_DETECT := 1
 OF_SUPPORT_OZIP_DECRYPTION := 1
 OF_FBE_METADATA_MOUNT_IGNORE := 0
 OF_SKIP_DECRYPTED_ADOPTED_STORAGE := 1

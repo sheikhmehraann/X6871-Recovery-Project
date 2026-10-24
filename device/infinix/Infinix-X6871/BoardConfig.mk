@@ -19,7 +19,7 @@ ENABLE_SCHEDBOOST := true
 
 # Bootloader
 TARGET_BOARD_PLATFORM := mt6895
-TARGET_BOOTLOADER_BOARD_NAME := X6871
+TARGET_BOOTLOADER_BOARD_NAME := Infinix-X6871
 TARGET_NO_BOOTLOADER := true
 
 # Build hacks
@@ -76,16 +76,28 @@ BOARD_USES_METADATA_PARTITION := true
 BOARD_ROOT_EXTRA_FOLDERS += metadata
 BOARD_SUPER_PARTITION_GROUPS := main
 BOARD_MAIN_PARTITION_LIST += \
+    odm \
+    odm_dlkm \
     product \
     system \
+    system_dlkm \
     system_ext \
     vendor \
     vendor_dlkm \
-    odm_dlkm
+    tr_product \
+    tr_preload \
+    tr_region \
+    tr_carrier \
+    tr_company \
+    tr_misc \
+    tr_manifest \
+    tr_overlayfs
 
+TARGET_COPY_OUT_ODM := odm
 TARGET_COPY_OUT_ODM_DLKM := odm_dlkm
 TARGET_COPY_OUT_PRODUCT := product
 TARGET_COPY_OUT_SYSTEM := system
+TARGET_COPY_OUT_SYSTEM_DLKM := system_dlkm
 TARGET_COPY_OUT_SYSTEM_EXT := system_ext
 TARGET_COPY_OUT_VENDOR := vendor
 TARGET_COPY_OUT_VENDOR_DLKM := vendor_dlkm
@@ -93,9 +105,11 @@ TARGET_COPY_OUT_VENDOR_DLKM := vendor_dlkm
 # File systems
 TARGET_USERIMAGES_USE_F2FS := true
 
+BOARD_ODMIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_ODM_DLKMIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_PRODUCTIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_SYSTEMIMAGE_FILE_SYSTEM_TYPE := ext4
+BOARD_SYSTEM_DLKMIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_SYSTEM_EXTIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_USERDATAIMAGE_FILE_SYSTEM_TYPE := f2fs
 BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE := ext4

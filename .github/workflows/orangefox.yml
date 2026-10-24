@@ -157,12 +157,8 @@ jobs:
             zip -r9 "$ZIP_NAME" vendor_boot.img
           fi
 
-          mkdir -p $GITHUB_WORKSPACE/output/Root_Suite
-          curl -sSL "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/Magisk-v28.1.zip || true
-          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/KernelSU_v3.3.1_32680-release.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/KernelSU-v3.3.1.apk || true
-          curl -sSL "https://github.com/bmax121/APatch/releases/download/11224/APatch_11224_9a63e0f_HEAD-release-signed.apk" -o $GITHUB_WORKSPACE/output/Root_Suite/APatch-11224.apk || true
-          cd $GITHUB_WORKSPACE/output/Root_Suite && zip -r ../OrangeFox-RootSuite-X6871.zip * || true
-          rm -rf $GITHUB_WORKSPACE/output/Root_Suite
+          # Rooting Suite: KernelSU Latest ONLY (Magisk and APatch completely removed per operator specification)
+          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/KernelSU_v3.3.1_32680-release.apk" -o $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.apk || true
 
           find $GITHUB_WORKSPACE/output -type f -size 0 -delete
 
@@ -201,7 +197,8 @@ jobs:
             * 242 Stock MT6895 Kernel 6.12 modules and metadata
             * Dual ZSTD compressed ramdisk fragments (PLATFORM + RECOVERY)
             * KeyMint v3, Gatekeeper AIDL, and Enforcing SELinux support
-            * Dynamic partitions, Transsion logical partitions (`tr_system`, `mi_ext`, `my_*`)
+            * Dynamic partitions: 16 stock logical partitions (system, system_ext, system_dlkm, vendor, vendor_dlkm, product, odm, odm_dlkm, and all 8 Transsion tr_* partitions)
+            * Root Engine: KernelSU v3.3.1 latest integrated support
           draft: false
           prerelease: false
         env:

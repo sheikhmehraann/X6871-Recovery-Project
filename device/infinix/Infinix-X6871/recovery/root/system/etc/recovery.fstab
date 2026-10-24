@@ -3,7 +3,7 @@
 # specify MF_CHECK, and must come before any filesystems that do specify MF_CHECK
 
 #<src>				<mnt_point>		<type>		<mnt_flags and options>															<fs_mgr_flags>
-# Logical partitions
+# Logical / Dynamic Partitions (Inside Super Partition)
 system				/system			auto		ro																	wait,slotselect,logical
 vendor				/vendor			auto		ro																	wait,slotselect,logical
 product				/product		auto		ro																	wait,slotselect,logical
@@ -12,7 +12,8 @@ odm					/odm			auto		ro																	wait,slotselect,logical
 vendor_dlkm			/vendor_dlkm	auto		ro																	wait,slotselect,logical
 odm_dlkm			/odm_dlkm		auto		ro																	wait,slotselect,logical
 system_dlkm			/system_dlkm	auto		ro																	wait,slotselect,logical
-# Transsion partitions
+
+# Transsion Dynamic Logical Partitions (Inside Super Partition)
 tr_carrier			/tr_carrier		auto		ro																	wait,slotselect,logical
 tr_company			/tr_company		auto		ro																	wait,slotselect,logical
 tr_overlayfs		/tr_overlayfs	auto		ro																	wait,slotselect,logical
@@ -22,12 +23,14 @@ tr_region			/tr_region		auto		ro																	wait,slotselect,logical
 tr_misc				/tr_misc		auto		ro																	wait,slotselect,logical
 tr_manifest			/tr_manifest	auto		ro																	wait,slotselect,logical
 
-# Userdata partition
+# Userdata & Metadata
 /dev/block/by-name/metadata	/metadata		ext4		noatime,nosuid,nodev,discard														wait,check,formattable
 /dev/block/by-name/userdata	/data			f2fs		noatime,nosuid,nodev,discard,noflush_merge,fsync_mode=nobarrier,reserve_root=134217,resgid=1065,inlinecrypt				wait,check,formattable,fileencryption=aes-256-xts:aes-256-cts:v2+inlinecrypt_optimized,keydirectory=/metadata/vold/metadata_encryption
 
-# Need to have this entry in here even though the mount point itself is no longer needed.
-# The update_engine code looks for this entry in order to determine the boot device address
-# and fails if it does not find it.
+# Persistent Storage & Factory Partitions
+/dev/block/by-name/persist	/persist		ext4		noatime,nosuid,nodev,noauto_da_alloc,commit=1,nodelalloc											wait,check,formattable
+/dev/block/by-name/tranfs	/tranfs			ext4		noatime,nosuid,nodev,noauto_da_alloc,discard														wait,check,formattable
+
+# Boot & Update Engine Anchor
 /dev/block/by-name/misc		/misc			emmc		defaults																defaults
 /dev/block/by-name/init_boot	/init_boot		emmc		defaults																defaults
