@@ -98,6 +98,9 @@ jobs:
           ln -sf X6871 device/infinix/Infinix-X6871
           chmod +x device/infinix/X6871/vendorsetup.sh
 
+          # Upgrade vendor root suite installers to latest official releases
+          python3 $GITHUB_WORKSPACE/scripts/update_root_suites.py $HOME/fox_14.1/vendor/recovery || true
+
       - name: Build OrangeFox Recovery Image
         run: |
           cd $HOME/fox_14.1
@@ -158,25 +161,31 @@ jobs:
             zip -r9 "$ZIP_NAME" vendor_boot.img
           fi
 
-          # Rooting Suite: KernelSU Latest ONLY (Magisk and APatch completely removed; real working recovery addon)
-          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/KernelSU_v3.3.1_32680-release.apk" -o $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.apk || true
-          cp -vf $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.apk $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.zip
-          cp -vf $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.apk $GITHUB_WORKSPACE/output/KernelSU_Installer.zip
-          cp -vf $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.apk $GITHUB_WORKSPACE/output/KernelSU_Next_Installer.zip
+          # Latest Root Suites & Vbmeta Addon Deployment (Variant 16.3.0)
+          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/KernelSU_v3.3.1_32680-release.apk" -o $GITHUB_WORKSPACE/output/KernelSU_v3.3.1-release.apk || true
+          curl -sSL "https://github.com/KernelSU-Next/KernelSU-Next/releases/download/v3.4.2/KernelSU_Next_v3.4.2_33355-release.apk" -o $GITHUB_WORKSPACE/output/KernelSU_Next_v3.4.2-release.apk || true
+          curl -sSL "https://github.com/SukiSU-Ultra/SukiSU-Ultra/releases/download/v4.2.1-r2/SukiSU_v4.2.1-r2_41068-release.apk" -o $GITHUB_WORKSPACE/output/SukiSU_v4.2.1-release.apk || true
 
-          # Inject KernelSU addon into all OrangeFox zips under both sdcard/Fox/FoxFiles and Fox/FoxAddons
+          # Standalone Flashable Vbmeta packages
+          cp -vf $GITHUB_WORKSPACE/device/infinix/Infinix-X6871/recovery/root/FFiles/OF_vbmeta/Enable_Vbmeta.zip $GITHUB_WORKSPACE/output/Enable_Vbmeta.zip || true
+          cp -vf $GITHUB_WORKSPACE/device/infinix/Infinix-X6871/recovery/root/FFiles/OF_vbmeta/Disable_Vbmeta.zip $GITHUB_WORKSPACE/output/Disable_Vbmeta.zip || true
+
+          # Repack all OrangeFox recovery zips with upgraded FoxAddons and Vbmeta tools
           for zipfile in $GITHUB_WORKSPACE/output/OrangeFox*.zip "$TARGET_DIR"/OrangeFox*.zip; do
             if [ -f "$zipfile" ]; then
               mkdir -p /tmp/fox_addon/Fox/FoxAddons
-              mkdir -p /tmp/fox_addon/sdcard/Fox/FoxFiles
-              cp -vf $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.apk /tmp/fox_addon/Fox/FoxAddons/KernelSU.apk
-              cp -vf $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.zip /tmp/fox_addon/Fox/FoxAddons/KernelSU.zip
-              cp -vf $GITHUB_WORKSPACE/output/KernelSU_Installer.zip /tmp/fox_addon/Fox/FoxAddons/KernelSU_Installer.zip
-              cp -vf $GITHUB_WORKSPACE/output/KernelSU_Next_Installer.zip /tmp/fox_addon/Fox/FoxAddons/KernelSU_Next_Installer.zip
-              cp -vf $GITHUB_WORKSPACE/output/KernelSU_Installer.zip /tmp/fox_addon/sdcard/Fox/FoxFiles/KernelSU_Installer.zip
-              cp -vf $GITHUB_WORKSPACE/output/KernelSU_Next_Installer.zip /tmp/fox_addon/sdcard/Fox/FoxFiles/KernelSU_Next_Installer.zip
-              cp -vf $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.zip /tmp/fox_addon/sdcard/Fox/FoxFiles/KernelSU.zip
-              (cd /tmp/fox_addon && zip -u "$zipfile" Fox/FoxAddons/* sdcard/Fox/FoxFiles/*) || true
+              mkdir -p /tmp/fox_addon/sdcard/Fox/FoxFiles/KernelSU
+              mkdir -p /tmp/fox_addon/sdcard/Fox/FoxFiles/OF_vbmeta
+
+              # Installers
+              cp -vf $HOME/fox_14.1/vendor/recovery/KernelSU*.zip /tmp/fox_addon/Fox/FoxAddons/ 2>/dev/null || true
+              cp -vf $HOME/fox_14.1/vendor/recovery/KernelSU*.zip /tmp/fox_addon/sdcard/Fox/FoxFiles/KernelSU/ 2>/dev/null || true
+              cp -vf $GITHUB_WORKSPACE/output/Enable_Vbmeta.zip /tmp/fox_addon/Fox/FoxAddons/ 2>/dev/null || true
+              cp -vf $GITHUB_WORKSPACE/output/Disable_Vbmeta.zip /tmp/fox_addon/Fox/FoxAddons/ 2>/dev/null || true
+              cp -vf $GITHUB_WORKSPACE/output/Enable_Vbmeta.zip /tmp/fox_addon/sdcard/Fox/FoxFiles/OF_vbmeta/ 2>/dev/null || true
+              cp -vf $GITHUB_WORKSPACE/output/Disable_Vbmeta.zip /tmp/fox_addon/sdcard/Fox/FoxFiles/OF_vbmeta/ 2>/dev/null || true
+
+              (cd /tmp/fox_addon && zip -u "$zipfile" Fox/FoxAddons/* sdcard/Fox/FoxFiles/* sdcard/Fox/FoxFiles/*/*) || true
               rm -rf /tmp/fox_addon
             fi
           done
