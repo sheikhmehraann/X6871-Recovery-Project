@@ -114,10 +114,6 @@ def repack(stock_path, built_path, output_path):
     else:
         print("Warning: mcDrvModule.ko not found in Fragment 0 CPIO!")
     
-    cctx = zstd.ZstdCompressor(level=19)
-    frag0_zstd = cctx.compress(uncompressed_frag0)
-    print(f"Fragment 0 ZSTD size: {len(frag0_zstd)} bytes ({len(frag0_zstd)/1024/1024:.2f} MB)")
-    
     # Read built recovery ramdisk from built_path
     print(f"Reading built vendor_boot: {built_path}")
     if built_path.endswith('.gz'):
@@ -175,76 +171,85 @@ def repack(stock_path, built_path, output_path):
         print("Sanitizing VINTF manifest version 9.0 -> 8.0 in Fragment 1 CPIO...")
         uncompressed_rec = uncompressed_rec.replace(b'version="9.0"', b'version="8.0"')
 
-    frag1_zstd = cctx.compress(uncompressed_rec)
-    print(f"Fragment 1 ZSTD size: {len(frag1_zstd)} bytes ({len(frag1_zstd)/1024/1024:.2f} MB)")
-    
-    total_ramdisk = frag0_zstd + frag1_zstd
-    vendor_ramdisk_size = len(total_ramdisk)
-    print(f"Combined Vendor Ramdisk size: {vendor_ramdisk_size} bytes ({vendor_ramdisk_size/1024/1024:.2f} MB)")
-    
-    # Construct Ramdisk Table
-    # Entry 0: PLATFORM
-    entry0 = bytearray(108)
-    struct.pack_into('<III', entry0, 0, len(frag0_zstd), 0, 1) # size, offset, type=1
-    # Entry 1: RECOVERY
-    entry1 = bytearray(108)
-    struct.pack_into('<III', entry1, 0, len(frag1_zstd), len(frag0_zstd), 2) # size, offset, type=2
-    rec_name_bytes = b'recovery' + b'\x00' * (32 - len(b'recovery'))
-    entry1[12:12+32] = rec_name_bytes
-    
-    new_table_data = bytes(entry0 + entry1)
-    new_table_size = len(new_table_data)
-    
-    # Build Header v4
+    # Build Header v4 parameters
     cmdline_str = cmdline.decode('utf-8', errors='ignore')
     if "bootconfig" not in cmdline_str:
         cmdline_str = (cmdline_str + " bootconfig").strip()
     cmdline_bytes = cmdline_str.encode('utf-8')[:2047]
-    
-    hdr = bytearray(stock_hdr)
-    # Update vendor_ramdisk_size at offset 24
-    struct.pack_into('<I', hdr, 24, vendor_ramdisk_size)
-    # Update cmdline at offset 28
-    hdr[28:28+2048] = b'\x00' * 2048
-    hdr[28:28+len(cmdline_bytes)] = cmdline_bytes
-    # Update table size at 2112
-    struct.pack_into('<IIII', hdr, 2112, new_table_size, 2, 108, len(bootconfig_data))
-    
-    # Assemble full image
-    out_parts = []
-    out_parts.append(bytes(hdr)) # page 0 (offset 0 .. 4095)
-    
-    # Vendor ramdisk
-    out_parts.append(total_ramdisk)
-    pad1 = page_align(len(total_ramdisk), page_size) - len(total_ramdisk)
-    if pad1 > 0:
-        out_parts.append(b'\x00' * pad1)
-        
-    # DTB
-    out_parts.append(dtb_data)
-    pad2 = page_align(len(dtb_data), page_size) - len(dtb_data)
-    if pad2 > 0:
-        out_parts.append(b'\x00' * pad2)
-        
-    # Table
-    out_parts.append(new_table_data)
-    pad3 = page_align(len(new_table_data), page_size) - len(new_table_data)
-    if pad3 > 0:
-        out_parts.append(b'\x00' * pad3)
-        
-    # Bootconfig
-    out_parts.append(bootconfig_data)
-    pad4 = page_align(len(bootconfig_data), page_size) - len(bootconfig_data)
-    if pad4 > 0:
-        out_parts.append(b'\x00' * pad4)
-        
-    final_data = b''.join(out_parts)
+
     # Target partition size: 67108864 (64 MB)
     target_part_size = 67108864
-    if len(final_data) > target_part_size:
-        raise ValueError(f"Final image size {len(final_data)} exceeds partition size {target_part_size}!")
-        
-    final_padded = final_data + b'\x00' * (target_part_size - len(final_data))
+    final_padded = None
+    final_data_len = 0
+
+    # Multi-level adaptive zstd compression (starts at max level 22 to guarantee fit)
+    for zstd_level in [22, 21, 19]:
+        cctx = zstd.ZstdCompressor(level=zstd_level)
+        frag0_zstd = cctx.compress(uncompressed_frag0)
+        frag1_zstd = cctx.compress(uncompressed_rec)
+        print(f"ZSTD Level {zstd_level}: Frag0={len(frag0_zstd)} bytes ({len(frag0_zstd)/1024/1024:.2f} MB), Frag1={len(frag1_zstd)} bytes ({len(frag1_zstd)/1024/1024:.2f} MB)")
+
+        total_ramdisk = frag0_zstd + frag1_zstd
+        vendor_ramdisk_size = len(total_ramdisk)
+
+        # Construct Ramdisk Table
+        # Entry 0: PLATFORM
+        entry0 = bytearray(108)
+        struct.pack_into('<III', entry0, 0, len(frag0_zstd), 0, 1) # size, offset, type=1
+        # Entry 1: RECOVERY
+        entry1 = bytearray(108)
+        struct.pack_into('<III', entry1, 0, len(frag1_zstd), len(frag0_zstd), 2) # size, offset, type=2
+        rec_name_bytes = b'recovery' + b'\x00' * (32 - len(b'recovery'))
+        entry1[12:12+32] = rec_name_bytes
+        new_table_data = bytes(entry0 + entry1)
+        new_table_size = len(new_table_data)
+
+        hdr = bytearray(stock_hdr)
+        struct.pack_into('<I', hdr, 24, vendor_ramdisk_size)
+        hdr[28:28+2048] = b'\x00' * 2048
+        hdr[28:28+len(cmdline_bytes)] = cmdline_bytes
+        struct.pack_into('<IIII', hdr, 2112, new_table_size, 2, 108, len(bootconfig_data))
+
+        out_parts = []
+        out_parts.append(bytes(hdr)) # page 0
+
+        # Vendor ramdisk
+        out_parts.append(total_ramdisk)
+        pad1 = page_align(len(total_ramdisk), page_size) - len(total_ramdisk)
+        if pad1 > 0:
+            out_parts.append(b'\x00' * pad1)
+
+        # DTB
+        out_parts.append(dtb_data)
+        pad2 = page_align(len(dtb_data), page_size) - len(dtb_data)
+        if pad2 > 0:
+            out_parts.append(b'\x00' * pad2)
+
+        # Table
+        out_parts.append(new_table_data)
+        pad3 = page_align(len(new_table_data), page_size) - len(new_table_data)
+        if pad3 > 0:
+            out_parts.append(b'\x00' * pad3)
+
+        # Bootconfig
+        out_parts.append(bootconfig_data)
+        pad4 = page_align(len(bootconfig_data), page_size) - len(bootconfig_data)
+        if pad4 > 0:
+            out_parts.append(b'\x00' * pad4)
+
+        final_data = b''.join(out_parts)
+        final_data_len = len(final_data)
+
+        if final_data_len <= target_part_size:
+            headroom = target_part_size - final_data_len
+            print(f"Vendor boot image successfully fit at zstd level {zstd_level}: {final_data_len} <= {target_part_size} ({headroom} bytes / {headroom/1024:.2f} KB headroom)")
+            final_padded = final_data + b'\x00' * headroom
+            break
+        else:
+            print(f"Notice: Image size {final_data_len} > {target_part_size} at level {zstd_level}, trying higher compression...")
+
+    if final_padded is None:
+        raise ValueError(f"Final image size {final_data_len} exceeds partition size {target_part_size} even at zstd level 22!")
     
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, 'wb') as out_f:
