@@ -60,15 +60,10 @@
 /para				emmc		/dev/block/by-name/para											flags=display="Para";backup=1
 /misc				emmc		/dev/block/by-name/misc											flags=display="Misc";backup=1
 
-# User Data, Caches & Storage Partitions (Wipe & Advanced Wipe UI)
+# User Data, Metadata & Removable Storage (Wipe & Advanced Wipe UI - Clean Non-Redundant)
 /data				f2fs		/dev/block/by-name/userdata										flags=display="Data";backup=1;wipeingui
 /metadata			ext4		/dev/block/by-name/metadata										flags=display="Metadata";backup=1;wipeingui
-/storage			auto		/data/media/0													flags=display="Internal Storage";usermrf;backup=1;fsflags="bind";removable;wipeingui
-/usb_otg			auto		/dev/block/sdd1				/dev/block/sdd			/dev/block/sde1			flags=display="USB Storage";storage;wipeingui;removable;backup=0
-/usb-otg			auto		/dev/block/sdd1				/dev/block/sdd			/dev/block/sde1			flags=display="USB OTG";storage;wipeingui;removable;backup=0
-/cache				auto		/data/cache														flags=display="Dalvik / ART Cache";fsflags="bind";backup=0;wipeingui
-/dalvik				auto		/data/dalvik-cache												flags=display="Dalvik Cache";fsflags="bind";backup=0;wipeingui
-/art				auto		/data/dalvik-cache/arm64										flags=display="ART Cache";fsflags="bind";backup=0;wipeingui
+/usb_otg			auto		/dev/block/sdd1				/dev/block/sdd			/dev/block/sde1			flags=display="USB-OTG";storage;wipeingui;removable;backup=0
 
 # Super & Logical Flashable Image Partitions
 /super				emmc		/dev/block/by-name/super										flags=display="Super (Dynamic Partitions)";backup=1;flashimg=1

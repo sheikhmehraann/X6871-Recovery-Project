@@ -33,7 +33,9 @@ export OF_STATUS_H=90
 export OF_STATUS_INDENT_LEFT=48
 export OF_STATUS_INDENT_RIGHT=48
 export FOX_DELETE_MAGISK_ADDON=1
-export FOX_SUPPORT_KSU=1
+export FOX_ENABLE_KERNELSU_SUPPORT=1
+export FOX_ENABLE_KERNELSU_NEXT_SUPPORT=1
+export FOX_ENABLE_SUKISU_SUPPORT=1
 export OF_WIPE_METADATA_AFTER_DATAFORMAT=1
 
 legacy_patch="${device_dir}/patches/03-patch-vendor-boot-postprocess.patch"

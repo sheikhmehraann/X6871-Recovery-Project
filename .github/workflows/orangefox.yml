@@ -98,6 +98,11 @@ jobs:
           ln -sf X6871 device/infinix/Infinix-X6871
           chmod +x device/infinix/X6871/vendorsetup.sh
 
+          # Pre-stage KernelSU Installer into recovery ramdisk so addons work on standalone vendor_boot
+          mkdir -p device/infinix/X6871/recovery/root/system/etc/FoxFiles
+          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/KernelSU_v3.3.1_32680-release.apk" -o device/infinix/X6871/recovery/root/system/etc/FoxFiles/KernelSU_Installer.zip || true
+          cp -vf device/infinix/X6871/recovery/root/system/etc/FoxFiles/KernelSU_Installer.zip device/infinix/X6871/recovery/root/system/etc/FoxFiles/KernelSU_Next_Installer.zip || true
+
       - name: Build OrangeFox Recovery Image
         run: |
           cd $HOME/fox_14.1
@@ -161,14 +166,22 @@ jobs:
           # Rooting Suite: KernelSU Latest ONLY (Magisk and APatch completely removed; real working recovery addon)
           curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/KernelSU_v3.3.1_32680-release.apk" -o $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.apk || true
           cp -vf $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.apk $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.zip
+          cp -vf $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.apk $GITHUB_WORKSPACE/output/KernelSU_Installer.zip
+          cp -vf $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.apk $GITHUB_WORKSPACE/output/KernelSU_Next_Installer.zip
 
-          # Inject KernelSU addon into all OrangeFox zips under Fox/FoxAddons/
+          # Inject KernelSU addon into all OrangeFox zips under both sdcard/Fox/FoxFiles and Fox/FoxAddons
           for zipfile in $GITHUB_WORKSPACE/output/OrangeFox*.zip "$TARGET_DIR"/OrangeFox*.zip; do
             if [ -f "$zipfile" ]; then
               mkdir -p /tmp/fox_addon/Fox/FoxAddons
+              mkdir -p /tmp/fox_addon/sdcard/Fox/FoxFiles
               cp -vf $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.apk /tmp/fox_addon/Fox/FoxAddons/KernelSU.apk
               cp -vf $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.zip /tmp/fox_addon/Fox/FoxAddons/KernelSU.zip
-              (cd /tmp/fox_addon && zip -u "$zipfile" Fox/FoxAddons/KernelSU.apk Fox/FoxAddons/KernelSU.zip) || true
+              cp -vf $GITHUB_WORKSPACE/output/KernelSU_Installer.zip /tmp/fox_addon/Fox/FoxAddons/KernelSU_Installer.zip
+              cp -vf $GITHUB_WORKSPACE/output/KernelSU_Next_Installer.zip /tmp/fox_addon/Fox/FoxAddons/KernelSU_Next_Installer.zip
+              cp -vf $GITHUB_WORKSPACE/output/KernelSU_Installer.zip /tmp/fox_addon/sdcard/Fox/FoxFiles/KernelSU_Installer.zip
+              cp -vf $GITHUB_WORKSPACE/output/KernelSU_Next_Installer.zip /tmp/fox_addon/sdcard/Fox/FoxFiles/KernelSU_Next_Installer.zip
+              cp -vf $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.zip /tmp/fox_addon/sdcard/Fox/FoxFiles/KernelSU.zip
+              (cd /tmp/fox_addon && zip -u "$zipfile" Fox/FoxAddons/* sdcard/Fox/FoxFiles/*) || true
               rm -rf /tmp/fox_addon
             fi
           done

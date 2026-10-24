@@ -22,17 +22,17 @@ on init
     setprop sys.usb.ffs.aio_compat 1
     setprop ro.crypto.set_dun true
 
-    # Exact Stock Device Identity (Infinix GT 20 Pro - X6871)
+    # Exact Stock Device Identity (Infinix GT 20 Pro - Infinix-X6871)
     setprop ro.product.model "Infinix X6871"
     setprop ro.product.marketname "Infinix GT 20 Pro"
-    setprop ro.product.device "X6871"
+    setprop ro.product.device "Infinix-X6871"
     setprop ro.product.name "X6871-OP"
     setprop ro.product.brand "Infinix"
     setprop ro.product.manufacturer "INFINIX"
-    setprop ro.product.board "mt6895"
-    setprop ro.board.platform "MediaTek Dimensity 8200 Ultimate (MT6895)"
-    setprop ro.build.product "X6871"
-    setprop ro.twrp.target.devices "X6871,Infinix-X6871,Infinix_X6871,X6871-OP"
+    setprop ro.product.board "Infinix-X6871"
+    setprop ro.board.platform "mt6895"
+    setprop ro.build.product "Infinix-X6871"
+    setprop ro.twrp.target.devices "Infinix-X6871,X6871,X6871-OP,Infinix_X6871"
 
     # Hardware blockdevice symlinks
     wait /dev/block/platform/soc/112b0000.ufshci
@@ -205,3 +205,17 @@ service keystore2 /system/bin/keystore2 /tmp/misc/keystore
     writepid /dev/cpuset/foreground/tasks
     seclabel u:r:recovery:s0
     override
+
+# OrangeFox Addons Auto-Deployer (Ensures FoxFiles/KernelSU exist on /sdcard even if only vendor_boot.img is flashed)
+service fox_addons_deploy /system/bin/sh -c "mkdir -p /sdcard/Fox/FoxFiles; [ -f /system/etc/FoxFiles/KernelSU_Installer.zip ] && cp -vf /system/etc/FoxFiles/* /sdcard/Fox/FoxFiles/ 2>/dev/null; chmod -R 0775 /sdcard/Fox/FoxFiles 2>/dev/null"
+    user root
+    group root
+    seclabel u:r:recovery:s0
+    oneshot
+    disabled
+
+on property:ro.crypto.state=unencrypted
+    start fox_addons_deploy
+
+on property:vold.decrypt=trigger_post_fs_data
+    start fox_addons_deploy
