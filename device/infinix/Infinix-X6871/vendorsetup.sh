@@ -11,7 +11,6 @@ patch_files=(
     "${device_dir}/patches/04-patch-native-vendor-ramdisk.patch"
     "${device_dir}/patches/06-patch-fbe-auth-token.patch"
     "${device_dir}/patches/07-patch-sideload-install-once.patch"
-    "${device_dir}/patches/09-patch-vbmeta-and-latest-root-addons.patch"
 )
 
 export ALLOW_MISSING_DEPENDENCIES=true
@@ -69,6 +68,9 @@ done
 
 # Ensure Unmap_Super_Devices does not abort Format Data on unmap errors
 python3 "${device_dir}/patch_pm.py" "${workspace_root}" 2>/dev/null || true
+
+# Dynamically patch theme layouts for Vbmeta addons and latest root suites
+python3 "${device_dir}/patch_theme.py" "${workspace_root}" 2>/dev/null || true
 
 if [[ "${patches_ok}" != true ]]; then
     unset device_dir workspace_root patch_files patch_file patches_ok

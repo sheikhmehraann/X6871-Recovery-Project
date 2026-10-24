@@ -100,6 +100,7 @@ jobs:
 
           # Upgrade vendor root suite installers to latest official releases
           python3 $GITHUB_WORKSPACE/scripts/update_root_suites.py $HOME/fox_14.1/vendor/recovery || true
+          python3 $GITHUB_WORKSPACE/scripts/update_root_suites.py $HOME/fox_14.1/device/infinix/X6871 || true
 
       - name: Build OrangeFox Recovery Image
         run: |
@@ -178,8 +179,9 @@ jobs:
               mkdir -p /tmp/fox_addon/sdcard/Fox/FoxFiles/OF_vbmeta
 
               # Installers
-              cp -vf $HOME/fox_14.1/vendor/recovery/KernelSU*.zip /tmp/fox_addon/Fox/FoxAddons/ 2>/dev/null || true
-              cp -vf $HOME/fox_14.1/vendor/recovery/KernelSU*.zip /tmp/fox_addon/sdcard/Fox/FoxFiles/KernelSU/ 2>/dev/null || true
+              find $HOME/fox_14.1/vendor/recovery $GITHUB_WORKSPACE/device/infinix -name "KernelSU*.zip" -exec cp -vf {} /tmp/fox_addon/Fox/FoxAddons/ \; 2>/dev/null || true
+              find $HOME/fox_14.1/vendor/recovery $GITHUB_WORKSPACE/device/infinix -name "KernelSU*.zip" -exec cp -vf {} /tmp/fox_addon/sdcard/Fox/FoxFiles/KernelSU/ \; 2>/dev/null || true
+              find $HOME/fox_14.1/vendor/recovery $GITHUB_WORKSPACE/device/infinix -name "KernelSU*.zip" -exec cp -vf {} $GITHUB_WORKSPACE/output/ \; 2>/dev/null || true
               cp -vf $GITHUB_WORKSPACE/output/Enable_Vbmeta.zip /tmp/fox_addon/Fox/FoxAddons/ 2>/dev/null || true
               cp -vf $GITHUB_WORKSPACE/output/Disable_Vbmeta.zip /tmp/fox_addon/Fox/FoxAddons/ 2>/dev/null || true
               cp -vf $GITHUB_WORKSPACE/output/Enable_Vbmeta.zip /tmp/fox_addon/sdcard/Fox/FoxFiles/OF_vbmeta/ 2>/dev/null || true

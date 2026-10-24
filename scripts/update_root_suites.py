@@ -101,6 +101,14 @@ def update_zip_contents(zip_path, new_files, source_text):
     finally:
         shutil.rmtree(temp_dir)
 
+def find_zip(target_dir, name):
+    if not os.path.exists(target_dir):
+        return None
+    for root, dirs, files in os.walk(target_dir):
+        if name in files:
+            return os.path.join(root, name)
+    return None
+
 def main():
     target_dir = sys.argv[1] if len(sys.argv) > 1 else "."
     print(f"=== Root Suites Latest Updater (Target: {target_dir}) ===")
@@ -108,9 +116,9 @@ def main():
     
     try:
         # 1. SukiSU-Ultra v4.2.1-r2
-        suki_zip = os.path.join(target_dir, "KernelSU_Suki_Installer.zip")
-        if os.path.exists(suki_zip):
-            print("\n--- Upgrading SukiSU-Ultra to v4.2.1-r2 ---")
+        suki_zip = find_zip(target_dir, "KernelSU_Suki_Installer.zip")
+        if suki_zip:
+            print(f"\n--- Upgrading SukiSU-Ultra to v4.2.1-r2 ({suki_zip}) ---")
             suki_base = "https://github.com/SukiSU-Ultra/SukiSU-Ultra/releases/download/v4.2.1-r2/"
             suki_mods = {
                 "android16-6.12_kernelsu.ko": suki_base + "lkm-aarch64-android16-6.12_kernelsu.ko",
@@ -132,9 +140,9 @@ def main():
             update_zip_contents(suki_zip, new_suki, suki_source)
 
         # 2. KernelSU v3.3.1
-        ksu_zip = os.path.join(target_dir, "KernelSU_Installer.zip")
-        if os.path.exists(ksu_zip):
-            print("\n--- Upgrading KernelSU to v3.3.1 ---")
+        ksu_zip = find_zip(target_dir, "KernelSU_Installer.zip")
+        if ksu_zip:
+            print(f"\n--- Upgrading KernelSU to v3.3.1 ({ksu_zip}) ---")
             ksu_base = "https://github.com/tiann/KernelSU/releases/download/v3.3.1/"
             ksu_mods = {
                 "android16-6.12_kernelsu.ko": ksu_base + "lkm-aarch64-android16-6.12_kernelsu.ko",
@@ -156,9 +164,9 @@ def main():
             update_zip_contents(ksu_zip, new_ksu, ksu_source)
 
         # 3. KernelSU-Next v3.4.2
-        ksun_zip = os.path.join(target_dir, "KernelSU_Next_Installer.zip")
-        if os.path.exists(ksun_zip):
-            print("\n--- Upgrading KernelSU-Next to v3.4.2 ---")
+        ksun_zip = find_zip(target_dir, "KernelSU_Next_Installer.zip")
+        if ksun_zip:
+            print(f"\n--- Upgrading KernelSU-Next to v3.4.2 ({ksun_zip}) ---")
             ksun_base = "https://github.com/KernelSU-Next/KernelSU-Next/releases/download/v3.4.2/"
             ksun_mods = {
                 "android16-6.12_kernelsu.ko": ksun_base + "aarch64_android16-6.12_kernelsu.ko",
