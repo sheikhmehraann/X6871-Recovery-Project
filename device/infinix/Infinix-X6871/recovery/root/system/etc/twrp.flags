@@ -35,7 +35,7 @@
 /connsys_bt			emmc		/dev/block/by-name/connsys_bt									flags=display="Bluetooth Firmware";slotselect;backup=1;flashimg=1
 /connsys_wifi		emmc		/dev/block/by-name/connsys_wifi									flags=display="WiFi Firmware";slotselect;backup=1;flashimg=1
 
-# Sensitive, Security & NV Partitions (Single)
+# Sensitive, Security & NV Partitions (Single - Strictly Protected from Formatting)
 /nvcfg				ext4		/dev/block/by-name/nvcfg										flags=display="NVCFG";backup=1
 /nvdata				ext4		/dev/block/by-name/nvdata										flags=display="NVDATA";backup=1
 /nvram				emmc		/dev/block/by-name/nvram										flags=display="NVRAM (IMEI/Calibration)";backup=1
@@ -60,8 +60,15 @@
 /para				emmc		/dev/block/by-name/para											flags=display="Para";backup=1
 /misc				emmc		/dev/block/by-name/misc											flags=display="Misc";backup=1
 
-# Removable Storage (USB-OTG)
-/usb_otg			auto		/dev/block/sdd1				/dev/block/sdd			/dev/block/sda1			flags=display="USB-OTG";storage;wipeingui;removable;backup=0
+# User Data, Caches & Storage Partitions (Wipe & Advanced Wipe UI)
+/data				f2fs		/dev/block/by-name/userdata										flags=display="Data";backup=1;wipeingui
+/metadata			ext4		/dev/block/by-name/metadata										flags=display="Metadata";backup=1;wipeingui
+/storage			auto		/data/media/0													flags=display="Internal Storage";usermrf;backup=1;fsflags="bind";removable;wipeingui
+/usb_otg			auto		/dev/block/sdd1				/dev/block/sdd			/dev/block/sde1			flags=display="USB Storage";storage;wipeingui;removable;backup=0
+/usb-otg			auto		/dev/block/sdd1				/dev/block/sdd			/dev/block/sde1			flags=display="USB OTG";storage;wipeingui;removable;backup=0
+/cache				auto		/data/cache														flags=display="Dalvik / ART Cache";fsflags="bind";backup=0;wipeingui
+/dalvik				auto		/data/dalvik-cache												flags=display="Dalvik Cache";fsflags="bind";backup=0;wipeingui
+/art				auto		/data/dalvik-cache/arm64										flags=display="ART Cache";fsflags="bind";backup=0;wipeingui
 
 # Super & Logical Flashable Image Partitions
 /super				emmc		/dev/block/by-name/super										flags=display="Super (Dynamic Partitions)";backup=1;flashimg=1

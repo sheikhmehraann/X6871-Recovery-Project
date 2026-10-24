@@ -32,6 +32,9 @@ export OF_SCREEN_H=2436
 export OF_STATUS_H=90
 export OF_STATUS_INDENT_LEFT=48
 export OF_STATUS_INDENT_RIGHT=48
+export FOX_DELETE_MAGISK_ADDON=1
+export FOX_SUPPORT_KSU=1
+export OF_WIPE_METADATA_AFTER_DATAFORMAT=1
 
 legacy_patch="${device_dir}/patches/03-patch-vendor-boot-postprocess.patch"
 if (cd "${workspace_root}" && patch -p1 -R --dry-run --silent < "${legacy_patch}" >/dev/null 2>&1); then

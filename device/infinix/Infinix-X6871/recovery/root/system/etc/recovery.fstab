@@ -27,9 +27,9 @@ tr_manifest			/tr_manifest	auto		ro																	wait,slotselect,logical
 /dev/block/by-name/metadata	/metadata		ext4		noatime,nosuid,nodev,discard														wait,check,formattable
 /dev/block/by-name/userdata	/data			f2fs		noatime,nosuid,nodev,discard,noflush_merge,fsync_mode=nobarrier,reserve_root=134217,resgid=1065,inlinecrypt				wait,check,formattable,fileencryption=aes-256-xts:aes-256-cts:v2+inlinecrypt_optimized,keydirectory=/metadata/vold/metadata_encryption
 
-# Persistent Storage & Factory Partitions
-/dev/block/by-name/persist	/persist		ext4		noatime,nosuid,nodev,noauto_da_alloc,commit=1,nodelalloc											wait,check,formattable
-/dev/block/by-name/tranfs	/tranfs			ext4		noatime,nosuid,nodev,noauto_da_alloc,discard														wait,check,formattable
+# Persistent Storage & Factory Partitions (Protected from formatting)
+/dev/block/by-name/persist	/persist		ext4		noatime,nosuid,nodev,noauto_da_alloc,commit=1,nodelalloc											wait,check
+/dev/block/by-name/tranfs	/tranfs			ext4		noatime,nosuid,nodev,noauto_da_alloc,discard														wait,check
 
 # Boot & Update Engine Anchor
 /dev/block/by-name/misc		/misc			emmc		defaults																defaults

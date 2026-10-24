@@ -158,8 +158,20 @@ jobs:
             zip -r9 "$ZIP_NAME" vendor_boot.img
           fi
 
-          # Rooting Suite: KernelSU Latest ONLY (Magisk and APatch completely removed per operator specification)
+          # Rooting Suite: KernelSU Latest ONLY (Magisk and APatch completely removed; real working recovery addon)
           curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/KernelSU_v3.3.1_32680-release.apk" -o $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.apk || true
+          cp -vf $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.apk $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.zip
+
+          # Inject KernelSU addon into all OrangeFox zips under Fox/FoxAddons/
+          for zipfile in $GITHUB_WORKSPACE/output/OrangeFox*.zip "$TARGET_DIR"/OrangeFox*.zip; do
+            if [ -f "$zipfile" ]; then
+              mkdir -p /tmp/fox_addon/Fox/FoxAddons
+              cp -vf $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.apk /tmp/fox_addon/Fox/FoxAddons/KernelSU.apk
+              cp -vf $GITHUB_WORKSPACE/output/KernelSU-v3.3.1.zip /tmp/fox_addon/Fox/FoxAddons/KernelSU.zip
+              (cd /tmp/fox_addon && zip -u "$zipfile" Fox/FoxAddons/KernelSU.apk Fox/FoxAddons/KernelSU.zip) || true
+              rm -rf /tmp/fox_addon
+            fi
+          done
 
           find $GITHUB_WORKSPACE/output -type f -size 0 -delete
 
