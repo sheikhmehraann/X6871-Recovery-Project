@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import os
+import re
 
 def patch_file(file_path):
     try:
@@ -20,7 +21,20 @@ def patch_file(file_path):
         content = content.replace("{@module_install} SukiSU Ultra %ssu_ver%", "{@module_install} SukiSU Ultra 4.2.1")
         modified = True
 
-    # 2. Add Vbmeta pages if not present
+    # 2. Purge plain KernelSU and KernelSU-Next listitems from the GUI
+    ksu_pattern = r'<listitem name="\{@module_install\}\s*KernelSU\s*%ksu_ver%">[\s\S]*?</listitem>'
+    if re.search(ksu_pattern, content):
+        content = re.sub(ksu_pattern, '', content)
+        modified = True
+        print(f"[Infinix-X6871] Removed standard KernelSU listitem from {file_path}")
+
+    ksun_pattern = r'<listitem name="\{@module_install\}\s*KernelSU\s*Next\s*%ksun_ver%">[\s\S]*?</listitem>'
+    if re.search(ksun_pattern, content):
+        content = re.sub(ksun_pattern, '', content)
+        modified = True
+        print(f"[Infinix-X6871] Removed KernelSU-Next listitem from {file_path}")
+
+    # 3. Add Vbmeta pages if not present
     if "mod_disable_vbmeta" not in content:
         vbmeta_pages = (
             '\n\t\t<page name="mod_disable_vbmeta">\n'
@@ -64,7 +78,7 @@ def patch_file(file_path):
                 content = content[:suki_end + 7] + vbmeta_pages + content[suki_end + 7:]
                 modified = True
 
-    # 3. Add Vbmeta listitems to fox_modules listbox if not present
+    # 4. Add Vbmeta listitems to fox_modules listbox if not present
     if "Disable Vbmeta (AVB Verification)" not in content:
         vbmeta_items = (
             '\n\t\t\t\t<listitem name="Disable Vbmeta (AVB Verification)">\n'

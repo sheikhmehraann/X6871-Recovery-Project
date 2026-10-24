@@ -18,44 +18,161 @@ def fix_update_binary(temp_dir):
     ub_path = os.path.join(temp_dir, 'META-INF', 'com', 'google', 'android', 'update-binary')
     if not os.path.exists(ub_path):
         return
-    with open(ub_path, 'r', encoding='utf-8', errors='ignore') as f:
-        content = f.read()
 
-    # Smart partition detector: only select init_boot if it actually contains the ANDROID! header
-    old_detect = '''\t# detect the init_boot partition, else resort to the boot partition
-\tPART=/dev/block/bootdevice/by-name/init_boot_a;
-\tif [ -e $PART ]; then
-\t\tPART=init_boot;
-\telse
-\t\tPART=boot;
-\tfi'''
+    update_binary_content = """#!/system/bin/sh
 
-    new_detect = '''\t# detect whether init_boot partition is valid (has ANDROID! header), else resort to boot
-\tPART=boot;
-\tfor ib in /dev/block/bootdevice/by-name/init_boot_a /dev/block/by-name/init_boot_a /dev/block/by-name/init_boot; do
-\t\tif [ -e "$ib" ]; then
-\t\t\tmagic=$(toybox xxd -l 8 "$ib" 2>/dev/null | grep -i "ANDROID\\!");
-\t\t\t[ -z "$magic" ] && magic=$(head -c 8 "$ib" 2>/dev/null | grep "ANDROID\\!");
-\t\t\tif [ -n "$magic" ]; then
-\t\t\t\tPART=init_boot;
-\t\t\t\tbreak;
-\t\t\tfi
-\t\tfi
-\tdone'''
+MOD_DATE="20261025";
+TARGET="SukiSU_Ultra";
+FOX_INSTALLER_DEBUG_MODE=1;
 
-    if old_detect in content:
-        content = content.replace(old_detect, new_detect)
-        print("  Patched init_boot vs boot detection logic")
+SCREEN=/proc/self/fd/$2;
+ZIPFILE="$3";
+KSUD=$(which ksud 2>/dev/null);
 
-    # Explicitly pass --partition $PART to ksud
-    old_call = 'ksud boot-patch --module $FNAME --flash;'
-    new_call = 'ksud boot-patch --partition $PART --module $FNAME --flash;'
-    if old_call in content:
-        content = content.replace(old_call, new_call)
-        print("  Patched ksud boot-patch --partition $PART flag")
+BOOTMODE=false;
+ps | grep zygote | grep -v grep >/dev/null && BOOTMODE=true;
+$BOOTMODE || ps -A 2>/dev/null | grep zygote | grep -v grep >/dev/null && BOOTMODE=true;
 
+$BOOTMODE && TMP_DIR=/dev/tmp || TMP_DIR=/tmp;
+mkdir -p $TMP_DIR;
+EX_DIR=$TMP_DIR/ofox_ksu_installer;
+
+ui_print() {
+  if [ "$BOOTMODE" = "true" ]; then
+    echo "$1";
+  else
+    until [ ! "$1" ]; do
+      echo -e "ui_print $1\\nui_print" >> $SCREEN;
+      shift;
+    done
+  fi
+}
+
+cleanup() {
+   rm -rf $EX_DIR;
+}
+
+abort() {
+   ui_print "$*";
+   cleanup;
+   exit 1;
+}
+
+# Unpack installer package
+ui_print "*******************************************";
+ui_print "*** |OrangeFox Recovery SukiSU Addon|   ***";
+ui_print "***   |SukiSU Ultra v4.2.1-r2 Installer|***";
+ui_print "***   |Kernel 6.12 GKI Boot Patcher|   ***";
+ui_print "*******************************************";
+ui_print " ";
+
+if [ "$BOOTMODE" = "true" ]; then
+    abort "Error: Running on Android system. Please flash inside OrangeFox Recovery.";
+fi
+
+mkdir -p $EX_DIR;
+cd $EX_DIR || abort "Error: Failed to create temp directory";
+unzip -o "$ZIPFILE" || abort "Error: Failed to extract installer zip";
+
+# Locate ksud
+if [ -z "$KSUD" ] || [ ! -x "$KSUD" ]; then
+    if [ -f "$EX_DIR/ksud" ]; then
+        cp -f "$EX_DIR/ksud" /sbin/ksud 2>/dev/null || cp -f "$EX_DIR/ksud" /tmp/ksud 2>/dev/null;
+        chmod 0755 /sbin/ksud 2>/dev/null || chmod 0755 /tmp/ksud 2>/dev/null;
+        KSUD=$(which ksud 2>/dev/null);
+        [ -z "$KSUD" ] && [ -x /sbin/ksud ] && KSUD=/sbin/ksud;
+        [ -z "$KSUD" ] && [ -x /tmp/ksud ] && KSUD=/tmp/ksud;
+    fi
+fi
+[ -z "$KSUD" ] && abort "Error: 'ksud' binary could not be found or executed.";
+
+# Resolve slot and boot block device
+SLOT=$(getprop ro.boot.slot_suffix 2>/dev/null);
+if [ -z "$SLOT" ]; then
+    SLOT=$(getprop ro.boot.slot 2>/dev/null);
+    [ -n "$SLOT" ] && SLOT="_$SLOT";
+fi
+[ -z "$SLOT" ] && SLOT="_a";
+
+BOOT_DEV="";
+for dev in \\
+    "/dev/block/by-name/boot$SLOT" \\
+    "/dev/block/bootdevice/by-name/boot$SLOT" \\
+    "/dev/block/platform/*/by-name/boot$SLOT" \\
+    "/dev/block/by-name/boot" \\
+    "/dev/block/bootdevice/by-name/boot"; do
+    if [ -e "$dev" ]; then
+        # Verify valid ANDROID! header
+        magic=$(toybox head -c 8 "$dev" 2>/dev/null);
+        [ -z "$magic" ] && magic=$(head -c 8 "$dev" 2>/dev/null);
+        if [ "$magic" = "ANDROID!" ]; then
+            BOOT_DEV="$dev";
+            break;
+        fi
+    fi
+done
+
+if [ -z "$BOOT_DEV" ]; then
+    # Fallback to direct by-name node
+    [ -e "/dev/block/by-name/boot$SLOT" ] && BOOT_DEV="/dev/block/by-name/boot$SLOT";
+    [ -z "$BOOT_DEV" ] && [ -e "/dev/block/by-name/boot" ] && BOOT_DEV="/dev/block/by-name/boot";
+fi
+
+[ -z "$BOOT_DEV" ] && abort "Error: Boot partition device could not be resolved.";
+
+ui_print "- Target Boot Partition: $BOOT_DEV (Slot: $SLOT)";
+
+# Resolve SukiSU kernel module
+MODULE_FILE="$EX_DIR/android16-6.12_kernelsu.ko";
+if [ ! -f "$MODULE_FILE" ]; then
+    MODULE_FILE=$(ls $EX_DIR/*6.12*kernelsu.ko 2>/dev/null | head -n 1);
+fi
+[ -z "$MODULE_FILE" ] || [ ! -f "$MODULE_FILE" ] && abort "Error: android16-6.12_kernelsu.ko not found in package.";
+
+ui_print "- Selected SukiSU Module: $(basename "$MODULE_FILE")";
+
+# Ensure temp directory for ksud
+export TMPDIR=/tmp;
+mkdir -p /tmp/ksud /data/local/tmp 2>/dev/null || true;
+
+ui_print " ";
+ui_print "Patching and flashing boot partition with SukiSU Ultra...";
+"$KSUD" boot-patch "$BOOT_DEV" --module "$MODULE_FILE" --flash;
+RET=$?;
+
+if [ $RET -ne 0 ]; then
+    ui_print "Warning: Direct block patch returned $RET, attempting file-based staging...";
+    TMP_BOOT=/tmp/stock_boot.img;
+    TMP_PATCHED=/tmp/patched_boot.img;
+    rm -f $TMP_BOOT $TMP_PATCHED;
+    dd if="$BOOT_DEV" of=$TMP_BOOT bs=4096 count=16384 2>/dev/null;
+    "$KSUD" boot-patch $TMP_BOOT --module "$MODULE_FILE" --out $TMP_PATCHED;
+    if [ $? -eq 0 ] && [ -s $TMP_PATCHED ]; then
+        ui_print "- Writing patched boot image to $BOOT_DEV...";
+        dd if=$TMP_PATCHED of="$BOOT_DEV" bs=4096 2>/dev/null;
+        sync;
+        RET=0;
+    fi
+    rm -f $TMP_BOOT $TMP_PATCHED;
+fi
+
+if [ $RET -ne 0 ]; then
+    abort "Error: SukiSU boot-patch failed (exit code $RET). Check /tmp/recovery.log.";
+fi
+
+ui_print " ";
+ui_print "==========================================";
+ui_print "SukiSU Ultra v4.2.1-r2 Installed Successfully!";
+ui_print "Target Partition: $BOOT_DEV";
+ui_print "Kernel: 6.12 GKI / Android 16";
+ui_print "==========================================";
+
+cleanup;
+exit 0;
+"""
     with open(ub_path, 'w', encoding='utf-8', newline='\n') as f:
-        f.write(content.replace('\r\n', '\n'))
+        f.write(update_binary_content)
+    print("  Injected robust SukiSU boot.img patcher update-binary")
 
 def update_zip_contents(zip_path, new_files, source_text):
     print(f"Updating {zip_path}...")
@@ -111,11 +228,11 @@ def find_zip(target_dir, name):
 
 def main():
     target_dir = sys.argv[1] if len(sys.argv) > 1 else "."
-    print(f"=== Root Suites Latest Updater (Target: {target_dir}) ===")
+    print(f"=== Root Suites Updater: Target SukiSU Ultra v4.2.1-r2 (Target: {target_dir}) ===")
     work_dir = tempfile.mkdtemp()
     
     try:
-        # 1. SukiSU-Ultra v4.2.1-r2
+        # SukiSU-Ultra v4.2.1-r2
         suki_zip = find_zip(target_dir, "KernelSU_Suki_Installer.zip")
         if suki_zip:
             print(f"\n--- Upgrading SukiSU-Ultra to v4.2.1-r2 ({suki_zip}) ---")
@@ -124,10 +241,6 @@ def main():
                 "android16-6.12_kernelsu.ko": suki_base + "lkm-aarch64-android16-6.12_kernelsu.ko",
                 "android15-6.6_kernelsu.ko": suki_base + "lkm-aarch64-android15-6.6_kernelsu.ko",
                 "android14-6.1_kernelsu.ko": suki_base + "lkm-aarch64-android14-6.1_kernelsu.ko",
-                "android14-5.15_kernelsu.ko": suki_base + "lkm-aarch64-android14-5.15_kernelsu.ko",
-                "android13-5.15_kernelsu.ko": suki_base + "lkm-aarch64-android13-5.15_kernelsu.ko",
-                "android13-5.10_kernelsu.ko": suki_base + "lkm-aarch64-android13-5.10_kernelsu.ko",
-                "android12-5.10_kernelsu.ko": suki_base + "lkm-aarch64-android12-5.10_kernelsu.ko",
                 "ksud": suki_base + "ksud-aarch64-linux-android"
             }
             new_suki = {}
@@ -139,57 +252,9 @@ def main():
             suki_source = "v4.2.1-r2:\nhttps://github.com/SukiSU-Ultra/SukiSU-Ultra/releases/tag/v4.2.1-r2\n"
             update_zip_contents(suki_zip, new_suki, suki_source)
 
-        # 2. KernelSU v3.3.1
-        ksu_zip = find_zip(target_dir, "KernelSU_Installer.zip")
-        if ksu_zip:
-            print(f"\n--- Upgrading KernelSU to v3.3.1 ({ksu_zip}) ---")
-            ksu_base = "https://github.com/tiann/KernelSU/releases/download/v3.3.1/"
-            ksu_mods = {
-                "android16-6.12_kernelsu.ko": ksu_base + "lkm-aarch64-android16-6.12_kernelsu.ko",
-                "android15-6.6_kernelsu.ko": ksu_base + "lkm-aarch64-android15-6.6_kernelsu.ko",
-                "android14-6.1_kernelsu.ko": ksu_base + "lkm-aarch64-android14-6.1_kernelsu.ko",
-                "android14-5.15_kernelsu.ko": ksu_base + "lkm-aarch64-android14-5.15_kernelsu.ko",
-                "android13-5.15_kernelsu.ko": ksu_base + "lkm-aarch64-android13-5.15_kernelsu.ko",
-                "android13-5.10_kernelsu.ko": ksu_base + "lkm-aarch64-android13-5.10_kernelsu.ko",
-                "android12-5.10_kernelsu.ko": ksu_base + "lkm-aarch64-android12-5.10_kernelsu.ko",
-                "ksud": ksu_base + "ksud-aarch64-linux-android"
-            }
-            new_ksu = {}
-            for name, url in ksu_mods.items():
-                p = os.path.join(work_dir, "ksu_" + name)
-                download_file(url, p)
-                new_ksu[name] = p
-                
-            ksu_source = "v3.3.1:\nhttps://github.com/tiann/KernelSU/releases/tag/v3.3.1\n"
-            update_zip_contents(ksu_zip, new_ksu, ksu_source)
-
-        # 3. KernelSU-Next v3.4.2
-        ksun_zip = find_zip(target_dir, "KernelSU_Next_Installer.zip")
-        if ksun_zip:
-            print(f"\n--- Upgrading KernelSU-Next to v3.4.2 ({ksun_zip}) ---")
-            ksun_base = "https://github.com/KernelSU-Next/KernelSU-Next/releases/download/v3.4.2/"
-            ksun_mods = {
-                "android16-6.12_kernelsu.ko": ksun_base + "aarch64_android16-6.12_kernelsu.ko",
-                "android15-6.6_kernelsu.ko": ksun_base + "aarch64_android15-6.6_kernelsu.ko",
-                "android14-6.1_kernelsu.ko": ksun_base + "aarch64_android14-6.1_kernelsu.ko",
-                "android14-5.15_kernelsu.ko": ksun_base + "aarch64_android14-5.15_kernelsu.ko",
-                "android13-5.15_kernelsu.ko": ksun_base + "aarch64_android13-5.15_kernelsu.ko",
-                "android13-5.10_kernelsu.ko": ksun_base + "aarch64_android13-5.10_kernelsu.ko",
-                "android12-5.10_kernelsu.ko": ksun_base + "aarch64_android12-5.10_kernelsu.ko",
-                "ksud": ksun_base + "ksud-aarch64-linux-android"
-            }
-            new_ksun = {}
-            for name, url in ksun_mods.items():
-                p = os.path.join(work_dir, "ksun_" + name)
-                download_file(url, p)
-                new_ksun[name] = p
-                
-            ksun_source = "v3.4.2:\nhttps://github.com/KernelSU-Next/KernelSU-Next/releases/tag/v3.4.2\n"
-            update_zip_contents(ksun_zip, new_ksun, ksun_source)
-
     finally:
         shutil.rmtree(work_dir)
-    print("\nAll root suite installers upgraded successfully to latest releases!")
+    print("\nSukiSU Ultra installer upgraded successfully to latest release!")
 
 if __name__ == '__main__':
     main()

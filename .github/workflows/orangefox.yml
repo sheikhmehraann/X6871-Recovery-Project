@@ -162,26 +162,24 @@ jobs:
             zip -r9 "$ZIP_NAME" vendor_boot.img
           fi
 
-          # Latest Root Suites & Vbmeta Addon Deployment (Variant 16.3.0)
-          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/KernelSU_v3.3.1_32680-release.apk" -o $GITHUB_WORKSPACE/output/KernelSU_v3.3.1-release.apk || true
-          curl -sSL "https://github.com/KernelSU-Next/KernelSU-Next/releases/download/v3.4.2/KernelSU_Next_v3.4.2_33355-release.apk" -o $GITHUB_WORKSPACE/output/KernelSU_Next_v3.4.2-release.apk || true
+          # SukiSU Ultra v4.2.1-r2 Manager & Standalone Flashables (Variant 16.3.0)
           curl -sSL "https://github.com/SukiSU-Ultra/SukiSU-Ultra/releases/download/v4.2.1-r2/SukiSU_v4.2.1-r2_41068-release.apk" -o $GITHUB_WORKSPACE/output/SukiSU_v4.2.1-release.apk || true
 
           # Standalone Flashable Vbmeta packages
           cp -vf $GITHUB_WORKSPACE/device/infinix/Infinix-X6871/recovery/root/FFiles/OF_vbmeta/Enable_Vbmeta.zip $GITHUB_WORKSPACE/output/Enable_Vbmeta.zip || true
           cp -vf $GITHUB_WORKSPACE/device/infinix/Infinix-X6871/recovery/root/FFiles/OF_vbmeta/Disable_Vbmeta.zip $GITHUB_WORKSPACE/output/Disable_Vbmeta.zip || true
 
-          # Repack all OrangeFox recovery zips with upgraded FoxAddons and Vbmeta tools
+          # Repack all OrangeFox recovery zips with SukiSU Ultra and Vbmeta tools
           for zipfile in $GITHUB_WORKSPACE/output/OrangeFox*.zip "$TARGET_DIR"/OrangeFox*.zip; do
             if [ -f "$zipfile" ]; then
               mkdir -p /tmp/fox_addon/Fox/FoxAddons
               mkdir -p /tmp/fox_addon/sdcard/Fox/FoxFiles/KernelSU
               mkdir -p /tmp/fox_addon/sdcard/Fox/FoxFiles/OF_vbmeta
 
-              # Installers
-              find $HOME/fox_14.1/vendor/recovery $GITHUB_WORKSPACE/device/infinix -name "KernelSU*.zip" -exec cp -vf {} /tmp/fox_addon/Fox/FoxAddons/ \; 2>/dev/null || true
-              find $HOME/fox_14.1/vendor/recovery $GITHUB_WORKSPACE/device/infinix -name "KernelSU*.zip" -exec cp -vf {} /tmp/fox_addon/sdcard/Fox/FoxFiles/KernelSU/ \; 2>/dev/null || true
-              find $HOME/fox_14.1/vendor/recovery $GITHUB_WORKSPACE/device/infinix -name "KernelSU*.zip" -exec cp -vf {} $GITHUB_WORKSPACE/output/ \; 2>/dev/null || true
+              # SukiSU Installer
+              find $HOME/fox_14.1/vendor/recovery $GITHUB_WORKSPACE/device/infinix -name "KernelSU_Suki_Installer.zip" -exec cp -vf {} /tmp/fox_addon/Fox/FoxAddons/ \; 2>/dev/null || true
+              find $HOME/fox_14.1/vendor/recovery $GITHUB_WORKSPACE/device/infinix -name "KernelSU_Suki_Installer.zip" -exec cp -vf {} /tmp/fox_addon/sdcard/Fox/FoxFiles/KernelSU/ \; 2>/dev/null || true
+              find $HOME/fox_14.1/vendor/recovery $GITHUB_WORKSPACE/device/infinix -name "KernelSU_Suki_Installer.zip" -exec cp -vf {} $GITHUB_WORKSPACE/output/ \; 2>/dev/null || true
               cp -vf $GITHUB_WORKSPACE/output/Enable_Vbmeta.zip /tmp/fox_addon/Fox/FoxAddons/ 2>/dev/null || true
               cp -vf $GITHUB_WORKSPACE/output/Disable_Vbmeta.zip /tmp/fox_addon/Fox/FoxAddons/ 2>/dev/null || true
               cp -vf $GITHUB_WORKSPACE/output/Enable_Vbmeta.zip /tmp/fox_addon/sdcard/Fox/FoxFiles/OF_vbmeta/ 2>/dev/null || true
@@ -230,7 +228,7 @@ jobs:
             * Dual ZSTD compressed ramdisk fragments (PLATFORM + RECOVERY)
             * KeyMint v3, Gatekeeper AIDL, and Enforcing SELinux support
             * Dynamic partitions: 16 stock logical partitions (system, system_ext, system_dlkm, vendor, vendor_dlkm, product, odm, odm_dlkm, and all 8 Transsion tr_* partitions)
-            * Root Engine: KernelSU v3.3.1 latest integrated support
+            * Root Engine: SukiSU Ultra v4.2.1-r2 (Kernel 6.12 GKI / boot.img patcher)
           draft: false
           prerelease: false
         env:
