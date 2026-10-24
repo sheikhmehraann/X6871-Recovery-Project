@@ -98,11 +98,6 @@ jobs:
           ln -sf X6871 device/infinix/Infinix-X6871
           chmod +x device/infinix/X6871/vendorsetup.sh
 
-          # Pre-stage KernelSU Installer into recovery ramdisk so addons work on standalone vendor_boot
-          mkdir -p device/infinix/X6871/recovery/root/system/etc/FoxFiles
-          curl -sSL "https://github.com/tiann/KernelSU/releases/download/v3.3.1/KernelSU_v3.3.1_32680-release.apk" -o device/infinix/X6871/recovery/root/system/etc/FoxFiles/KernelSU_Installer.zip || true
-          cp -vf device/infinix/X6871/recovery/root/system/etc/FoxFiles/KernelSU_Installer.zip device/infinix/X6871/recovery/root/system/etc/FoxFiles/KernelSU_Next_Installer.zip || true
-
       - name: Build OrangeFox Recovery Image
         run: |
           cd $HOME/fox_14.1

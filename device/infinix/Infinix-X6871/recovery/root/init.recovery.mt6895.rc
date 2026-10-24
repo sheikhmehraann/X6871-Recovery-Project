@@ -206,16 +206,4 @@ service keystore2 /system/bin/keystore2 /tmp/misc/keystore
     seclabel u:r:recovery:s0
     override
 
-# OrangeFox Addons Auto-Deployer (Ensures FoxFiles/KernelSU exist on /sdcard even if only vendor_boot.img is flashed)
-service fox_addons_deploy /system/bin/sh -c "mkdir -p /sdcard/Fox/FoxFiles; [ -f /system/etc/FoxFiles/KernelSU_Installer.zip ] && cp -vf /system/etc/FoxFiles/* /sdcard/Fox/FoxFiles/ 2>/dev/null; chmod -R 0775 /sdcard/Fox/FoxFiles 2>/dev/null"
-    user root
-    group root
-    seclabel u:r:recovery:s0
-    oneshot
-    disabled
 
-on property:ro.crypto.state=unencrypted
-    start fox_addons_deploy
-
-on property:vold.decrypt=trigger_post_fs_data
-    start fox_addons_deploy
