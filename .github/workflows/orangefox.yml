@@ -95,6 +95,7 @@ jobs:
 
           mkdir -p device/infinix
           cp -r $GITHUB_WORKSPACE/device/infinix/Infinix-X6871 device/infinix/X6871
+          ln -sf X6871 device/infinix/Infinix-X6871
           chmod +x device/infinix/X6871/vendorsetup.sh
 
       - name: Build OrangeFox Recovery Image

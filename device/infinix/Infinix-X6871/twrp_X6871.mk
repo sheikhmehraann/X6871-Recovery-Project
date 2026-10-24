@@ -16,9 +16,9 @@ $(call inherit-product, device/infinix/X6871/twrp.mk)
 # Include Fox props.
 $(call inherit-product, device/infinix/X6871/fox.mk)
 
-# Product Specifics (100% Matched to Stock Infinix GT 20 Pro X6871)
+# Product Specifics
 PRODUCT_NAME := twrp_X6871
-PRODUCT_DEVICE := Infinix-X6871
+PRODUCT_DEVICE := X6871
 PRODUCT_BRAND := Infinix
 PRODUCT_MODEL := Infinix X6871
 PRODUCT_MANUFACTURER := INFINIX
