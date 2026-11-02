@@ -4,16 +4,17 @@ Unified recovery device tree and automated build configurations for the Infinix 
 
 ---
 
-## 1. Supported Recovery Targets
+## 1. Supported Recovery Projects
 
-This repository contains multi-target makefiles, patches, and configurations supporting:
+This repository hosts unified device trees and specialized configuration profiles for all five major Android custom recoveries:
 
-| Recovery Project | Target Lunch Combo | Base Manifest | Build Makefile | Output Artifact |
+| Recovery Project | Target Lunch Combo | Base Manifest | Build Makefile | Dedicated Profile |
 |---|---|---|---|---|
-| OrangeFox Recovery Project (OFRP) | `fox_X6871-ap2a-eng` | OrangeFox 14.1 (AOSP AP2A / SDK 34) | `device/infinix/Infinix-X6871/fox_X6871.mk` | `vendor_boot.img` (Dual-ZSTD) |
-| TeamWin Recovery Project (TWRP) | `twrp_X6871-eng` | TWRP 16.0 (AOSP tos16 / A16) | `device/infinix/Infinix-X6871/twrp_X6871.mk` | `vendor_boot.img` |
-| PitchBlack Recovery Project (PBRP) | `pb_X6871-eng` | PBRP 12.1 / 14 | `device/infinix/Infinix-X6871/pb_X6871.mk` | `vendor_boot.img` |
-| SkyHawk Recovery Project (SHRP) | `shrp_X6871-eng` | SHRP 12.1 | `device/infinix/Infinix-X6871/shrp_X6871.mk` | `vendor_boot.img` |
+| TeamWin Recovery Project (TWRP) | `twrp_X6871-eng` | TWRP 16.0 (AOSP tos16 / A16) | `device/infinix/Infinix-X6871/twrp_X6871.mk` | [recoveries/TWRP](recoveries/TWRP/TREE.md) |
+| OrangeFox Recovery Project (OFRP) | `fox_X6871-ap2a-eng` | OrangeFox 14.1 (AOSP AP2A / SDK 34) | `device/infinix/Infinix-X6871/fox_X6871.mk` | [recoveries/OFRP](recoveries/OFRP/TREE.md) |
+| PitchBlack Recovery Project (PBRP) | `pb_X6871-eng` | PBRP 12.1 / 14 | `device/infinix/Infinix-X6871/pb_X6871.mk` | [recoveries/PBRP](recoveries/PBRP/TREE.md) |
+| SkyHawk Recovery Project (SHRP) | `shrp_X6871-eng` | SHRP 12.1 | `device/infinix/Infinix-X6871/shrp_X6871.mk` | [recoveries/SHRP](recoveries/SHRP/TREE.md) |
+| Yet Another Recovery Project (YARP) | `yarp_X6871-eng` | YARP / TWRP 16.0 | `device/infinix/Infinix-X6871/yarp_X6871.mk` | [recoveries/YARP](recoveries/YARP/TREE.md) |
 
 ---
 
@@ -70,7 +71,7 @@ vendor_boot Header v4 (67,108,864 bytes / 64MB boundary)
 ├── Page 0 (0x0000 - 0x0FFF): Header v4 (Magic: 'VNDRBOOT', version: 4, page_size: 4096)
 ├── Page 1: Vendor Ramdisk Payload
 │   ├── Fragment 0 (Type 1 - PLATFORM): Stock vendor ramdisk (242 MTK drivers, firmware, init scripts)
-│   └── Fragment 1 (Type 2 - RECOVERY): Recovery filesystem (TWRP / OrangeFox / PBRP / SHRP)
+│   └── Fragment 1 (Type 2 - RECOVERY): Recovery filesystem (TWRP / OrangeFox / PBRP / SHRP / YARP)
 ├── Page N: Flattened Device Tree Blob (dtb.img, 337,316 bytes)
 ├── Page M: Vendor Ramdisk Table (108 bytes per entry)
 │   ├── Entry 0: size=Frag0_sz, offset=0, type=1 (PLATFORM)
@@ -109,7 +110,8 @@ Resolves black screens on the 1080x2436 144Hz AMOLED panel by bypassing legacy f
 │       ├── orangefox.yml               # Automated OrangeFox A16 CI build
 │       ├── twrp.yml                    # Automated TWRP 16.0 CI build
 │       ├── pbrp.yml                    # Automated PitchBlack CI build
-│       └── shrp.yml                    # Automated SkyHawk CI build
+│       ├── shrp.yml                    # Automated SkyHawk CI build
+│       └── yarp.yml                    # Automated YARP CI build
 ├── configs/
 │   ├── by-name-mapping.txt             # Hardware UFS partition mappings
 │   ├── getprop.txt                     # Stock build properties
@@ -119,17 +121,18 @@ Resolves black screens on the 1080x2436 144Hz AMOLED panel by bypassing legacy f
 │   └── fstabs/                         # Stock partition mount tables
 ├── device/
 │   ├── infinix/
-│   │   └── Infinix-X6871/              # Device-specific configuration
+│   │   └── Infinix-X6871/              # Unified device model tree
 │   │       ├── Android.mk
-│   │       ├── AndroidProducts.mk      # Lunch targets (fox, twrp, pb, shrp)
+│   │       ├── AndroidProducts.mk      # Multi-product definitions
 │   │       ├── BoardConfig.mk          # Board architecture flags
 │   │       ├── device.mk
-│   │       ├── fox.mk / fox_X6871.mk   # OrangeFox configurations
-│   │       ├── twrp_X6871.mk           # TWRP configurations
-│   │       ├── pb_X6871.mk             # PBRP configurations
-│   │       ├── shrp_X6871.mk           # SHRP configurations
-│   │       ├── omni_X6871.mk           # OmniROM base configuration
-│   │       ├── vendorsetup.sh          # Environment exports and patches
+│   │       ├── twrp_X6871.mk           # TWRP target makefile
+│   │       ├── fox_X6871.mk / fox.mk   # OrangeFox target makefiles
+│   │       ├── pb_X6871.mk             # PBRP target makefile
+│   │       ├── shrp_X6871.mk           # SHRP target makefile
+│   │       ├── yarp_X6871.mk           # YARP target makefile
+│   │       ├── omni_X6871.mk           # Omni fallback target makefile
+│   │       ├── vendorsetup.sh          # Environment exports & patch dispatcher
 │   │       ├── patches/                # Hardware haptic patches
 │   │       ├── prebuilt/
 │   │       │   └── dtb.img             # Android 16 Device Tree Blob
@@ -145,13 +148,19 @@ Resolves black screens on the 1080x2436 144Hz AMOLED panel by bypassing legacy f
 │           ├── prebuilt/
 │           │   └── empty_recovery.cpio.zst # Standalone empty recovery fragment
 │           └── recovery/root/          # Init scripts, HALs, VINTF, mcRegistry
+├── recoveries/                         # Dedicated recovery profile directories
+│   ├── TWRP/                           # TWRP 16.0 tree requirements & guide
+│   ├── OFRP/                           # OrangeFox 14.1 tree requirements & guide
+│   ├── PBRP/                           # PitchBlack 12.1 tree requirements & guide
+│   ├── SHRP/                           # SkyHawk 12.1 tree requirements & guide
+│   └── YARP/                           # YARP 16.0 tree requirements & guide
 ├── reference/
 │   ├── stock_firmware/
 │   │   ├── MT6895_Android_scatter.txt # Official MediaTek partition scatter
 │   │   └── partition_info.json        # Parsed dynamic partition map
 │   └── stock_vendor_boot.img.gz       # Golden stock Android 16 vendor_boot
 ├── scripts/
-│   ├── build_x6871.sh                  # Local compilation dispatcher
+│   ├── build_x6871.sh                  # Local compilation dispatcher (all 5 targets)
 │   ├── repack_vendor_boot_a16.py       # Dual-ZSTD repacker with opcode patches
 │   ├── patch_ofox.py                   # Automated OrangeFox AST patch engine
 │   ├── graphics_drm.cpp                # MT6895 atomic DRM display engine
@@ -178,72 +187,33 @@ sudo apt-get install -y \
     squashfs-tools libtinfo5 openjdk-11-jdk-headless ccache zstd
 ```
 
-### 1. OrangeFox Recovery Project (OFRP 14.1)
-```bash
-# Sync OrangeFox 14.1 manifest
-mkdir -p ~/fox_14.1 && cd ~/fox_14.1
-git clone --depth=1 https://gitlab.com/OrangeFox/sync.git ~/OrangeFox_sync
-~/OrangeFox_sync/orangefox_sync.sh --branch 14.1 --path ~/fox_14.1
-
-# Clone repository into workspace
-git clone https://github.com/<your-username>/X6871-Recovery-Project.git ~/fox_14.1/X6871-Recovery-Project
-mkdir -p device/infinix device/transsion
-ln -s ~/fox_14.1/X6871-Recovery-Project/device/infinix/Infinix-X6871 device/infinix/Infinix-X6871
-ln -s ~/fox_14.1/X6871-Recovery-Project/device/transsion/mt6895-common device/transsion/mt6895-common
-
-# Initialize build environment
-source build/envsetup.sh
-source device/infinix/Infinix-X6871/vendorsetup.sh
-lunch twrp_X6871-ap2a-eng
-
-# Compile vendor_boot
-mka adbd vendorbootimage -j$(nproc)
-
-# Repack with Stock Fragment 0 and in-place patches
-python3 X6871-Recovery-Project/scripts/repack_vendor_boot_a16.py \
-    X6871-Recovery-Project/reference/stock_vendor_boot.img.gz \
-    out/target/product/Infinix-X6871/vendor_boot.img \
-    out/target/product/Infinix-X6871/vendor_boot_repacked.img
-```
-
-### 2. TeamWin Recovery Project (TWRP 16.0)
-```bash
-# Sync TWRP 16.0 manifest
-mkdir -p ~/twrp_16 && cd ~/twrp_16
-repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-16.0
-repo sync -c -j$(nproc) --no-clone-bundle --no-tags
-
-# Setup device tree symlinks
-mkdir -p device/infinix device/transsion
-ln -s /path/to/X6871-Recovery-Project/device/infinix/Infinix-X6871 device/infinix/Infinix-X6871
-ln -s /path/to/X6871-Recovery-Project/device/transsion/mt6895-common device/transsion/mt6895-common
-
-# Initialize build environment
-source build/envsetup.sh
-source device/infinix/Infinix-X6871/vendorsetup.sh
-lunch twrp_X6871-eng
-
-# Build vendor_boot
-mka vendorbootimage -j$(nproc)
-```
-
-### 3. Local Dispatcher Script
-Use `scripts/build_x6871.sh` to compile any target:
+### Local Dispatcher Script
+Use `scripts/build_x6871.sh` with the target recovery parameter:
 ```bash
 chmod +x scripts/build_x6871.sh
 
-# OrangeFox
-./scripts/build_x6871.sh ofox
-
-# TWRP
+# TeamWin Recovery Project
 ./scripts/build_x6871.sh twrp
 
-# PitchBlack
+# OrangeFox Recovery Project
+./scripts/build_x6871.sh ofox
+
+# PitchBlack Recovery Project
 ./scripts/build_x6871.sh pbrp
 
-# SkyHawk
+# SkyHawk Recovery Project
 ./scripts/build_x6871.sh shrp
+
+# Yet Another Recovery Project
+./scripts/build_x6871.sh yarp
 ```
+
+For individual recovery sync instructions, refer to their dedicated documentation:
+* [TWRP Build Guide](recoveries/TWRP/TREE.md)
+* [OrangeFox Build Guide](recoveries/OFRP/TREE.md)
+* [PitchBlack Build Guide](recoveries/PBRP/TREE.md)
+* [SkyHawk Build Guide](recoveries/SHRP/TREE.md)
+* [YARP Build Guide](recoveries/YARP/TREE.md)
 
 ---
 
@@ -295,8 +265,9 @@ The recovery ramdisk resides inside the physical `vendor_boot` partition. Do not
 ## 9. Authors & Credits
 
 * **Device Trees & Integration:** sheikhmehraann, ramabondanp, Shivelight
-* **OrangeFox Recovery Project:** OFRP Team
 * **TeamWin Recovery Project:** TeamWin
+* **OrangeFox Recovery Project:** OFRP Team
 * **PitchBlack Recovery Project:** PBRP Team
 * **SkyHawk Recovery Project:** SHRP Team
+* **Yet Another Recovery Project:** YARP Team
 * **MediaTek Platform Bringup:** LineageOS & Transsion Open Source

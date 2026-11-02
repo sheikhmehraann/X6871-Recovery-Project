@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Build script for Infinix GT 20 Pro (X6871)
-# Supported targets: ofox (default), twrp, pbrp, shrp
+# Supported targets: ofox (default), twrp, pbrp, shrp, yarp
 # Maintainer: sheikhmehraann
 #
 
@@ -28,7 +28,7 @@ export USE_CCACHE=1
 
 case "${TARGET_RECOVERY}" in
     ofox|orangefox)
-        echo "[*] Configuring for OrangeFox Recovery R12.1..."
+        echo "[*] Configuring for OrangeFox Recovery R14.1..."
         export FOX_BUILD_DEVICE="X6871"
         export FOX_VIRTUAL_AB_DEVICE=1
         export FOX_VANILLA_BUILD=1
@@ -55,8 +55,8 @@ case "${TARGET_RECOVERY}" in
         export OF_ENABLE_FRP_ADDON=1
         export FOX_SUPPORT_KSU=1
         export OF_SCREEN_H=2436
-        LUNCH_TARGET="twrp_X6871-eng"
-        PREFIX="OrangeFox-R12.1"
+        LUNCH_TARGET="fox_X6871-ap2a-eng"
+        PREFIX="OrangeFox-R14.1"
         ;;
     twrp)
         echo "[*] Configuring for TWRP..."
@@ -66,12 +66,12 @@ case "${TARGET_RECOVERY}" in
     pbrp|pitchblack)
         echo "[*] Configuring for PitchBlack Recovery..."
         export PB_DEVICE_SPECIFICATION="Infinix GT 20 Pro (X6871)"
-        export PB_TORCH_PATH="/sys/devices/platform/11cb0000.i2c/i2c-7/7-0050/leds/torch/brightness"
+        export PB_TORCH_PATH="/sys/class/torch/torch/torch_level"
         export PB_BATTERY_PATH="/sys/class/power_supply/battery"
         export PB_VIBRATOR_PATH="/sys/class/leds/vibrator_single/activate"
         export PB_BUILD_TYPE="OFFICIAL"
         export PBRP_MAINTAINER="sheikhmehraann"
-        export PBRP_BRANCH="12.1"
+        export PBRP_BRANCH="16.0"
         export PBRP_STATUS="STABLE"
         LUNCH_TARGET="pb_X6871-eng"
         PREFIX="PBRP"
@@ -94,13 +94,29 @@ case "${TARGET_RECOVERY}" in
         export SHRP_REC="/dev/block/by-name/vendor_boot"
         export SHRP_REC_TYPE="vendor_boot"
         export SHRP_CUSTOM_FLASHLIGHT=true
-        export SHRP_CUSTOM_FLASHLIGHT_PATH="/sys/devices/platform/11cb0000.i2c/i2c-7/7-0050/leds/torch/brightness"
+        export SHRP_CUSTOM_FLASHLIGHT_PATH="/sys/class/torch/torch/torch_level"
         LUNCH_TARGET="shrp_X6871-eng"
         PREFIX="SHRP"
         ;;
+    yarp)
+        echo "[*] Configuring for YARP..."
+        export YARP_DEVICE_CODE="X6871"
+        export YARP_MAINTAINER="sheikhmehraann"
+        export YARP_BUILD_TYPE="OFFICIAL"
+        export YARP_VERSION="16.0"
+        export YARP_THEME="dark"
+        export YARP_FLASHLIGHT_PATH="/sys/class/torch/torch/torch_level"
+        export YARP_BATTERY_PATH="/sys/class/power_supply/battery"
+        export YARP_VIBRATOR_PATH="/sys/class/leds/vibrator_single/activate"
+        export YARP_CPU_TEMP_PATH="/sys/class/thermal/thermal_zone0/temp"
+        export YARP_USE_ZSTD=true
+        export YARP_ENFORCE_PERMISSIVE=true
+        LUNCH_TARGET="yarp_X6871-eng"
+        PREFIX="YARP"
+        ;;
     *)
         echo "[-] Unknown recovery target: ${TARGET_RECOVERY}"
-        echo "[-] Supported: ofox, twrp, pbrp, shrp"
+        echo "[-] Supported: ofox, twrp, pbrp, shrp, yarp"
         exit 1
         ;;
 esac
@@ -120,9 +136,9 @@ mka adbd vendorbootimage -j"$(nproc)"
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
 
-PRODUCT_DIR="out/target/product/X6871"
+PRODUCT_DIR="out/target/product/Infinix-X6871"
 if [ ! -d "${PRODUCT_DIR}" ]; then
-    PRODUCT_DIR="out/target/product/Infinix-X6871"
+    PRODUCT_DIR="out/target/product/X6871"
 fi
 
 if [ -f "${PRODUCT_DIR}/vendor_boot.img" ]; then
