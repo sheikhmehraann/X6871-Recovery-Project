@@ -1,0 +1,133 @@
+{
+    "super": {
+        "size": "12426428416"
+    },
+    "odm_a": {
+        "size": 0,
+        "group": "main_a"
+    },
+    "odm_b": {
+        "size": 0,
+        "group": "main_b"
+    },
+    "odm_dlkm_a": {
+        "size": 0,
+        "group": "main_a"
+    },
+    "odm_dlkm_b": {
+        "size": 0,
+        "group": "main_b"
+    },
+    "product_a": {
+        "size": 0,
+        "group": "main_a"
+    },
+    "product_b": {
+        "size": 0,
+        "group": "main_b"
+    },
+    "system_a": {
+        "size": 0,
+        "group": "main_a"
+    },
+    "system_b": {
+        "size": 0,
+        "group": "main_b"
+    },
+    "system_dlkm_a": {
+        "size": 0,
+        "group": "main_a"
+    },
+    "system_dlkm_b": {
+        "size": 0,
+        "group": "main_b"
+    },
+    "system_ext_a": {
+        "size": 0,
+        "group": "main_a"
+    },
+    "system_ext_b": {
+        "size": 0,
+        "group": "main_b"
+    },
+    "vendor_a": {
+        "size": 0,
+        "group": "main_a"
+    },
+    "vendor_b": {
+        "size": 0,
+        "group": "main_b"
+    },
+    "vendor_dlkm_a": {
+        "size": 0,
+        "group": "main_a"
+    },
+    "vendor_dlkm_b": {
+        "size": 0,
+        "group": "main_b"
+    },
+    "tr_product_a": {
+        "size": 0,
+        "group": "main_a"
+    },
+    "tr_product_b": {
+        "size": 0,
+        "group": "main_b"
+    },
+    "tr_preload_a": {
+        "size": 0,
+        "group": "main_a"
+    },
+    "tr_preload_b": {
+        "size": 0,
+        "group": "main_b"
+    },
+    "tr_region_a": {
+        "size": 0,
+        "group": "main_a"
+    },
+    "tr_region_b": {
+        "size": 0,
+        "group": "main_b"
+    },
+    "tr_carrier_a": {
+        "size": 0,
+        "group": "main_a"
+    },
+    "tr_carrier_b": {
+        "size": 0,
+        "group": "main_b"
+    },
+    "tr_company_a": {
+        "size": 0,
+        "group": "main_a"
+    },
+    "tr_company_b": {
+        "size": 0,
+        "group": "main_b"
+    },
+    "tr_misc_a": {
+        "size": 0,
+        "group": "main_a"
+    },
+    "tr_misc_b": {
+        "size": 0,
+        "group": "main_b"
+    },
+    "tr_manifest_a": {
+        "size": 0,
+        "group": "main_a"
+    },
+    "tr_manifest_b": {
+        "size": 0,
+        "group": "main_b"
+    },
+    "tr_overlayfs_a": {
+        "size": 0,
+        "group": "main_a"
+    },
+    "tr_overlayfs_b": {
+        "size": 0,
+        "group": "main_b"
+    }
+}

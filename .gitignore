@@ -1,0 +1,18 @@
+# Android recovery build artifacts
+out/
+.repo/
+.ccache/
+*.pyc
+*.pyo
+__pycache__/
+*.log
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Temporary mount and scratch dirs
+temp/
+tmp/
+extracted_ramdisk/
+*.backup

@@ -1,0 +1,223 @@
+name: OrangeFox Recovery Build - Infinix X6871
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build OrangeFox Recovery (X6871)
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf \
+            /usr/share/dotnet \
+            /usr/local/lib/android \
+            /opt/ghc \
+            /usr/local/share/powershell \
+            /usr/local/share/boost \
+            /usr/local/share/chromium \
+            /usr/share/swift \
+            /opt/hostedtoolcache \
+            /var/lib/docker \
+            /usr/local/.ghcup \
+            /usr/local/share/vcpkg \
+            /usr/share/ruby \
+            /usr/share/rust \
+            /usr/local/graalvm
+          sudo docker image prune --all --force 2>/dev/null || true
+          sudo docker builder prune -a --force 2>/dev/null || true
+          df -h
+
+      - name: Setup Swap Space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 12
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git-core gnupg flex bison build-essential zip curl zlib1g-dev \
+            libc6-dev-i386 libncurses5 x11proto-core-dev libx11-dev lib32z1-dev \
+            libgl1-mesa-dev libxml2 libxml2-utils xsltproc unzip fontconfig \
+            python3 python3-pip python-is-python3 libssl-dev rsync bc liblz4-tool libncurses5-dev \
+            squashfs-tools libtinfo5 openjdk-11-jdk-headless ccache zstd patch
+          pip3 install zstandard lz4
+
+      - name: Install Repo Tool
+        run: |
+          mkdir -p ~/.bin
+          curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/.bin/repo
+          chmod a+x ~/.bin/repo
+          sudo ln -sf ~/.bin/repo /usr/local/bin/repo
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/fox_14.1/out/.ccache
+          key: ccache-fox_14.1-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            ccache-fox_14.1-${{ runner.os }}-
+
+      - name: Set Git Identity
+        run: |
+          git config --global user.name "sheikhmehraann"
+          git config --global user.email "mehraann.19@gmail.com"
+          git config --global color.ui false
+
+      - name: Sync OrangeFox 14.1 Manifest
+        run: |
+          mkdir -p $HOME/fox_14.1
+          cd $HOME/fox_14.1
+          git clone --depth=1 https://gitlab.com/OrangeFox/sync.git $HOME/OrangeFox_sync
+          cd $HOME/OrangeFox_sync
+          sed -i 's/-j\$(nproc --all)/-j4/g' orangefox_sync.sh
+          sed -i 's/repo_sync;/repo_sync || (sleep 15 \&\& repo_sync) || (sleep 15 \&\& repo_sync);/g' orangefox_sync.sh
+          ./orangefox_sync.sh --branch 14.1 --path $HOME/fox_14.1
+          cd $HOME/fox_14.1
+          rm -rf .repo/project-objects .repo/projects
+          repo sync external/gflags || true
+          repo sync external/guava || true
+          repo sync hardware/google/interfaces || true
+          repo sync hardware/google/pixel || true
+          df -h
+
+      - name: Setup Device Trees & Patches
+        run: |
+          cd $HOME/fox_14.1
+
+          mkdir -p device/infinix
+          cp -r $GITHUB_WORKSPACE/device/infinix/Infinix-X6871 device/infinix/X6871
+          ln -sf X6871 device/infinix/Infinix-X6871
+          chmod +x device/infinix/X6871/vendorsetup.sh
+
+      - name: Build OrangeFox Recovery Image
+        run: |
+          cd $HOME/fox_14.1
+          mkdir -p $HOME/fox_14.1/out/.ccache
+          export USE_CCACHE=1
+          export CCACHE_DIR=$HOME/fox_14.1/out/.ccache
+          export CCACHE_EXEC=$(which ccache)
+          export BUILD_BROKEN_SRC_DIR_IS_WRITABLE=true
+          ccache -M 15G
+          ccache -z
+          source build/envsetup.sh
+          source device/infinix/X6871/vendorsetup.sh
+          export ALLOW_MISSING_DEPENDENCIES=true
+          export FOX_USE_ZSTD_BINARY=1
+          export FOX_BUILD_DEVICE=X6871
+          lunch twrp_X6871-ap2a-eng
+          mka adbd vendorbootimage -j$(nproc --all)
+          ccache -s
+
+      - name: Prepare Artifacts
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/output
+          TARGET_DIR="$HOME/fox_14.1/out/target/product/X6871"
+
+          if [ -d "$TARGET_DIR" ]; then
+            ls -la "$TARGET_DIR"
+
+            # Repack vendor_boot.img with stock Android 16 Fragment 0 and DTB
+            if [ -f "$TARGET_DIR/vendor_boot.img" ]; then
+              echo "--- Repacking vendor_boot.img with stock Android 16 Fragment 0 and DTB ---"
+              python3 $GITHUB_WORKSPACE/scripts/repack_vendor_boot_a16.py \
+                $GITHUB_WORKSPACE/reference/stock_vendor_boot.img.gz \
+                "$TARGET_DIR/vendor_boot.img" \
+                "$TARGET_DIR/vendor_boot.img"
+            fi
+
+            for img in "$TARGET_DIR"/OrangeFox*.img; do
+              if [ -f "$img" ]; then
+                cp -vf "$TARGET_DIR/vendor_boot.img" "$img"
+              fi
+            done
+            for zipfile in "$TARGET_DIR"/OrangeFox*.zip; do
+              if [ -f "$zipfile" ]; then
+                (cd "$TARGET_DIR" && zip -u "$zipfile" vendor_boot.img) || true
+              fi
+            done
+
+            cp -vf "$TARGET_DIR"/OrangeFox* $GITHUB_WORKSPACE/output/ 2>/dev/null || true
+            cp -vf "$TARGET_DIR"/vendor_boot.img $GITHUB_WORKSPACE/output/ 2>/dev/null || true
+          fi
+
+          find $GITHUB_WORKSPACE/output -type f -size 0 -delete
+
+          OFOX_ZIP=$(find $GITHUB_WORKSPACE/output -name "OrangeFox-*.zip" -type f 2>/dev/null | head -n 1)
+          if [ -z "$OFOX_ZIP" ] && [ -f "$GITHUB_WORKSPACE/output/vendor_boot.img" ]; then
+            ZIP_NAME="OrangeFox-R12.1_$(date +%Y%m%d)_16.3.0-Stable-X6871.zip"
+            cd $GITHUB_WORKSPACE/output
+            zip -r9 "$ZIP_NAME" vendor_boot.img
+          fi
+
+          # Standalone Flashable Vbmeta packages
+          cp -vf $GITHUB_WORKSPACE/device/infinix/Infinix-X6871/recovery/root/FFiles/OF_vbmeta/Enable_Vbmeta.zip $GITHUB_WORKSPACE/output/Enable_Vbmeta.zip || true
+          cp -vf $GITHUB_WORKSPACE/device/infinix/Infinix-X6871/recovery/root/FFiles/OF_vbmeta/Disable_Vbmeta.zip $GITHUB_WORKSPACE/output/Disable_Vbmeta.zip || true
+
+          # Repack all OrangeFox recovery zips with clean Vbmeta tools (no root suites)
+          for zipfile in $GITHUB_WORKSPACE/output/OrangeFox*.zip "$TARGET_DIR"/OrangeFox*.zip; do
+            if [ -f "$zipfile" ]; then
+              mkdir -p /tmp/fox_addon/Fox/FoxAddons
+              mkdir -p /tmp/fox_addon/sdcard/Fox/FoxFiles/OF_vbmeta
+
+              cp -vf $GITHUB_WORKSPACE/output/Enable_Vbmeta.zip /tmp/fox_addon/Fox/FoxAddons/ 2>/dev/null || true
+              cp -vf $GITHUB_WORKSPACE/output/Disable_Vbmeta.zip /tmp/fox_addon/Fox/FoxAddons/ 2>/dev/null || true
+              cp -vf $GITHUB_WORKSPACE/output/Enable_Vbmeta.zip /tmp/fox_addon/sdcard/Fox/FoxFiles/OF_vbmeta/ 2>/dev/null || true
+              cp -vf $GITHUB_WORKSPACE/output/Disable_Vbmeta.zip /tmp/fox_addon/sdcard/Fox/FoxFiles/OF_vbmeta/ 2>/dev/null || true
+
+              (cd /tmp/fox_addon && zip -u "$zipfile" Fox/FoxAddons/* sdcard/Fox/FoxFiles/* sdcard/Fox/FoxFiles/*/*) || true
+              rm -rf /tmp/fox_addon
+            fi
+          done
+
+          find $GITHUB_WORKSPACE/output -type f -size 0 -delete
+
+          cd $GITHUB_WORKSPACE/output
+          sha256sum * > SHA256SUMS.txt 2>/dev/null || true
+          md5sum * > MD5SUMS.txt 2>/dev/null || true
+          ls -lh $GITHUB_WORKSPACE/output/
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: OrangeFox-X6871-Recovery
+          path: output/*
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: success()
+        with:
+          files: output/*
+          tag_name: ofox-${{ github.run_number }}
+          name: "OrangeFox Recovery - Infinix GT 20 Pro (X6871) #${{ github.run_number }}"
+          body: |
+            ## OrangeFox Recovery Unofficial — Infinix GT 20 Pro (X6871)
+            * Maintainer: `sheikhmehraann`
+            * Updates: `t.me/Gt20ProINUpdates`
+            * Community: `t.me/Gt20ProIN`
+            * Platform: `mt6895 (Dimensity 8200 Ultimate)`
+            * Device: `Infinix GT 20 Pro (Infinix-X6871)`
+            * Stock Firmware: Android 16 (XOS 16 / Kernel 6.12)
+            * Recovery Target: `vendor_boot` (Header v4, Virtual A/B)
+            * Base Manifest: OrangeFox 14.1 (AOSP AP2A / SDK 34)
+
+            ### Features
+            * 144Hz AMOLED rendering with single-pipe DRM
+            * Native Kernel 6.12 GKI / Android 16 vendor ramdisk integration
+            * 242 Stock MT6895 Kernel 6.12 modules and metadata
+            * Dual ZSTD compressed ramdisk fragments (PLATFORM + RECOVERY)
+            * KeyMint v3, Gatekeeper AIDL, and Enforcing SELinux support
+            * Dynamic partitions: 16 stock logical partitions (system, system_ext, system_dlkm, vendor, vendor_dlkm, product, odm, odm_dlkm, and all 8 Transsion tr_* partitions)
+            * Root Engine: None (Clean Recovery / No Pre-installed Root)
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
