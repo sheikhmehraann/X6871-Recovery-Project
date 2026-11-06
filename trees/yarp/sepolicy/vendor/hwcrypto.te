@@ -1,0 +1,4 @@
+# Missing attributes in minimal A16 sepolicy
+attribute hal_hwcrypto_server;
+attribute hal_hwcrypto_client;
+attribute hal_hwcrypto;
