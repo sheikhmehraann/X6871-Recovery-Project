@@ -31,18 +31,6 @@ on:
         required: false
         default: false
         type: boolean
-  push:
-    branches:
-      - main
-      - android-16
-    paths:
-      - 'trees/shrp/**'
-      - 'trees/common/**'
-      - 'device/infinix/Infinix-X6871/**'
-      - 'device/transsion/mt6895-common/**'
-      - 'scripts/repack_vendor_boot_a16.py'
-      - '.github/workflows/shrp.yml'
-
 jobs:
   build:
     name: Build SHRP Recovery (X6871)

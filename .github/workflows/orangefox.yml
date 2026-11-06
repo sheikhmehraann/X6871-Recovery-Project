@@ -32,18 +32,6 @@ on:
         required: false
         default: false
         type: boolean
-  push:
-    branches:
-      - main
-      - android-16
-    paths:
-      - 'trees/ofrp/**'
-      - 'trees/common/**'
-      - 'device/infinix/Infinix-X6871/**'
-      - 'device/transsion/mt6895-common/**'
-      - 'scripts/repack_vendor_boot_a16.py'
-      - '.github/workflows/orangefox.yml'
-
 jobs:
   build:
     name: Build OrangeFox Recovery (X6871)
