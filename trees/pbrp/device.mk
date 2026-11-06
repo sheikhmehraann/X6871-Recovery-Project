@@ -16,9 +16,7 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit_only.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/emulated_storage.mk)
 
 # Configure virtual A/B
-$(call inherit-product, $(SRC_TARGET_DIR)/product/virtual_ab_ota/launch_with_vendor_ramdisk.mk)
-$(call inherit-product, $(SRC_TARGET_DIR)/product/virtual_ab_ota/compression.mk)
-
+# Note: launch_with_vendor_ramdisk.mk is omitted in PBRP minimal manifest to avoid pulling snapuserd (requires missing libgflags)
 ENABLE_VIRTUAL_AB := true
 AB_OTA_UPDATER := true
 

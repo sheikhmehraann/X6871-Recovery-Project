@@ -152,7 +152,7 @@ jobs:
           export FOX_RECOVERY_VENDOR_PARTITION="/dev/block/mapper/vendor"
 
           BUILD_TYPE="${{ github.event.inputs.build_type || 'eng' }}"
-          lunch fox_X6871-trunk_staging-$BUILD_TYPE || lunch fox_X6871-ap2a-$BUILD_TYPE || lunch fox_X6871-$BUILD_TYPE || lunch twrp_X6871-ap2a-$BUILD_TYPE
+          lunch fox_X6871-$BUILD_TYPE || lunch fox_X6871-eng
           mka adbd vendorbootimage -j$(nproc) 2>&1 | tee build.log
           ccache -s
 

@@ -31,7 +31,7 @@ export FOX_ENABLE_SUKISU_SUPPORT=0
 export OF_WIPE_METADATA_AFTER_DATAFORMAT=1
 export OF_MAINTAINER="sheikhmehraann"
 
-device_dir="$(cd "$(dirname """")" && pwd)"
-workspace_root="$(cd ""/../../.."" && pwd)"
-python3 ""/patch_pm.py"" """" 2>/dev/null || true
-python3 ""/patch_theme.py"" """" 2>/dev/null || true
+device_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+workspace_root="$(cd "$device_dir/../../.." && pwd)"
+python3 "$device_dir/patch_pm.py" "$workspace_root" 2>/dev/null || true
+python3 "$device_dir/patch_theme.py" "$workspace_root" 2>/dev/null || true
