@@ -6,7 +6,7 @@ if command -v add_lunch_combo >/dev/null 2>&1; then
 fi
 
 export ALLOW_MISSING_DEPENDENCIES=true
-export SHRP_PATH="device/infinix/Infinix-X6871"
+export SHRP_PATH="device/infinix/X6871"
 export SHRP_MAINTAINER="sheikhmehraann"
 export SHRP_DEVICE_CODE="X6871"
 export SHRP_EDL_MODE=0

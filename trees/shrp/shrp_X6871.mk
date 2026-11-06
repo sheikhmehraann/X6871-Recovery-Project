@@ -12,7 +12,7 @@ PRODUCT_MODEL := Infinix GT 20 Pro
 PRODUCT_MANUFACTURER := INFINIX
 
 # SkyHawk recovery configuration
-SHRP_PATH := device/infinix/Infinix-X6871
+SHRP_PATH := device/infinix/X6871
 SHRP_MAINTAINER := sheikhmehraann
 SHRP_DEVICE_CODE := X6871
 SHRP_EDL_MODE := 0

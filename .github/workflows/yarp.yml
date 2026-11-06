@@ -118,11 +118,11 @@ jobs:
           TREE_MODE="${{ github.event.inputs.tree_mode || 'standalone' }}"
           if [ "$TREE_MODE" = "standalone" ] && [ -d "$GITHUB_WORKSPACE/trees/yarp" ]; then
             echo "Deploying standalone YARP device tree..."
-            cp -r "$GITHUB_WORKSPACE/trees/yarp" device/infinix/Infinix-X6871
+            cp -r "$GITHUB_WORKSPACE/trees/yarp" device/infinix/X6871
                         cp -r "$GITHUB_WORKSPACE/trees/common" device/transsion/mt6895-common
           else
             echo "Deploying unified device tree..."
-            cp -r "$GITHUB_WORKSPACE/device/infinix/Infinix-X6871" device/infinix/Infinix-X6871
+            cp -r "$GITHUB_WORKSPACE/device/infinix/Infinix-X6871" device/infinix/X6871
                         cp -r "$GITHUB_WORKSPACE/device/transsion/mt6895-common" device/transsion/mt6895-common
           fi
 
