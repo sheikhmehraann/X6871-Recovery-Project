@@ -1,7 +1,48 @@
-name: YARP Recovery Build - Infinix X6871
+name: YARP 16.0 Recovery Build - Infinix X6871
 
 on:
   workflow_dispatch:
+    inputs:
+      manifest_branch:
+        description: 'YARP / TWRP Manifest Branch'
+        required: true
+        default: 'twrp-16.0'
+        type: choice
+        options:
+          - 'twrp-16.0'
+          - 'twrp-14.1'
+      build_type:
+        description: 'Build Type'
+        required: true
+        default: 'eng'
+        type: choice
+        options:
+          - 'eng'
+          - 'userdebug'
+      tree_mode:
+        description: 'Device Tree Mode'
+        required: true
+        default: 'standalone'
+        type: choice
+        options:
+          - 'standalone'
+          - 'unified'
+      clean_build:
+        description: 'Clean CCACHE and output'
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches:
+      - main
+      - android-16
+    paths:
+      - 'trees/yarp/**'
+      - 'trees/common/**'
+      - 'device/infinix/Infinix-X6871/**'
+      - 'device/transsion/mt6895-common/**'
+      - 'scripts/repack_vendor_boot_a16.py'
+      - '.github/workflows/yarp.yml'
 
 jobs:
   build:
@@ -32,12 +73,13 @@ jobs:
             /usr/share/rust \
             /usr/local/graalvm
           sudo docker image prune --all --force 2>/dev/null || true
+          sudo docker builder prune -a --force 2>/dev/null || true
           df -h
 
       - name: Setup Swap Space
         uses: pierotofy/set-swap-space@master
         with:
-          swap-size-gb: 6
+          swap-size-gb: 12
 
       - name: Install Build Dependencies
         run: |
@@ -46,57 +88,146 @@ jobs:
             git-core gnupg flex bison build-essential zip curl zlib1g-dev \
             libc6-dev-i386 libncurses5 x11proto-core-dev libx11-dev lib32z1-dev \
             libgl1-mesa-dev libxml2 libxml2-utils xsltproc unzip fontconfig \
-            python3 python-is-python3 libssl-dev rsync bc liblz4-tool libncurses5-dev \
-            squashfs-tools libtinfo5 openjdk-11-jdk-headless ccache zstd
+            python3 python3-pip python-is-python3 libssl-dev rsync bc liblz4-tool libncurses5-dev \
+            squashfs-tools libtinfo5 openjdk-17-jdk-headless ccache zstd patch
+          pip3 install zstandard lz4
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/yarp_workspace/.ccache
+          key: yarp-ccache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            yarp-ccache-${{ runner.os }}-
 
       - name: Install Repo Tool
         run: |
           mkdir -p ~/.bin
-          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/.bin/repo
-          chmod a+rx ~/.bin/repo
-          echo "$HOME/.bin" >> $GITHUB_PATH
+          curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/.bin/repo
+          chmod a+x ~/.bin/repo
+          sudo ln -sf ~/.bin/repo /usr/local/bin/repo
 
-      - name: Initialize TWRP/YARP Minimal Manifest
+      - name: Set Git Identity & Repo Config
         run: |
-          mkdir -p ~/yarp_workspace && cd ~/yarp_workspace
           git config --global user.name "sheikhmehraann"
-          git config --global user.email "dev@recovery.local"
-          repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-16.0
-          repo sync -c -j$(nproc) --no-clone-bundle --no-tags
+          git config --global user.email "mehraann.19@gmail.com"
+          git config --global color.ui false
 
-      - name: Setup Device Trees
+      - name: Sync YuKongA Recovery Manifest
         run: |
-          cd ~/yarp_workspace
+          mkdir -p $HOME/yarp_workspace
+          cd $HOME/yarp_workspace
+          BRANCH="${{ github.event.inputs.manifest_branch || 'twrp-16.0' }}"
+          echo "Initializing repo from TWRP-Test ($BRANCH)..."
+          repo init --no-repo-verify -u https://github.com/TWRP-Test/platform_manifest_twrp_aosp.git -b "$BRANCH" --depth=1
+          repo sync -c -j4 --force-sync --no-clone-bundle --no-tags --current-branch || repo sync -c -j2 --force-sync
+          rm -rf .repo/project-objects .repo/projects
+
+      - name: Setup Device Trees & Patches
+        run: |
+          cd $HOME/yarp_workspace
           mkdir -p device/infinix device/transsion
-          cp -r "$GITHUB_WORKSPACE/device/infinix/Infinix-X6871" device/infinix/Infinix-X6871
-          cp -r "$GITHUB_WORKSPACE/device/transsion/mt6895-common" device/transsion/mt6895-common
-
-      - name: Build YARP Recovery
-        run: |
-          cd ~/yarp_workspace
-          source build/envsetup.sh
-          source device/infinix/Infinix-X6871/vendorsetup.sh
-          lunch yarp_X6871-eng
-          mka adbd vendorbootimage -j$(nproc)
-
-      - name: Package & Repack Image
-        run: |
-          cd ~/yarp_workspace
-          PRODUCT_DIR="out/target/product/Infinix-X6871"
-          if [ ! -d "$PRODUCT_DIR" ]; then
-            PRODUCT_DIR="out/target/product/X6871"
+          TREE_MODE="${{ github.event.inputs.tree_mode || 'standalone' }}"
+          if [ "$TREE_MODE" = "standalone" ] && [ -d "$GITHUB_WORKSPACE/trees/yarp" ]; then
+            echo "Deploying standalone YARP device tree..."
+            cp -r "$GITHUB_WORKSPACE/trees/yarp" device/infinix/Infinix-X6871
+            ln -sf Infinix-X6871 device/infinix/X6871
+            cp -r "$GITHUB_WORKSPACE/trees/common" device/transsion/mt6895-common
+          else
+            echo "Deploying unified device tree..."
+            cp -r "$GITHUB_WORKSPACE/device/infinix/Infinix-X6871" device/infinix/Infinix-X6871
+            ln -sf Infinix-X6871 device/infinix/X6871
+            cp -r "$GITHUB_WORKSPACE/device/transsion/mt6895-common" device/transsion/mt6895-common
           fi
-          
-          mkdir -p "$GITHUB_WORKSPACE/output"
-          cp "$PRODUCT_DIR/vendor_boot.img" "$GITHUB_WORKSPACE/output/YARP_vendor_boot.img"
 
-          python3 "$GITHUB_WORKSPACE/scripts/repack_vendor_boot_a16.py" \
-            "$GITHUB_WORKSPACE/reference/stock_vendor_boot.img.gz" \
-            "$PRODUCT_DIR/vendor_boot.img" \
-            "$GITHUB_WORKSPACE/output/YARP_vendor_boot_repacked.img" || true
+      - name: Build YARP Recovery Image
+        run: |
+          cd $HOME/yarp_workspace
+          export ALLOW_MISSING_DEPENDENCIES=true
+          export YARP_DEVICE_CODE="X6871"
+          export YARP_MAINTAINER="sheikhmehraann"
+          export YARP_BUILD_TYPE="OFFICIAL"
+          export YARP_VERSION="16.0"
+          export YARP_THEME="dark"
+          export YARP_FLASHLIGHT_PATH="/sys/class/torch/torch/torch_level"
+          export YARP_BATTERY_PATH="/sys/class/power_supply/battery"
+          export YARP_VIBRATOR_PATH="/sys/class/leds/vibrator_single/activate"
+          export LC_ALL="C"
+          export USE_CCACHE=1
+          export CCACHE_DIR=$HOME/yarp_workspace/.ccache
+          export CCACHE_TEMPDIR=$HOME/yarp_workspace/.ccache/tmp
+          export CCACHE_EXEC=/usr/bin/ccache
+          mkdir -p $HOME/yarp_workspace/.ccache/tmp
+          ccache -M 20G
+          ccache -o compression=true
+          if [ "${{ github.event.inputs.clean_build }}" = "true" ]; then
+            ccache -C
+          fi
+          ccache -z
 
-      - name: Upload Artifacts
+          BUILD_TYPE="${{ github.event.inputs.build_type || 'eng' }}"
+          source build/envsetup.sh
+          lunch yarp_X6871-$BUILD_TYPE || lunch omni_X6871-$BUILD_TYPE
+          mka adbd vendorbootimage -j$(nproc) 2>&1 | tee build.log
+          ccache -s
+
+      - name: Package & Repack Artifacts
+        if: success()
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/output
+          TARGET_DIR="$HOME/yarp_workspace/out/target/product/X6871"
+          if [ ! -d "$TARGET_DIR" ]; then
+            TARGET_DIR="$HOME/yarp_workspace/out/target/product/Infinix-X6871"
+          fi
+
+          if [ -d "$TARGET_DIR" ]; then
+            if [ -f "$TARGET_DIR/vendor_boot.img" ]; then
+              echo "--- Repacking vendor_boot.img with stock Android 16 Fragment 0 and DTB ---"
+              python3 $GITHUB_WORKSPACE/scripts/repack_vendor_boot_a16.py \
+                $GITHUB_WORKSPACE/reference/stock_vendor_boot.img.gz \
+                "$TARGET_DIR/vendor_boot.img" \
+                $GITHUB_WORKSPACE/output/vendor_boot.img
+
+              DATE_STR=$(date +%Y%m%d)
+              cp -vf $GITHUB_WORKSPACE/output/vendor_boot.img "$GITHUB_WORKSPACE/output/YARP-$DATE_STR-X6871.img"
+              cd $GITHUB_WORKSPACE/output
+              zip -r9 "YARP-$DATE_STR-X6871.zip" vendor_boot.img
+              sha256sum * > SHA256SUMS.txt 2>/dev/null || true
+              md5sum * > MD5SUMS.txt 2>/dev/null || true
+            fi
+          fi
+
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
+        if: success()
         with:
-          name: YARP-Infinix-X6871
-          path: output/*.img
+          name: YARP-X6871-Recovery
+          path: output/*
+
+      - name: Upload Build Failure Logs
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: YARP-Build-Failure-Logs
+          path: |
+            /home/runner/yarp_workspace/build.log
+            /home/runner/yarp_workspace/out/error*.log
+            /home/runner/yarp_workspace/out/soong.log
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: success() && startsWith(github.ref, 'refs/tags/')
+        with:
+          files: output/*
+          name: "YARP Recovery - Infinix GT 20 Pro (X6871) ${{ github.ref_name }}"
+          body: |
+            ## YuKongA Recovery Project (YARP 16.0) — Infinix GT 20 Pro (X6871)
+            * Maintainer: `sheikhmehraann`
+            * Target: `vendor_boot` (Boot Header v4, Dual ZSTD Fragments)
+            * Android Version: Android 16 (Stock XOS 16 / Linux Kernel 6.12 GKI)
+            * Display: 1080x2436 144Hz AMOLED
+            * Storage: FBEv2 Decryption via Trustonic KeyMint v3.0 / Gatekeeper
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

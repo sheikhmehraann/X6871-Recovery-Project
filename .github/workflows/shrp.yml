@@ -2,6 +2,47 @@ name: SHRP Recovery Build - Infinix X6871
 
 on:
   workflow_dispatch:
+    inputs:
+      manifest_branch:
+        description: 'SHRP Manifest Branch'
+        required: true
+        default: 'v3.1_12.1'
+        type: choice
+        options:
+          - 'v3.1_12.1'
+          - 'shrp-12.1'
+      build_type:
+        description: 'Build Type'
+        required: true
+        default: 'eng'
+        type: choice
+        options:
+          - 'eng'
+          - 'userdebug'
+      tree_mode:
+        description: 'Device Tree Mode'
+        required: true
+        default: 'standalone'
+        type: choice
+        options:
+          - 'standalone'
+          - 'unified'
+      clean_build:
+        description: 'Clean CCACHE and output'
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches:
+      - main
+      - android-16
+    paths:
+      - 'trees/shrp/**'
+      - 'trees/common/**'
+      - 'device/infinix/Infinix-X6871/**'
+      - 'device/transsion/mt6895-common/**'
+      - 'scripts/repack_vendor_boot_a16.py'
+      - '.github/workflows/shrp.yml'
 
 jobs:
   build:
@@ -38,7 +79,7 @@ jobs:
       - name: Setup Swap Space
         uses: pierotofy/set-swap-space@master
         with:
-          swap-size-gb: 6
+          swap-size-gb: 12
 
       - name: Install Build Dependencies
         run: |
@@ -47,8 +88,9 @@ jobs:
             git-core gnupg flex bison build-essential zip curl zlib1g-dev \
             libc6-dev-i386 libncurses5 x11proto-core-dev libx11-dev lib32z1-dev \
             libgl1-mesa-dev libxml2 libxml2-utils xsltproc unzip fontconfig \
-            python3 python-is-python3 libssl-dev rsync bc liblz4-tool libncurses5-dev \
-            squashfs-tools libtinfo5 openjdk-11-jdk-headless ccache
+            python3 python3-pip python-is-python3 libssl-dev rsync bc liblz4-tool libncurses5-dev \
+            squashfs-tools libtinfo5 openjdk-11-jdk-headless ccache zstd patch
+          pip3 install zstandard lz4
 
       - name: Cache ccache
         uses: actions/cache@v4
@@ -71,11 +113,14 @@ jobs:
           git config --global user.email "mehraann.19@gmail.com"
           git config --global color.ui false
 
-      - name: Sync SHRP Minimal Tree
+      - name: Sync SHRP Manifest
         run: |
           mkdir -p $HOME/shrp
           cd $HOME/shrp
-          repo init --no-repo-verify -u https://github.com/SHRP/manifest.git -b shrp-12.1 --depth=1 || repo init --no-repo-verify -u https://github.com/SHRP-Reborn/manifest.git -b shrp-12.1 --depth=1
+          BRANCH="${{ github.event.inputs.manifest_branch || 'v3.1_12.1' }}"
+          echo "Initializing repo from SHRP manifest ($BRANCH)..."
+          repo init --no-repo-verify -u https://github.com/SKYHAWK-Recovery-Project/platform_manifest_twrp_omni.git -b "$BRANCH" --depth=1 || \
+          repo init --no-repo-verify -u https://github.com/SHRP-Reborn/manifest.git -b "$BRANCH" --depth=1
           repo sync -c -j4 --force-sync --no-clone-bundle --no-tags --current-branch || repo sync -c -j2 --force-sync
           rm -rf .repo/project-objects .repo/projects
 
@@ -83,36 +128,17 @@ jobs:
         run: |
           cd $HOME/shrp
           mkdir -p device/infinix device/transsion
-          cp -r $GITHUB_WORKSPACE/device/infinix/Infinix-X6871 device/infinix/
-          ln -sf Infinix-X6871 device/infinix/X6871
-          cp -r $GITHUB_WORKSPACE/device/transsion/mt6895-common device/transsion/
-
-          if [ ! -d "external/gflags" ]; then
-            git clone --depth=1 https://android.googlesource.com/platform/external/gflags/ -b android-12.1.0_r4 external/gflags || true
-          fi
-
-          if grep -q "libfscrypttwrp" system/core/fs_mgr/Android.bp 2>/dev/null; then
-            sed -i 's/libfscrypttwrp/libfscrypt/g' system/core/fs_mgr/Android.bp
-          fi
-
-          echo "WITH_DEXPREOPT := false" >> device/transsion/mt6895-common/BoardConfigCommon.mk
-          if grep -q "func shouldBuildBootImages" build/soong/java/dexpreopt_bootjars.go 2>/dev/null; then
-            sed -i '/func shouldBuildBootImages(/a \\tif global.DisablePreoptBootImages { return false }' build/soong/java/dexpreopt_bootjars.go
-          fi
-
-          if [ -f build/blueprint/gotestrunner/gotestrunner.go ]; then
-            cp -f $GITHUB_WORKSPACE/scripts/gotestrunner.go build/blueprint/gotestrunner/gotestrunner.go
-          fi
-
-          if [ -f "$GITHUB_WORKSPACE/scripts/graphics_drm.cpp" ] && [ -f "bootable/recovery/minuitwrp/graphics_drm.cpp" ]; then
-            cp -f $GITHUB_WORKSPACE/scripts/graphics_drm.cpp bootable/recovery/minuitwrp/graphics_drm.cpp
-          fi
-
-          if [ -d bootable/recovery ]; then
-            patch_file="$GITHUB_WORKSPACE/device/infinix/Infinix-X6871/patches/0001-Change-haptics-activation-file-path.patch"
-            if [ -f "$patch_file" ]; then
-              git -C bootable/recovery apply "$patch_file" >/dev/null 2>&1 || true
-            fi
+          TREE_MODE="${{ github.event.inputs.tree_mode || 'standalone' }}"
+          if [ "$TREE_MODE" = "standalone" ] && [ -d "$GITHUB_WORKSPACE/trees/shrp" ]; then
+            echo "Deploying standalone SHRP device tree..."
+            cp -r "$GITHUB_WORKSPACE/trees/shrp" device/infinix/Infinix-X6871
+            ln -sf Infinix-X6871 device/infinix/X6871
+            cp -r "$GITHUB_WORKSPACE/trees/common" device/transsion/mt6895-common
+          else
+            echo "Deploying unified device tree..."
+            cp -r "$GITHUB_WORKSPACE/device/infinix/Infinix-X6871" device/infinix/Infinix-X6871
+            ln -sf Infinix-X6871 device/infinix/X6871
+            cp -r "$GITHUB_WORKSPACE/device/transsion/mt6895-common" device/transsion/mt6895-common
           fi
 
       - name: Build SHRP Recovery Image
@@ -120,6 +146,13 @@ jobs:
           cd $HOME/shrp
           export ALLOW_MISSING_DEPENDENCIES=true
           export SHRP_DEV="sheikhmehraann"
+          export SHRP_PATH="device/infinix/Infinix-X6871"
+          export SHRP_DEVICE_CODE="X6871"
+          export SHRP_EDL_MODE=0
+          export SHRP_EXTERNAL="/sdcard"
+          export SHRP_INTERNAL="/data/media/0"
+          export SHRP_OTG="/usb_otg"
+          export SHRP_FLASH=1
           export LC_ALL="C"
           export USE_CCACHE=1
           export CCACHE_DIR=$HOME/shrp/.ccache
@@ -128,14 +161,19 @@ jobs:
           mkdir -p $HOME/shrp/.ccache/tmp
           ccache -M 20G
           ccache -o compression=true
+          if [ "${{ github.event.inputs.clean_build }}" = "true" ]; then
+            ccache -C
+          fi
           ccache -z
 
+          BUILD_TYPE="${{ github.event.inputs.build_type || 'eng' }}"
           source build/envsetup.sh
-          lunch shrp_X6871-eng || lunch omni_X6871-eng
-          mka shrp vendorbootimage -j$(nproc) || mka vendorbootimage -j$(nproc)
+          lunch shrp_X6871-$BUILD_TYPE || lunch omni_X6871-$BUILD_TYPE
+          (mka shrp vendorbootimage -j$(nproc) || mka vendorbootimage -j$(nproc)) 2>&1 | tee build.log
           ccache -s
 
-      - name: Package Artifacts
+      - name: Package & Repack Artifacts
+        if: success()
         run: |
           mkdir -p $GITHUB_WORKSPACE/output
           TARGET_DIR="$HOME/shrp/out/target/product/X6871"
@@ -144,41 +182,52 @@ jobs:
           fi
 
           if [ -d "$TARGET_DIR" ]; then
-            find "$TARGET_DIR" -name "SHRP*.zip" -exec cp -vf {} $GITHUB_WORKSPACE/output/ \; 2>/dev/null || true
             if [ -f "$TARGET_DIR/vendor_boot.img" ]; then
-              cp -vf "$TARGET_DIR/vendor_boot.img" $GITHUB_WORKSPACE/output/vendor_boot.img
-              cp -vf "$TARGET_DIR/vendor_boot.img" "$GITHUB_WORKSPACE/output/SHRP-$(date +%Y%m%d)-X6871.img"
+              echo "--- Repacking vendor_boot.img with stock Android 16 Fragment 0 and DTB ---"
+              python3 $GITHUB_WORKSPACE/scripts/repack_vendor_boot_a16.py \
+                $GITHUB_WORKSPACE/reference/stock_vendor_boot.img.gz \
+                "$TARGET_DIR/vendor_boot.img" \
+                $GITHUB_WORKSPACE/output/vendor_boot.img
+
+              DATE_STR=$(date +%Y%m%d)
+              cp -vf $GITHUB_WORKSPACE/output/vendor_boot.img "$GITHUB_WORKSPACE/output/SHRP-$DATE_STR-X6871.img"
               cd $GITHUB_WORKSPACE/output
-              zip -r9 "SHRP-$(date +%Y%m%d)-X6871.zip" vendor_boot.img
+              zip -r9 "SHRP-$DATE_STR-X6871.zip" vendor_boot.img
+              sha256sum * > SHA256SUMS.txt 2>/dev/null || true
+              md5sum * > MD5SUMS.txt 2>/dev/null || true
             fi
-            cd $GITHUB_WORKSPACE/output
-            sha256sum * > SHA256SUMS.txt 2>/dev/null || true
-            md5sum * > MD5SUMS.txt 2>/dev/null || true
           fi
 
-      - name: Upload Artifacts
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: SHRP-X6871-Recovery
           path: output/*
 
+      - name: Upload Build Failure Logs
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: SHRP-Build-Failure-Logs
+          path: |
+            /home/runner/shrp/build.log
+            /home/runner/shrp/out/error*.log
+            /home/runner/shrp/out/soong.log
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
-        if: success()
+        if: success() && startsWith(github.ref, 'refs/tags/')
         with:
           files: output/*
-          tag_name: shrp-${{ github.run_number }}
-          name: "SHRP Recovery - Infinix GT 20 Pro (X6871) #${{ github.run_number }}"
+          name: "SHRP Recovery - Infinix GT 20 Pro (X6871) ${{ github.ref_name }}"
           body: |
             ## SkyHawk Recovery Project — Infinix GT 20 Pro (X6871)
             * Maintainer: `sheikhmehraann`
-            * Updates: `t.me/Gt20ProINUpdates`
-            * Community: `t.me/Gt20ProIN`
+            * Target: `vendor_boot` (Boot Header v4, Dual ZSTD Fragments)
             * Platform: `mt6895 (Dimensity 8200 Ultimate)`
-            * Device: `Infinix GT 20 Pro (X6871)`
-            * Target: `vendor_boot` (Header v4, Virtual A/B)
-            * Display: 1080x2436 144Hz AMOLED with single-pipe DRM
-            * Storage: FBEv2 metadata decryption via KeyMint V1
+            * Display: 1080x2436 144Hz AMOLED
+            * Storage: FBEv2 Decryption via KeyMint v3.0 / Gatekeeper
           draft: false
           prerelease: false
         env:
