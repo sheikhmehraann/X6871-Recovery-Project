@@ -1,24 +1,94 @@
 # Infinix GT 20 Pro (X6871) Recovery Project — Android 16 / Kernel 6.12
 
-Unified recovery device tree and automated build configurations for the Infinix GT 20 Pro (models `Infinix-X6871`, `X6871`, `X6871-OP`, project code `x6871_h962`) powered by the MediaTek Dimensity 8200 Ultimate (`MT6895` / `MT6896`) running stock Transsion OS 16 (Android 16 / Linux 6.12 GKI).
+Unified recovery development workspace, standalone device trees, and automated CI/CD configurations for the Infinix GT 20 Pro (models `Infinix-X6871`, `X6871`, `X6871-OP`, project code `x6871_h962`) powered by the MediaTek Dimensity 8200 Ultimate (`MT6895` / `MT6896`) running stock Transsion OS 16 (Android 16 / Linux 6.12 GKI).
 
 ---
 
-## 1. Supported Recovery Projects
+## 1. Verified Stock ROM Baseline
 
-This repository hosts unified device trees and specialized configuration profiles for all five major Android custom recoveries:
+All partition boundaries, offsets, ramdisk tables, and prebuilts in this repository are verified against official stock firmware:
 
-| Recovery Project | Target Lunch Combo | Base Manifest | Build Makefile | Dedicated Profile |
+* **Stock Firmware Build:** `X6871-16.3.0.155SP22(IN009PF001AZ)`
+* **Android Version:** Android 16 (Stock XOS 16 · `BP2A.250605.031.A3`)
+* **Kernel Version:** Linux 6.12.38 Generic Kernel Image (GKI)
+* **Scatter File:** `reference/stock_firmware/MT6895_Android_scatter.txt`
+
+### Stock Partition Cryptographic Hashes
+| Partition Image | Physical Size (Bytes) | SHA-256 Checksum |
+|---|---|---|
+| `boot.img` | 67,108,864 (64.0 MB) | `4CBCD5B57CC69AB8D82A05AF7F43200DC5094044ACF488A00B3B104823E6A027` |
+| `vendor_boot.img` | 67,108,864 (64.0 MB) | `07ACF97BFD2258CDF3B230240C71631F7FB7747BFF9064C7B5887FCDD7C0931F` |
+| `dtbo.img` | 8,388,608 (8.0 MB) | `10834F2726358ADF83015945DADB6E37A7CB7F6E1C3FD5E167067854CF64FD39` |
+| `vbmeta.img` | 12,288 (12.0 KB) | `91954D180EB21A00FABCC3276F5FB93B805B0DC56D8556A19DDF20868BFEC003` |
+| `vbmeta_system.img` | 4,096 (4.0 KB) | `BFF1CCAD38DD7235EB2595C6EBAE893E63E341E78160E0CAD0C7E5BE80CC256C` |
+| `vbmeta_vendor.img` | 4,096 (4.0 KB) | `10FEA75613C38CF26BEA73B978BABDC45559FBD22375C36C97675CAA27C542FD` |
+| `super.img` | 6,021,361,312 (~6.02 GB) | Expands to physical `super` boundary: `12,426,428,416` bytes (~12.44 GB) |
+
+---
+
+## 2. Boot Header v4 Architecture & Ramdisk Fragmentation
+
+Reverse-engineering the stock `vendor_boot.img` reveals Android 16's strict two-entry ramdisk table requirement:
+
+```text
+vendor_boot Header v4 (67,108,864 bytes / 64MB boundary)
+├── Page 0 (0x0000 - 0x0FFF): Header v4 (Magic: 'VNDRBOOT', version: 4, page_size: 4096)
+│   ├── Kernel Address:   0x40000000
+│   ├── Ramdisk Address:  0x66F00000
+│   ├── Tags Address:     0x47C80000
+│   ├── DTB Address:      0x0000000047C80000 (Size: 337,316 bytes)
+│   └── Header Size:      2128 bytes
+├── Page 1: Vendor Ramdisk Payload
+│   ├── Fragment 0 (Type 1 - PLATFORM): Stock vendor ramdisk (30,368,891 bytes / ~28.96 MB)
+│   └── Fragment 1 (Type 2 - RECOVERY): Recovery filesystem (3,204,703 bytes / ~3.06 MB)
+├── Page N: Flattened Device Tree Blob (dtb.img, 337,316 bytes)
+├── Page M: Vendor Ramdisk Table (2 entries, 108 bytes per entry)
+│   ├── Entry 0: type=1 (PLATFORM), offset=0, size=30,368,891, name=''
+│   └── Entry 1: type=2 (RECOVERY), offset=30,368,891, size=3,204,703, name='recovery'
+└── Page K: Bootconfig string:
+    kernel.rcu_nocbs=all
+    kernel.rcutree.enable_rcu_lazy=1
+    kernel.rcupdate.rcu_cpu_stall_cputime=1
+```
+
+### Technical Issues Solved in this Workspace
+
+#### A. VINTF Manifest Framework Crash Interception
+In stock Android 16, `android.hardware.boot-service.mtk.xml` and `android.hardware.health-service.example.xml` declare `<manifest version="9.0" type="device">` but reside in `/system/etc/vintf/manifest/`. Recovery `servicemanager` parses `/system` as a framework manifest, aborting startup with:
+`Cannot add a device manifest to a framework manifest` and `Unrecognized manifest.version 9.0 (libvintf@8.0)`.
+* **Fix (`scripts/repack_vendor_boot_a16.py`):** In-place byte shimming inside the CPIO archive redirects `system/etc/vintf/` -> `vendor/etc/vintf/` and lowers version `9.0` -> `8.0` without altering file offsets.
+
+#### B. Trustonic Kernel Module Opcode Patch (`mcDrvModule.ko`)
+Under Linux Kernel 6.12, `mcDrvModule.ko` reports driver API version 10. The user-mode daemon (`mcDriverDaemon`) strictly demands API version 9.
+* **Fix (`scripts/repack_vendor_boot_a16.py`):** In-place binary patch replaces ARM64 immediate instructions inside `mcDrvModule.ko`:
+  `\x40\x01\x80\x52` -> `\x20\x01\x80\x52` (`MOV W0, #9`).
+
+#### C. Dual-Zstandard Adaptive Compression
+Stock Fragment 0 is LZ4-compressed (~110 MB uncompressed). Merging it with Fragment 1 exceeds the 64.0 MB boundary.
+* **Fix:** Fragment 0 and Fragment 1 are compressed using Zstandard (levels 22/21/19) to ensure the composite image fits within 67,108,864 bytes with 4096-byte alignment.
+
+---
+
+## 3. Supported Recovery Projects & Standalone Trees
+
+This repository provides **both** dedicated standalone device trees (`trees/`) for individual upstream checkouts and a unified all-in-one build tree (`device/infinix/Infinix-X6871`):
+
+| Recovery Project | Dedicated Upstream Tree | Target Lunch Combo | Base Manifest | Build Makefile |
 |---|---|---|---|---|
-| TeamWin Recovery Project (TWRP) | `twrp_X6871-eng` | TWRP 16.0 (AOSP tos16 / A16) | `device/infinix/Infinix-X6871/twrp_X6871.mk` | [recoveries/TWRP](recoveries/TWRP/TREE.md) |
-| OrangeFox Recovery Project (OFRP) | `fox_X6871-ap2a-eng` | OrangeFox 14.1 (AOSP AP2A / SDK 34) | `device/infinix/Infinix-X6871/fox_X6871.mk` | [recoveries/OFRP](recoveries/OFRP/TREE.md) |
-| PitchBlack Recovery Project (PBRP) | `pb_X6871-eng` | PBRP 12.1 / 14 | `device/infinix/Infinix-X6871/pb_X6871.mk` | [recoveries/PBRP](recoveries/PBRP/TREE.md) |
-| SkyHawk Recovery Project (SHRP) | `shrp_X6871-eng` | SHRP 12.1 | `device/infinix/Infinix-X6871/shrp_X6871.mk` | [recoveries/SHRP](recoveries/SHRP/TREE.md) |
-| Yet Another Recovery Project (YARP) | `yarp_X6871-eng` | YARP / TWRP 16.0 | `device/infinix/Infinix-X6871/yarp_X6871.mk` | [recoveries/YARP](recoveries/YARP/TREE.md) |
+| TeamWin Recovery Project (TWRP) | [trees/twrp/](trees/twrp/) | `twrp_X6871-eng` | TWRP 16.0 (AOSP tos16 / A16) | `twrp_X6871.mk` |
+| OrangeFox Recovery Project (OFRP) | [trees/ofrp/](trees/ofrp/) | `fox_X6871-ap2a-eng` | OrangeFox 14.1 (AOSP AP2A / SDK 34) | `fox_X6871.mk` |
+| PitchBlack Recovery Project (PBRP) | [trees/pbrp/](trees/pbrp/) | `pb_X6871-eng` | PBRP 12.1 / 16 | `pb_X6871.mk` |
+| SkyHawk Recovery Project (SHRP) | [trees/shrp/](trees/shrp/) | `shrp_X6871-eng` | SHRP 12.1 / 16 | `shrp_X6871.mk` |
+| Yet Another Recovery Project (YARP) | [trees/yarp/](trees/yarp/) | `yarp_X6871-eng` | YARP / TWRP 16.0 | `yarp_X6871.mk` |
+
+All five standalone recovery trees share the common platform tree:
+* **Common Platform Tree:** [trees/common/](trees/common/) (`device/transsion/mt6895-common`)
+
+For individual upstream conventions and symlink instructions, see [trees/README.md](trees/README.md) and [recoveries/](recoveries/).
 
 ---
 
-## 2. Hardware Specifications
+## 4. Hardware Specifications
 
 | Attribute | Specification |
 |---|---|
@@ -42,7 +112,7 @@ This repository hosts unified device trees and specialized configuration profile
 
 ---
 
-## 3. Storage & Partition Topology
+## 5. Storage & Partition Topology
 
 ### Physical Partition Boundaries
 * `super`: `12,426,428,416` bytes (~12.44 GB)
@@ -58,57 +128,18 @@ The device exposes 16 logical partitions mapped across `main_a` and `main_b`:
 * Dynamic Kernel Modules: `system_dlkm`, `vendor_dlkm`, `odm_dlkm`
 * Transsion Regional & Carrier: `tr_product`, `tr_preload`, `tr_carrier`, `tr_company`, `tr_region`, `tr_overlayfs`, `tr_misc`, `tr_manifest`
 
-All logical partitions are declared in `device/transsion/mt6895-common/recovery/root/system/etc/recovery.fstab` and `BoardConfigCommon.mk`.
+All logical partitions are declared in `trees/common/recovery/root/system/etc/recovery.fstab` and `BoardConfigCommon.mk`.
 
 ---
 
-## 4. Boot Header v4 & Ramdisk Architecture
-
-Android 16 firmware on MT6895 requires the bootloader to read `vendor_boot` (Header v4) using a two-entry ramdisk table:
-
-```text
-vendor_boot Header v4 (67,108,864 bytes / 64MB boundary)
-├── Page 0 (0x0000 - 0x0FFF): Header v4 (Magic: 'VNDRBOOT', version: 4, page_size: 4096)
-├── Page 1: Vendor Ramdisk Payload
-│   ├── Fragment 0 (Type 1 - PLATFORM): Stock vendor ramdisk (242 MTK drivers, firmware, init scripts)
-│   └── Fragment 1 (Type 2 - RECOVERY): Recovery filesystem (TWRP / OrangeFox / PBRP / SHRP / YARP)
-├── Page N: Flattened Device Tree Blob (dtb.img, 337,316 bytes)
-├── Page M: Vendor Ramdisk Table (108 bytes per entry)
-│   ├── Entry 0: size=Frag0_sz, offset=0, type=1 (PLATFORM)
-│   └── Entry 1: size=Frag1_sz, offset=Frag0_sz, type=2 (RECOVERY, name='recovery')
-└── Page K: Bootconfig string ("androidboot.selinux=permissive ...")
-```
-
-### Technical Fixes Implemented in this Tree
-
-#### 1. VINTF Manifest Framework Crash Interception
-In Android 16, `android.hardware.boot-service.mtk.xml` and `android.hardware.health-service.example.xml` declare `<manifest version="9.0" type="device">` but are installed into `/system/etc/vintf/manifest/`. Recovery `servicemanager` treats `/system` as a framework manifest, terminating with:
-`Cannot add a device manifest to a framework manifest` and `Unrecognized manifest.version 9.0 (libvintf@8.0)`.
-* **Resolution:** `scripts/repack_vendor_boot_a16.py` performs in-place byte shimming inside the CPIO archive:
-  `system/etc/vintf/` -> `vendor/etc/vintf/` and `version="9.0"` -> `version="8.0"`.
-
-#### 2. Trustonic Kernel Module Opcode Patch (`mcDrvModule.ko`)
-Under Linux Kernel 6.12, `mcDrvModule.ko` returns driver API version 10, whereas the user-mode daemon expects API version 9.
-* **Resolution:** `scripts/repack_vendor_boot_a16.py` modifies the ARM64 immediate instructions in-place inside `mcDrvModule.ko`:
-  `\x40\x01\x80\x52` -> `\x20\x01\x80\x52` (`MOV W0, #9`).
-
-#### 3. Dual-Zstandard Adaptive Compression
-Stock Fragment 0 is LZ4-compressed (~110 MB uncompressed). Merging it with Fragment 1 exceeds the 64.0 MB boundary.
-* **Resolution:** Both Fragment 0 and Fragment 1 are compressed using Zstandard (levels 22/21/19) to ensure the total image fits within 67,108,864 bytes with 4096-byte padding.
-
-#### 4. Direct DRM Modesetting Display Engine (`scripts/graphics_drm.cpp`)
-Resolves black screens on the 1080x2436 144Hz AMOLED panel by bypassing legacy fbdev and directly interfacing with `/dev/dri/card0` via single-pipe atomic DRM modesetting.
-
----
-
-## 5. Repository Structure
+## 6. Repository File Layout
 
 ```text
 .
 ├── .github/
 │   └── workflows/
-│       ├── orangefox.yml               # Automated OrangeFox A16 CI build
 │       ├── twrp.yml                    # Automated TWRP 16.0 CI build
+│       ├── orangefox.yml               # Automated OrangeFox A16 CI build
 │       ├── pbrp.yml                    # Automated PitchBlack CI build
 │       ├── shrp.yml                    # Automated SkyHawk CI build
 │       └── yarp.yml                    # Automated YARP CI build
@@ -119,41 +150,24 @@ Resolves black screens on the 1080x2436 144Hz AMOLED panel by bypassing legacy f
 │   ├── proc_version.txt                # Stock kernel version baseline
 │   ├── file_contexts/                  # SELinux file contexts
 │   └── fstabs/                         # Stock partition mount tables
+├── trees/                              # Dedicated upstream device trees
+│   ├── twrp/                           # Standalone TWRP 16.0 tree
+│   ├── ofrp/                           # Standalone OrangeFox 14.1 tree
+│   ├── pbrp/                           # Standalone PitchBlack Recovery tree
+│   ├── shrp/                           # Standalone SkyHawk Recovery tree
+│   ├── yarp/                           # Standalone YARP tree
+│   └── common/                         # Shared Transsion MT6895 common tree
 ├── device/
 │   ├── infinix/
-│   │   └── Infinix-X6871/              # Unified device model tree
-│   │       ├── Android.mk
-│   │       ├── AndroidProducts.mk      # Multi-product definitions
-│   │       ├── BoardConfig.mk          # Board architecture flags
-│   │       ├── device.mk
-│   │       ├── twrp_X6871.mk           # TWRP target makefile
-│   │       ├── fox_X6871.mk / fox.mk   # OrangeFox target makefiles
-│   │       ├── pb_X6871.mk             # PBRP target makefile
-│   │       ├── shrp_X6871.mk           # SHRP target makefile
-│   │       ├── yarp_X6871.mk           # YARP target makefile
-│   │       ├── omni_X6871.mk           # Omni fallback target makefile
-│   │       ├── vendorsetup.sh          # Environment exports & patch dispatcher
-│   │       ├── patches/                # Hardware haptic patches
-│   │       ├── prebuilt/
-│   │       │   └── dtb.img             # Android 16 Device Tree Blob
-│   │       └── recovery/root/lib/modules/ # 242 compiled .ko kernel drivers
+│   │   └── Infinix-X6871/              # Unified all-in-one device model tree
 │   └── transsion/
-│       └── mt6895-common/              # Platform common configuration
-│           ├── Android.mk
-│           ├── BoardConfigCommon.mk    # Common boot header & partition sizes
-│           ├── common.mk               # Shared packages and services
-│           ├── system.prop             # Platform properties
-│           ├── mtk_plpath_utils/       # MTK preloader path utility
-│           ├── patches/                # Build system ZSTD patches
-│           ├── prebuilt/
-│           │   └── empty_recovery.cpio.zst # Standalone empty recovery fragment
-│           └── recovery/root/          # Init scripts, HALs, VINTF, mcRegistry
-├── recoveries/                         # Dedicated recovery profile directories
-│   ├── TWRP/                           # TWRP 16.0 tree requirements & guide
-│   ├── OFRP/                           # OrangeFox 14.1 tree requirements & guide
-│   ├── PBRP/                           # PitchBlack 12.1 tree requirements & guide
-│   ├── SHRP/                           # SkyHawk 12.1 tree requirements & guide
-│   └── YARP/                           # YARP 16.0 tree requirements & guide
+│       └── mt6895-common/              # Unified platform common tree
+├── recoveries/                         # Upstream specifications & developer guides
+│   ├── TWRP/                           # TWRP 16.0 specifications
+│   ├── OFRP/                           # OrangeFox 14.1 specifications
+│   ├── PBRP/                           # PitchBlack specifications
+│   ├── SHRP/                           # SkyHawk specifications
+│   └── YARP/                           # YARP specifications
 ├── reference/
 │   ├── stock_firmware/
 │   │   ├── MT6895_Android_scatter.txt # Official MediaTek partition scatter
@@ -163,17 +177,18 @@ Resolves black screens on the 1080x2436 144Hz AMOLED panel by bypassing legacy f
 │   ├── build_x6871.sh                  # Local compilation dispatcher (all 5 targets)
 │   ├── repack_vendor_boot_a16.py       # Dual-ZSTD repacker with opcode patches
 │   ├── patch_ofox.py                   # Automated OrangeFox AST patch engine
-│   ├── graphics_drm.cpp                # MT6895 atomic DRM display engine
-│   └── gotestrunner.go                 # Blueprint test bypass stub
-└── tools/
-    ├── unpack_vendor_boot.py           # Header v4 extraction tool
-    ├── repack_vendor_boot.py           # Header v4 packaging tool
-    └── unpack_ramdisk.py               # CPIO extraction utility
+│   └── graphics_drm.cpp                # MT6895 atomic DRM display engine
+├── tools/
+│   ├── unpack_vendor_boot.py           # Header v4 extraction tool
+│   ├── repack_vendor_boot.py           # Header v4 packaging tool
+│   └── unpack_ramdisk.py               # CPIO extraction utility
+├── .gitignore                          # Unix build artifact exclusion list
+└── README.md                           # Master recovery developer documentation
 ```
 
 ---
 
-## 6. Building from Source
+## 7. Building from Source
 
 ### Prerequisites
 Ubuntu 20.04 LTS or 22.04 LTS with standard AOSP build packages:
@@ -187,7 +202,7 @@ sudo apt-get install -y \
     squashfs-tools libtinfo5 openjdk-11-jdk-headless ccache zstd
 ```
 
-### Local Dispatcher Script
+### Local Compilation via Unified Dispatcher
 Use `scripts/build_x6871.sh` with the target recovery parameter:
 ```bash
 chmod +x scripts/build_x6871.sh
@@ -208,16 +223,9 @@ chmod +x scripts/build_x6871.sh
 ./scripts/build_x6871.sh yarp
 ```
 
-For individual recovery sync instructions, refer to their dedicated documentation:
-* [TWRP Build Guide](recoveries/TWRP/TREE.md)
-* [OrangeFox Build Guide](recoveries/OFRP/TREE.md)
-* [PitchBlack Build Guide](recoveries/PBRP/TREE.md)
-* [SkyHawk Build Guide](recoveries/SHRP/TREE.md)
-* [YARP Build Guide](recoveries/YARP/TREE.md)
-
 ---
 
-## 7. Installation & Flashing
+## 8. Installation & Flashing
 
 The recovery ramdisk resides inside the physical `vendor_boot` partition. Do not flash this image to `boot`.
 
@@ -241,7 +249,7 @@ The recovery ramdisk resides inside the physical `vendor_boot` partition. Do not
 
 ---
 
-## 8. Hardware Status Matrix
+## 9. Hardware Status Matrix
 
 | Subsystem | Driver / Interface | Status | Notes |
 |---|---|---|---|
@@ -262,7 +270,7 @@ The recovery ramdisk resides inside the physical `vendor_boot` partition. Do not
 
 ---
 
-## 9. Authors & Credits
+## 10. Authors & Credits
 
 * **Device Trees & Integration:** sheikhmehraann, ramabondanp, Shivelight
 * **TeamWin Recovery Project:** TeamWin

@@ -1,0 +1,96 @@
+on early-init
+    mkdir /flashlight 0777 root root
+
+on init
+    # Flashlight hardware bridge for OrangeFox GUI
+    mkdir /flashlight 0777 root root
+    symlink /sys/class/torch/torch/torch_level /flashlight/brightness
+    write /flashlight/max_brightness 1
+    chmod 0777 /flashlight
+    chmod 0666 /flashlight/brightness
+    chmod 0666 /flashlight/max_brightness
+    chmod 0666 /sys/class/torch/torch/torch_level
+    chmod 0666 /sys/class/sub_torch/sub_torch/sub_torch_level
+    chmod 0666 /sys/devices/virtual/torch/torch/torch_level
+    chmod 0666 /sys/devices/virtual/flashlight_core/flashlight/flashlight_torch
+
+    # Enforce permissive SELinux
+    write /sys/fs/selinux/enforce 0
+
+on post-fs-data
+    mkdir /flashlight 0777 root root
+    rm /flashlight/brightness
+    symlink /sys/class/torch/torch/torch_level /flashlight/brightness
+    write /flashlight/max_brightness 1
+    chmod 0777 /flashlight
+    chmod 0666 /flashlight/brightness
+    chmod 0666 /flashlight/max_brightness
+    chmod 0666 /sys/class/torch/torch/torch_level
+    chmod 0666 /sys/class/sub_torch/sub_torch/sub_torch_level
+
+on boot
+    # Touchscreen drivers (Goodix GT9896S / GT9916 & Focaltech FT3683G)
+    insmod /vendor/lib/modules/spi-mt65xx.ko
+    insmod /system/lib/modules/spi-mt65xx.ko
+    insmod /lib/modules/spi-mt65xx.ko
+    insmod /vendor/lib/modules/tui-common.ko
+    insmod /system/lib/modules/tui-common.ko
+    insmod /lib/modules/tui-common.ko
+    insmod /vendor/lib/modules/adaptive-ts.ko
+    insmod /system/lib/modules/adaptive-ts.ko
+    insmod /lib/modules/adaptive-ts.ko
+    insmod /vendor/lib/modules/gt9916_common.ko
+    insmod /system/lib/modules/gt9916_common.ko
+    insmod /lib/modules/gt9916_common.ko
+    insmod /vendor/lib/modules/focaltech_ft3683g.ko
+    insmod /system/lib/modules/focaltech_ft3683g.ko
+    insmod /lib/modules/focaltech_ft3683g.ko
+    insmod /vendor/lib/modules/gt9896s.ko
+    insmod /system/lib/modules/gt9896s.ko
+    insmod /lib/modules/gt9896s.ko
+    chmod 0666 /dev/input/*
+
+    # Flashlight hardware drivers (MediaTek OCP81375 / SGM37864)
+    insmod /vendor/lib/modules/mtk_mdpm.ko
+    insmod /system/lib/modules/mtk_mdpm.ko
+    insmod /lib/modules/mtk_mdpm.ko
+    insmod /vendor/lib/modules/mtk_dynamic_loading_throttling.ko
+    insmod /system/lib/modules/mtk_dynamic_loading_throttling.ko
+    insmod /lib/modules/mtk_dynamic_loading_throttling.ko
+    insmod /vendor/lib/modules/mtk_pbm.ko
+    insmod /system/lib/modules/mtk_pbm.ko
+    insmod /lib/modules/mtk_pbm.ko
+    insmod /vendor/lib/modules/flashlight.ko
+    insmod /system/lib/modules/flashlight.ko
+    insmod /lib/modules/flashlight.ko
+    insmod /vendor/lib/modules/ocp81375_v4l2.ko
+    insmod /system/lib/modules/ocp81375_v4l2.ko
+    insmod /lib/modules/ocp81375_v4l2.ko
+    insmod /vendor/lib/modules/sgm37864_v4l2.ko
+    insmod /system/lib/modules/sgm37864_v4l2.ko
+    insmod /lib/modules/sgm37864_v4l2.ko
+
+    # Setup Flashlight GUI bridge
+    mkdir /flashlight 0777 root root
+    rm /flashlight/brightness
+    symlink /sys/class/torch/torch/torch_level /flashlight/brightness
+    write /flashlight/max_brightness 1
+    chmod 0777 /flashlight
+    chmod 0666 /flashlight/brightness
+    chmod 0666 /flashlight/max_brightness
+    chmod 0666 /sys/class/torch/torch/torch_level
+    chmod 0666 /sys/devices/virtual/torch/torch/torch_level
+    chmod 0666 /sys/devices/virtual/flashlight_core/flashlight/flashlight_torch
+
+    # Hardware Vibrator (MT6368 Regulator-Vibrator)
+    chmod 0666 /sys/class/leds/vibrator/brightness
+    chmod 0666 /sys/devices/platform/soc/soc:regulator-vibrator/leds/vibrator/brightness
+
+    # Thermal zone node permissions (MT6895 soc_max)
+    chmod 0666 /sys/class/thermal/thermal_zone0/temp
+    chmod 0666 /sys/class/thermal/thermal_zone1/temp
+    chmod 0666 /sys/class/thermal/thermal_zone46/temp
+    chmod 0666 /sys/devices/virtual/thermal/thermal_zone0/temp
+
+    # Ensure SELinux remains permissive
+    write /sys/fs/selinux/enforce 0
