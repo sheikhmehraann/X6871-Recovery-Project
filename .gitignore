@@ -16,3 +16,6 @@ temp/
 tmp/
 extracted_ramdisk/
 *.backup
+
+out_shrp/
+
