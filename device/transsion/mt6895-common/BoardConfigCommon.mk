@@ -73,13 +73,14 @@ BOARD_MAIN_SIZE := 12424331264
 BOARD_VENDOR_BOOTIMAGE_PARTITION_SIZE := 67108864
 BOARD_USES_METADATA_PARTITION := true
 BOARD_SUPER_PARTITION_GROUPS := main
-BOARD_MAIN_PARTITION_LIST += \
-    odm_dlkm \
-    product \
+BOARD_MAIN_PARTITION_LIST := \
     system \
     system_ext \
+    product \
     vendor \
-    vendor_dlkm
+    odm \
+    vendor_dlkm \
+    odm_dlkm
 
 BOARD_ODM_DLKMIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_PRODUCTIMAGE_FILE_SYSTEM_TYPE := ext4

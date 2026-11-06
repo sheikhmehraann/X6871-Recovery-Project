@@ -75,23 +75,14 @@ BOARD_VENDOR_BOOTIMAGE_PARTITION_SIZE := 67108864
 BOARD_USES_METADATA_PARTITION := true
 BOARD_ROOT_EXTRA_FOLDERS += metadata
 BOARD_SUPER_PARTITION_GROUPS := main
-BOARD_MAIN_PARTITION_LIST += \
-    odm \
-    odm_dlkm \
-    product \
+BOARD_MAIN_PARTITION_LIST := \
     system \
-    system_dlkm \
     system_ext \
+    product \
     vendor \
+    odm \
     vendor_dlkm \
-    tr_product \
-    tr_preload \
-    tr_region \
-    tr_carrier \
-    tr_company \
-    tr_misc \
-    tr_manifest \
-    tr_overlayfs
+    odm_dlkm
 
 TARGET_COPY_OUT_ODM := odm
 TARGET_COPY_OUT_ODM_DLKM := odm_dlkm
