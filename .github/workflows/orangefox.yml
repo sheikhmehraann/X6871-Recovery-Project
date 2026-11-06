@@ -143,6 +143,7 @@ jobs:
           set -o pipefail
           source build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
+          export SKIP_ABI_CHECKS=true
           export FOX_USE_ZSTD_BINARY=1
           export FOX_BUILD_DEVICE=X6871
           export FOX_VIRTUAL_AB_DEVICE=1

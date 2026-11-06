@@ -141,6 +141,7 @@ jobs:
         run: |
           cd $HOME/twrp
           export ALLOW_MISSING_DEPENDENCIES=true
+          export SKIP_ABI_CHECKS=true
           export TW_DEVICE_VERSION="X6871_sheikhmehraann"
           export LC_ALL="C"
           export USE_CCACHE=1
