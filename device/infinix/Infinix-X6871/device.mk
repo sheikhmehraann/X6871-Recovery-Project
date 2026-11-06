@@ -65,6 +65,10 @@ PRODUCT_ENABLE_UFFD_GC := true
 # Dynamic Partitions
 PRODUCT_USE_DYNAMIC_PARTITIONS := true
 
+# APEX System Server Classpath (Android 15/16 mainline CrashRecovery fragment)
+PRODUCT_APEX_SYSTEM_SERVER_JARS += \
+    com.android.crashrecovery:service-crashrecovery
+
 # API
 PRODUCT_SHIPPING_API_LEVEL := 34
 PRODUCT_TARGET_VNDK_VERSION := 34
