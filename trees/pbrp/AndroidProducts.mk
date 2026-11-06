@@ -6,6 +6,4 @@ PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/pb_X6871.mk
 
 COMMON_LUNCH_CHOICES := \
-    pb_X6871-trunk_staging-eng \
-    pb_X6871-ap2a-eng \
     pb_X6871-eng
