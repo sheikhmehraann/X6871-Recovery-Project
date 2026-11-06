@@ -125,13 +125,11 @@ jobs:
           if [ "$TREE_MODE" = "standalone" ] && [ -d "$GITHUB_WORKSPACE/trees/twrp" ]; then
             echo "Deploying standalone TWRP device tree..."
             cp -r "$GITHUB_WORKSPACE/trees/twrp" device/infinix/Infinix-X6871
-            ln -sf Infinix-X6871 device/infinix/X6871
-            cp -r "$GITHUB_WORKSPACE/trees/common" device/transsion/mt6895-common
+                        cp -r "$GITHUB_WORKSPACE/trees/common" device/transsion/mt6895-common
           else
             echo "Deploying unified device tree..."
             cp -r "$GITHUB_WORKSPACE/device/infinix/Infinix-X6871" device/infinix/Infinix-X6871
-            ln -sf Infinix-X6871 device/infinix/X6871
-            cp -r "$GITHUB_WORKSPACE/device/transsion/mt6895-common" device/transsion/mt6895-common
+                        cp -r "$GITHUB_WORKSPACE/device/transsion/mt6895-common" device/transsion/mt6895-common
           fi
 
           if [ -f "$GITHUB_WORKSPACE/scripts/graphics_drm.cpp" ] && [ -f "bootable/recovery/minuitwrp/graphics_drm.cpp" ]; then
@@ -157,6 +155,7 @@ jobs:
           ccache -z
 
           BUILD_TYPE="${{ github.event.inputs.build_type || 'eng' }}"
+          set -o pipefail
           source build/envsetup.sh
           lunch twrp_X6871-$BUILD_TYPE || lunch omni_X6871-$BUILD_TYPE
           mka adbd vendorbootimage -j$(nproc) 2>&1 | tee build.log

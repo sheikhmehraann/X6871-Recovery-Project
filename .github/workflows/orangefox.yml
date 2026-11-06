@@ -119,13 +119,11 @@ jobs:
           if [ "$TREE_MODE" = "standalone" ] && [ -d "$GITHUB_WORKSPACE/trees/ofrp" ]; then
             echo "Deploying standalone OrangeFox device tree..."
             cp -r "$GITHUB_WORKSPACE/trees/ofrp" device/infinix/X6871
-            ln -sf X6871 device/infinix/Infinix-X6871
-            cp -r "$GITHUB_WORKSPACE/trees/common" device/transsion/mt6895-common
+                        cp -r "$GITHUB_WORKSPACE/trees/common" device/transsion/mt6895-common
           else
             echo "Deploying unified device tree..."
             cp -r "$GITHUB_WORKSPACE/device/infinix/Infinix-X6871" device/infinix/X6871
-            ln -sf X6871 device/infinix/Infinix-X6871
-            cp -r "$GITHUB_WORKSPACE/device/transsion/mt6895-common" device/transsion/mt6895-common
+                        cp -r "$GITHUB_WORKSPACE/device/transsion/mt6895-common" device/transsion/mt6895-common
           fi
 
       - name: Build OrangeFox Recovery Image
@@ -141,6 +139,7 @@ jobs:
           fi
           ccache -z
 
+          set -o pipefail
           source build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           export FOX_USE_ZSTD_BINARY=1
