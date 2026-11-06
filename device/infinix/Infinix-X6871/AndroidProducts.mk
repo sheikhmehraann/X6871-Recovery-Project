@@ -1,7 +1,5 @@
 #
-# Copyright (C) 2026 The LineageOS Project
-#
-# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 The Android Open Source Project
 #
 
 PRODUCT_MAKEFILES := \
@@ -13,10 +11,17 @@ PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/omni_X6871.mk
 
 COMMON_LUNCH_CHOICES := \
+    twrp_X6871-trunk_staging-eng \
+    twrp_X6871-ap2a-eng \
     twrp_X6871-eng \
-    fox_X6871-eng \
+    fox_X6871-trunk_staging-eng \
     fox_X6871-ap2a-eng \
+    fox_X6871-eng \
+    pb_X6871-trunk_staging-eng \
+    pb_X6871-ap2a-eng \
     pb_X6871-eng \
     shrp_X6871-eng \
+    yarp_X6871-trunk_staging-eng \
+    yarp_X6871-ap2a-eng \
     yarp_X6871-eng \
     omni_X6871-eng

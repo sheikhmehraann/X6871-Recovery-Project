@@ -157,7 +157,7 @@ jobs:
           BUILD_TYPE="${{ github.event.inputs.build_type || 'eng' }}"
           set -o pipefail
           source build/envsetup.sh
-          lunch twrp_X6871-$BUILD_TYPE || lunch omni_X6871-$BUILD_TYPE
+          lunch twrp_X6871-trunk_staging-$BUILD_TYPE || lunch twrp_X6871-ap2a-$BUILD_TYPE || lunch twrp_X6871-$BUILD_TYPE || lunch omni_X6871-$BUILD_TYPE
           mka adbd vendorbootimage -j$(nproc) 2>&1 | tee build.log
           ccache -s
 
