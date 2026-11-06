@@ -127,6 +127,11 @@ jobs:
                         cp -r "$GITHUB_WORKSPACE/device/transsion/mt6895-common" device/transsion/mt6895-common
           fi
 
+          if [ -d "system/sepolicy/reqd_mask" ]; then
+            echo "Patching system/sepolicy/reqd_mask with hal_hwcrypto attributes..."
+            printf "attribute hal_hwcrypto;\nattribute hal_hwcrypto_client;\nattribute hal_hwcrypto_server;\n" >> system/sepolicy/reqd_mask/reqd_mask.te
+          fi
+
       - name: Build OrangeFox Recovery Image
         run: |
           cd $HOME/fox_workspace
