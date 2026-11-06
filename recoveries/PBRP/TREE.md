@@ -1,16 +1,17 @@
-# PitchBlack Recovery Project (PBRP 12.1 / 14) — Infinix GT 20 Pro (`Infinix-X6871`)
+# PitchBlack Recovery Project (PBRP 14.0 / Forward-Port A16) — Infinix GT 20 Pro (`Infinix-X6871`)
 
 ## Manifest & Environment Requirements
 
 * **Manifest:** PitchBlack Recovery Manifest
-* **Branch:** `android-12.1` or `pb-14`
+* **Branch:** `android-14.0` (Latest Official Upstream) / Community A16
 * **Target Architecture:** `arm64-v8a`
 * **SoC:** MediaTek Dimensity 8200 Ultimate (`MT6895`)
 * **Partition Target:** `vendor_boot` (Header v4, 64 MB)
 
 ```bash
 mkdir -p ~/pbrp && cd ~/pbrp
-repo init --depth=1 -u https://github.com/PitchBlackRecoveryProject/manifest_pb.git -b android-12.1
+repo init --depth=1 -u https://github.com/PitchBlackRecoveryProject/manifest_pb.git -b android-14.0
+# Note: Official upstream PBRP stops at android-14.0. Android 16 builds use community forward-port patches atop TWRP 16.0 manifest.
 repo sync -c -j$(nproc) --no-clone-bundle --no-tags
 ```
 

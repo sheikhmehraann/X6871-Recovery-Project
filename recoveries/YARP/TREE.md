@@ -1,8 +1,8 @@
-# Yet Another Recovery Project (YARP 16.0) — Infinix GT 20 Pro (`Infinix-X6871`)
+# YuKongA Recovery Project (YARP 16.0) — Infinix GT 20 Pro (`Infinix-X6871`)
 
 ## Manifest & Environment Requirements
 
-* **Manifest:** Minimal TWRP / YARP AOSP Manifest
+* **Manifest:** YuKongA / TWRP-Test AOSP Manifest
 * **Branch:** `yarp-16.0` / `twrp-16.0`
 * **Target Architecture:** `arm64-v8a`
 * **SoC:** MediaTek Dimensity 8200 Ultimate (`MT6895`)
@@ -10,7 +10,7 @@
 
 ```bash
 mkdir -p ~/yarp && cd ~/yarp
-repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-16.0
+repo init --depth=1 -u https://github.com/TWRP-Test/platform_manifest_twrp_aosp.git -b twrp-16.0
 repo sync -c -j$(nproc) --no-clone-bundle --no-tags
 ```
 

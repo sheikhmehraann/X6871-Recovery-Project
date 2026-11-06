@@ -1,4 +1,4 @@
-# SkyHawk Recovery Project (SHRP 12.1) — Infinix GT 20 Pro (`Infinix-X6871`)
+# SkyHawk Recovery Project (SHRP Legacy 12.1 / Forward-Port Stalled) — Infinix GT 20 Pro (`Infinix-X6871`)
 
 ## Manifest & Environment Requirements
 
@@ -11,6 +11,7 @@
 ```bash
 mkdir -p ~/shrp && cd ~/shrp
 repo init --depth=1 -u https://github.com/SKYHAWK-Recovery-Project/platform_manifest_twrp_omni.git -b v3.1_12.1
+# Note: Upstream SHRP is abandoned at Android 12.1. Device tree provides the structural configuration for legacy or forward-ported builds.
 repo sync -c -j$(nproc) --no-clone-bundle --no-tags
 ```
 

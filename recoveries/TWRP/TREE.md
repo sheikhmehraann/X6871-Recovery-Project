@@ -10,7 +10,8 @@
 
 ```bash
 mkdir -p ~/twrp_16 && cd ~/twrp_16
-repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-16.0
+repo init --depth=1 -u https://github.com/TWRP-Test/platform_manifest_twrp_aosp.git -b twrp-16.0
+# Note: Official TeamWin minimal-manifest-twrp has branches up to twrp-14.1. Android 16 is tracked via community TWRP-Test.
 repo sync -c -j$(nproc) --no-clone-bundle --no-tags
 ```
 

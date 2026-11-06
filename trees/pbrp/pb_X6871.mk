@@ -3,7 +3,7 @@
 # PitchBlack Recovery Project configuration for Infinix GT 20 Pro (X6871)
 #
 
-$(call inherit-product, device/infinix/Infinix-X6871/device.mk)
+$(call inherit-product, device/infinix/X6871/device.mk)
 
 PRODUCT_NAME := pb_X6871
 PRODUCT_DEVICE := X6871

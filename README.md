@@ -58,10 +58,8 @@ In stock Android 16, `android.hardware.boot-service.mtk.xml` and `android.hardwa
 `Cannot add a device manifest to a framework manifest` and `Unrecognized manifest.version 9.0 (libvintf@8.0)`.
 * **Fix (`scripts/repack_vendor_boot_a16.py`):** In-place byte shimming inside the CPIO archive redirects `system/etc/vintf/` -> `vendor/etc/vintf/` and lowers version `9.0` -> `8.0` without altering file offsets.
 
-#### B. Trustonic Kernel Module Opcode Patch (`mcDrvModule.ko`)
-Under Linux Kernel 6.12, `mcDrvModule.ko` reports driver API version 10. The user-mode daemon (`mcDriverDaemon`) strictly demands API version 9.
-* **Fix (`scripts/repack_vendor_boot_a16.py`):** In-place binary patch replaces ARM64 immediate instructions inside `mcDrvModule.ko`:
-  `\x40\x01\x80\x52` -> `\x20\x01\x80\x52` (`MOV W0, #9`).
+#### B. Trustonic Kernel Module Verification (`mcDrvModule.ko`)
+Inspection of stock `mcDrvModule.ko` (vermagic `6.12.38-android16-5-gcc51d883045d-4k SMP preempt mod_unload modversions aarch64`, SHA-256 `bca9abe09c7f5071f5bb88264782a6b21cd47d8442b680d2c32f8094d2e00f28`) confirms that stock Android 16 userspace daemons and kernel drivers are synchronized. Speculative instruction-level opcode patches (`MOV W0, #9`) were audited and removed to preserve binary module integrity and cryptographic signature validation.
 
 #### C. Dual-Zstandard Adaptive Compression
 Stock Fragment 0 is LZ4-compressed (~110 MB uncompressed). Merging it with Fragment 1 exceeds the 64.0 MB boundary.
@@ -73,13 +71,13 @@ Stock Fragment 0 is LZ4-compressed (~110 MB uncompressed). Merging it with Fragm
 
 This repository provides **both** dedicated standalone device trees (`trees/`) for individual upstream checkouts and a unified all-in-one build tree (`device/infinix/Infinix-X6871`):
 
-| Recovery Project | Dedicated Upstream Tree | Target Lunch Combo | Base Manifest | Build Makefile |
-|---|---|---|---|---|
-| TeamWin Recovery Project (TWRP) | [trees/twrp/](trees/twrp/) | `twrp_X6871-eng` | TWRP 16.0 (AOSP tos16 / A16) | `twrp_X6871.mk` |
-| OrangeFox Recovery Project (OFRP) | [trees/ofrp/](trees/ofrp/) | `fox_X6871-ap2a-eng` | OrangeFox 14.1 (AOSP AP2A / SDK 34) | `fox_X6871.mk` |
-| PitchBlack Recovery Project (PBRP) | [trees/pbrp/](trees/pbrp/) | `pb_X6871-eng` | PBRP 12.1 / 16 | `pb_X6871.mk` |
-| SkyHawk Recovery Project (SHRP) | [trees/shrp/](trees/shrp/) | `shrp_X6871-eng` | SHRP 12.1 / 16 | `shrp_X6871.mk` |
-| Yet Another Recovery Project (YARP) | [trees/yarp/](trees/yarp/) | `yarp_X6871-eng` | YARP / TWRP 16.0 | `yarp_X6871.mk` |
+| Recovery Project | Dedicated Upstream Tree | Target Lunch Combo | Upstream Support Status | Manifest Source & Branch | Build Makefile |
+|---|---|---|---|---|---|
+| TeamWin Recovery Project (TWRP) | [trees/twrp/](trees/twrp/) | `twrp_X6871-eng` | Community A16 Active | `TWRP-Test/platform_manifest_twrp_aosp.git -b twrp-16.0` | `twrp_X6871.mk` |
+| OrangeFox Recovery Project (OFRP) | [trees/ofrp/](trees/ofrp/) | `fox_X6871-eng` | Official A16 Branch | `gitlab.com/orangefox/manifest.git -b fox_16.0` | `fox_X6871.mk` |
+| PitchBlack Recovery Project (PBRP) | [trees/pbrp/](trees/pbrp/) | `pb_X6871-eng` | Community Forward-Port | `PitchBlackRecoveryProject/manifest_pb.git -b android-14.0` | `pb_X6871.mk` |
+| SkyHawk Recovery Project (SHRP) | [trees/shrp/](trees/shrp/) | `shrp_X6871-eng` | Stalled at A12.1 | `SKYHAWK-Recovery-Project/platform_manifest_twrp_omni.git -b v3.1_12.1` | `shrp_X6871.mk` |
+| YuKongA Recovery Project (YARP) | [trees/yarp/](trees/yarp/) | `yarp_X6871-eng` | Active MTK A16 Fork | `TWRP-Test/platform_manifest_twrp_aosp.git -b twrp-16.0` | `yarp_X6871.mk` |
 
 All five standalone recovery trees share the common platform tree:
 * **Common Platform Tree:** [trees/common/](trees/common/) (`device/transsion/mt6895-common`)
@@ -277,5 +275,5 @@ The recovery ramdisk resides inside the physical `vendor_boot` partition. Do not
 * **OrangeFox Recovery Project:** OFRP Team
 * **PitchBlack Recovery Project:** PBRP Team
 * **SkyHawk Recovery Project:** SHRP Team
-* **Yet Another Recovery Project:** YARP Team
+* **YuKongA Recovery Project:** YuKongA
 * **MediaTek Platform Bringup:** LineageOS & Transsion Open Source

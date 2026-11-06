@@ -1,17 +1,17 @@
-# OrangeFox Recovery Project (OFRP 14.1) — Infinix GT 20 Pro (`Infinix-X6871`)
+# OrangeFox Recovery Project (OFRP 16.0) — Infinix GT 20 Pro (`Infinix-X6871`)
 
 ## Manifest & Environment Requirements
 
 * **Manifest:** OrangeFox Minimal Sync Manifest
-* **Branch:** `14.1` (AOSP AP2A / SDK 34 Base)
+* **Branch:** `fox_16.0` (Android 16 Base)
 * **Target Architecture:** `arm64-v8a`
 * **SoC:** MediaTek Dimensity 8200 Ultimate (`MT6895`)
 * **Partition Target:** `vendor_boot` (Header v4, 64 MB)
 
 ```bash
-mkdir -p ~/fox_14.1 && cd ~/fox_14.1
+mkdir -p ~/fox_16.0 && cd ~/fox_16.0
 git clone --depth=1 https://gitlab.com/OrangeFox/sync.git ~/OrangeFox_sync
-~/OrangeFox_sync/orangefox_sync.sh --branch 14.1 --path ~/fox_14.1
+~/OrangeFox_sync/orangefox_sync.sh --branch fox_16.0 --path ~/fox_16.0
 ```
 
 ---

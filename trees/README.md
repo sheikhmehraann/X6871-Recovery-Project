@@ -1,110 +1,117 @@
-# Android 16 Recovery Trees — Infinix GT 20 Pro (`Infinix-X6871`)
+# Android 16 Recovery Trees — Infinix GT 20 Pro (Infinix-X6871)
 
-Independent, upstream-compliant recovery device trees for the Infinix GT 20 Pro (MediaTek Dimensity 8200 Ultimate / `MT6895`) running stock Transsion OS 16 (Android 16 / Linux 6.12 GKI).
+Independent recovery device trees for the Infinix GT 20 Pro (MediaTek Dimensity 8200 Ultimate / MT6895) running stock Transsion OS 16 (Android 16 / Linux 6.12 GKI).
 
 ---
 
-## 1. Directory Structure
+## 1. Upstream Support & Manifest Matrix
+
+| Recovery Project | Upstream Authority | Highest Official Branch | Android 16 Status | Real Manifest URL |
+|---|---|---|---|---|
+| TWRP | TeamWin / TWRP-Test | twrp-14.1 (Official) / twrp-16.0 (Community Test) | Supported via TWRP-Test | `https://github.com/TWRP-Test/platform_manifest_twrp_aosp.git -b twrp-16.0` |
+| OrangeFox (OFRP) | OrangeFox Recovery | fox_16.0 | Supported Official | `https://gitlab.com/orangefox/manifest.git -b fox_16.0` |
+| PBRP | PitchBlack Recovery | android-14.0 | Unsupported Upstream (Downstream Forward-Port) | `https://github.com/PitchBlackRecoveryProject/manifest_pb.git -b android-14.0` |
+| SHRP | SkyHawk Recovery | shrp-12.1 | Unsupported Upstream (Stalled at Android 12) | `https://github.com/SKYHAWK-Recovery-Project/platform_manifest_twrp_omni.git` |
+| YARP | YuKongA Recovery Project | yarp-16.0 (TWRP-16 Base) | Supported via YuKongA Base | `https://github.com/TWRP-Test/platform_manifest_twrp_aosp.git -b twrp-16.0` |
+
+---
+
+## 2. Directory Layout
 
 ```text
 trees/
-├── common/             # Transsion MT6895 platform common tree (BoardConfigCommon, HALs, Trustonic)
-├── twrp/               # Standalone TWRP 16.0 device tree (twrp_X6871.mk, omni_X6871.mk)
-├── ofrp/               # Standalone OrangeFox 14.1 device tree (fox_X6871.mk, fox.mk)
-├── pbrp/               # Standalone PitchBlack Recovery device tree (pb_X6871.mk)
-├── shrp/               # Standalone SkyHawk Recovery device tree (shrp_X6871.mk)
-└── yarp/               # Standalone Yet Another Recovery Project device tree (yarp_X6871.mk)
+├── common/             # MT6895 platform common tree (HALs, bootctrl, vendor_ramdisk bootstrap)
+├── twrp/               # TWRP 16.0 device tree (twrp_X6871.mk, omni_X6871.mk, prebuilt DTB)
+├── ofrp/               # OrangeFox 14.1/16.0 device tree (fox_X6871.mk, fox.mk, post-make scripts)
+├── pbrp/               # PitchBlack Recovery forward-port tree (pb_X6871.mk)
+├── shrp/               # SkyHawk Recovery forward-port tree (shrp_X6871.mk)
+└── yarp/               # YuKongA Recovery Project tree (yarp_X6871.mk, LVGL UI configs)
 ```
 
 ---
 
-## 2. Upstream Conventions & Integration
-
-Each standalone tree conforms directly to its upstream build system. To integrate into a specific recovery source checkout:
+## 3. Upstream Conventions & Build Targets
 
 ### TWRP 16.0 (`trees/twrp/`)
-* **Manifest:** `https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-16.0`
-* **Target Path:** `device/infinix/Infinix-X6871`
-* **Platform Path:** `device/transsion/mt6895-common`
-* **Symlink Setup:**
+* Upstream Manifest: `https://github.com/TWRP-Test/platform_manifest_twrp_aosp.git -b twrp-16.0`
+* Device Path: `device/infinix/X6871`
+* Common Path: `device/transsion/mt6895-common`
+* Symlink Commands:
   ```bash
   mkdir -p device/infinix device/transsion
-  ln -s /path/to/trees/twrp device/infinix/Infinix-X6871
-  ln -s /path/to/trees/common device/transsion/mt6895-common
+  ln -s $(pwd)/trees/twrp device/infinix/X6871
+  ln -s $(pwd)/trees/common device/transsion/mt6895-common
   ```
-* **Lunch Combo:** `twrp_X6871-eng`
-* **Build Command:** `mka adbd vendorbootimage -j$(nproc)`
+* Lunch Target: `twrp_X6871-eng`
+* Build Command: `mka adbd vendorbootimage -j$(nproc)`
+
+### OrangeFox (`trees/ofrp/`)
+* Upstream Manifest: `https://gitlab.com/orangefox/manifest.git -b fox_16.0`
+* Device Path: `device/infinix/X6871`
+* Common Path: `device/transsion/mt6895-common`
+* Symlink Commands:
+  ```bash
+  mkdir -p device/infinix device/transsion
+  ln -s $(pwd)/trees/ofrp device/infinix/X6871
+  ln -s $(pwd)/trees/common device/transsion/mt6895-common
+  ```
+* Lunch Target: `fox_X6871-eng`
+* Build Command: `mka adbd vendorbootimage -j$(nproc)`
+* Post-Build Repack: `python3 scripts/repack_vendor_boot_a16.py`
+
+### PitchBlack Recovery (`trees/pbrp/`)
+* Upstream Note: PBRP upstream does not maintain an Android 16 manifest branch. This tree provides forward-ported PBRP makefiles targeting TWRP 16 / AOSP 16 build trees with PBRP vendor overlays.
+* Upstream Manifest: `https://github.com/PitchBlackRecoveryProject/manifest_pb.git -b android-14.0`
+* Device Path: `device/infinix/X6871`
+* Common Path: `device/transsion/mt6895-common`
+* Symlink Commands:
+  ```bash
+  mkdir -p device/infinix device/transsion
+  ln -s $(pwd)/trees/pbrp device/infinix/X6871
+  ln -s $(pwd)/trees/common device/transsion/mt6895-common
+  ```
+* Lunch Target: `pb_X6871-eng`
+* Build Command: `mka adbd vendorbootimage -j$(nproc)`
+
+### SkyHawk Recovery (`trees/shrp/`)
+* Upstream Note: SHRP upstream has stalled at Android 12.1. True Android 16 support is nonexistent upstream; this tree is a forward-ported configuration for community backporting/testing.
+* Upstream Manifest: `https://github.com/SKYHAWK-Recovery-Project/platform_manifest_twrp_omni.git`
+* Device Path: `device/infinix/X6871`
+* Common Path: `device/transsion/mt6895-common`
+* Symlink Commands:
+  ```bash
+  mkdir -p device/infinix device/transsion
+  ln -s $(pwd)/trees/shrp device/infinix/X6871
+  ln -s $(pwd)/trees/common device/transsion/mt6895-common
+  ```
+* Lunch Target: `shrp_X6871-eng`
+* Build Command: `mka adbd vendorbootimage -j$(nproc)`
+
+### YuKongA Recovery Project (YARP) (`trees/yarp/`)
+* Upstream Note: YARP is the YuKongA Recovery Project, a touch-based custom recovery fork maintaining updated UI and decryption support for newer MTK/Qualcomm Android 16 platforms.
+* Upstream Base: `https://github.com/TWRP-Test/platform_manifest_twrp_aosp.git -b twrp-16.0`
+* Device Path: `device/infinix/X6871`
+* Common Path: `device/transsion/mt6895-common`
+* Symlink Commands:
+  ```bash
+  mkdir -p device/infinix device/transsion
+  ln -s $(pwd)/trees/yarp device/infinix/X6871
+  ln -s $(pwd)/trees/common device/transsion/mt6895-common
+  ```
+* Lunch Target: `yarp_X6871-eng`
+* Build Command: `mka adbd vendorbootimage -j$(nproc)`
 
 ---
 
-### OrangeFox Recovery Project 14.1 (`trees/ofrp/`)
-* **Manifest:** `https://gitlab.com/OrangeFox/sync.git` via `orangefox_sync.sh --branch 14.1`
-* **Target Path:** `device/infinix/Infinix-X6871` or `device/infinix/X6871`
-* **Platform Path:** `device/transsion/mt6895-common`
-* **Symlink Setup:**
-  ```bash
-  mkdir -p device/infinix device/transsion
-  ln -s /path/to/trees/ofrp device/infinix/Infinix-X6871
-  ln -s /path/to/trees/common device/transsion/mt6895-common
-  ```
-* **Lunch Combo:** `fox_X6871-ap2a-eng`
-* **Build Command:** `mka adbd vendorbootimage -j$(nproc)`
-* **Post-Repack:** Execute `scripts/repack_vendor_boot_a16.py` to compress with Stock Fragment 0 and in-place patches.
+## 4. Hardware Verification & Shims
 
----
-
-### PitchBlack Recovery Project (`trees/pbrp/`)
-* **Manifest:** `https://github.com/PitchBlackRecoveryProject/manifest_pb.git -b android-12.1`
-* **Target Path:** `device/infinix/Infinix-X6871`
-* **Platform Path:** `device/transsion/mt6895-common`
-* **Symlink Setup:**
-  ```bash
-  mkdir -p device/infinix device/transsion
-  ln -s /path/to/trees/pbrp device/infinix/Infinix-X6871
-  ln -s /path/to/trees/common device/transsion/mt6895-common
-  ```
-* **Lunch Combo:** `pb_X6871-eng`
-* **Build Command:** `mka adbd vendorbootimage -j$(nproc)`
-
----
-
-### SkyHawk Recovery Project (`trees/shrp/`)
-* **Manifest:** `https://github.com/SKYHAWK-Recovery-Project/platform_manifest_twrp_omni.git -b v3.1_12.1`
-* **Target Path:** `device/infinix/Infinix-X6871`
-* **Platform Path:** `device/transsion/mt6895-common`
-* **Symlink Setup:**
-  ```bash
-  mkdir -p device/infinix device/transsion
-  ln -s /path/to/trees/shrp device/infinix/Infinix-X6871
-  ln -s /path/to/trees/common device/transsion/mt6895-common
-  ```
-* **Lunch Combo:** `shrp_X6871-eng`
-* **Build Command:** `mka adbd vendorbootimage -j$(nproc)`
-
----
-
-### Yet Another Recovery Project (`trees/yarp/`)
-* **Manifest:** `https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-16.0`
-* **Target Path:** `device/infinix/Infinix-X6871`
-* **Platform Path:** `device/transsion/mt6895-common`
-* **Symlink Setup:**
-  ```bash
-  mkdir -p device/infinix device/transsion
-  ln -s /path/to/trees/yarp device/infinix/Infinix-X6871
-  ln -s /path/to/trees/common device/transsion/mt6895-common
-  ```
-* **Lunch Combo:** `yarp_X6871-eng`
-* **Build Command:** `mka adbd vendorbootimage -j$(nproc)`
-
----
-
-## 3. Shared Platform Requirements (`trees/common/`)
-
-All five recoveries rely on `trees/common/`:
-* `BoardConfigCommon.mk`: Header v4 definitions, 64MB partition boundary, dynamic partitions (`super`), ZSTD compression flags.
-* `common.mk`: Shared recovery packages and AIDL boot/health service inclusions.
-* `system.prop`: Verified stock hardware properties and Trustonic crypto configuration.
-* `recovery/root/`:
-  * AIDL boot HAL prebuilt (`system/bin/hw/android.hardware.boot-service.mtk_recovery`) and `libmtk_bsg.so`.
-  * Trustonic KeyMint v3.0, Gatekeeper, and `mcDriverDaemon` stack.
-  * Verified mount tables (`recovery.fstab` and `twrp.flags`).
+1. Two-Fragment Boot Header v4:
+   - MediaTek bootloader validates Fragment 1 (type 2 / RECOVERY) for recovery mode while loading Fragment 0 (type 1 / PLATFORM) for boot drivers.
+   - Physical vendor_boot boundary is strictly 64 MB (67,108,864 bytes).
+2. VINTF Manifest Shim:
+   - In stock Android 16 Fragment 0, boot and health services are declared as `<manifest version="9.0" type="device">` under `system/etc/vintf/manifest/`.
+   - Recovery servicemanager rejects device manifests in `/system` (treating `/system` as framework).
+   - In-place repacker rewrites `system/etc/vintf/` to `vendor/etc/vintf/` and `version="9.0"` to `version="8.0"`.
+3. Trustonic TEE:
+   - Stock `mcDrvModule.ko` (vermagic `6.12.38-android16-5-gcc51d883045d-4k`) is preserved intact without speculative opcode patches.
+   - User-space matching daemons from stock vendor provide native decryption compatibility without binary corruption.
