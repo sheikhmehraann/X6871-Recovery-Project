@@ -6,11 +6,10 @@ on:
       manifest_branch:
         description: 'SHRP Manifest Branch'
         required: true
-        default: 'v3.1_12.1'
+        default: 'shrp-12.1'
         type: choice
         options:
-          - 'v3.1_12.1'
-          - 'shrp-12.1'
+                    - 'shrp-12.1'
       build_type:
         description: 'Build Type'
         required: true
@@ -117,9 +116,8 @@ jobs:
         run: |
           mkdir -p $HOME/shrp
           cd $HOME/shrp
-          BRANCH="${{ github.event.inputs.manifest_branch || 'v3.1_12.1' }}"
+          BRANCH="${{ github.event.inputs.manifest_branch || 'shrp-12.1' }}"
           echo "Initializing repo from SHRP manifest ($BRANCH)..."
-          repo init --no-repo-verify -u https://github.com/SKYHAWK-Recovery-Project/platform_manifest_twrp_omni.git -b "$BRANCH" --depth=1 || \
           repo init --no-repo-verify -u https://github.com/SHRP-Reborn/manifest.git -b "$BRANCH" --depth=1
           repo sync -c -j4 --force-sync --no-clone-bundle --no-tags --current-branch || repo sync -c -j2 --force-sync
           rm -rf .repo/project-objects .repo/projects
