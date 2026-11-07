@@ -41,13 +41,12 @@ def repack(stock_path, built_path, output_path):
         stock_file.seek(offset_ramdisk + frag0_offset)
         raw_frag0_data = stock_file.read(frag0_size)
         
-        # Read stock bootconfig
-        stock_file.seek(offset_bootconfig)
-        raw_bc = stock_file.read(bootconfig_size)
-        bc_str = raw_bc.decode('utf-8', errors='ignore')
-        if "androidboot.selinux=permissive" not in bc_str:
-            bc_str = "androidboot.selinux=permissive\n" + bc_str.strip() + "\n"
-        bootconfig_data = bc_str.encode('utf-8')
+        # Bootconfig in vendor_boot MUST be empty (size 0) on MediaTek MT6895
+        # because the OEM bootloader dynamically appends its own complete bootconfig (including kernel.rcu_*).
+        # Defining duplicate keys in vendor_boot triggers Linux kernel bconf_parse error:
+        # 'Failed to parse bootconfig: Value is redefined at 758', causing the kernel to drop all
+        # bootconfig parameters (including androidboot.hardware=mt6895), which kills FirstStageMount.
+        bootconfig_data = b""
     finally:
         stock_file.close()
         
@@ -157,6 +156,8 @@ def repack(stock_path, built_path, output_path):
     cmdline_str = cmdline.decode('utf-8', errors='ignore')
     if "bootconfig" not in cmdline_str:
         cmdline_str = (cmdline_str + " bootconfig").strip()
+    if "androidboot.selinux=permissive" not in cmdline_str:
+        cmdline_str = (cmdline_str + " androidboot.selinux=permissive").strip()
     cmdline_bytes = cmdline_str.encode('utf-8')[:2047]
 
     # Target partition size: 67108864 (64 MB)
