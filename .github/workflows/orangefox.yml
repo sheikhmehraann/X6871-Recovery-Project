@@ -134,8 +134,11 @@ jobs:
           fi
           ccache -z
 
-          set -o pipefail
+          rm -rf device/xiaomi/mondrian 2>/dev/null || true
+          set +e
           source build/envsetup.sh
+          set -e
+          set -o pipefail
           export ALLOW_MISSING_DEPENDENCIES=true
           export SKIP_ABI_CHECKS=true
           export FOX_USE_ZSTD_BINARY=1
