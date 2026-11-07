@@ -138,8 +138,9 @@ jobs:
           fi
 
           if [ -d "system/sepolicy" ]; then
-            echo "Neutralizing hal_hwcrypto sepolicy and patching reqd_mask..."
-            find system/sepolicy/ -name "hal_hwcrypto_default.te" -exec truncate -s 0 {} +
+            echo "Purging hal_hwcrypto from sepolicy and file_contexts..."
+            rm -f system/sepolicy/vendor/hal_hwcrypto_default.te
+            find system/sepolicy/ -type f -name "*file_contexts*" -exec sed -i '/hwcrypto/d' {} +
             if [ -f "system/sepolicy/reqd_mask/reqd_mask.te" ]; then
               printf "attribute hal_hwcrypto;\nattribute hal_hwcrypto_client;\nattribute hal_hwcrypto_server;\ntype hal_hwcrypto_service;\n" >> system/sepolicy/reqd_mask/reqd_mask.te
             fi
