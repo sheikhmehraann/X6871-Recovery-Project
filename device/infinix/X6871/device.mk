@@ -67,8 +67,12 @@ PRODUCT_APEX_SYSTEM_SERVER_JARS += \
     com.android.crashrecovery:service-crashrecovery
 
 # API
+ifneq ($(filter 34 35 36,$(PLATFORM_SDK_VERSION)),)
 PRODUCT_SHIPPING_API_LEVEL := 34
 PRODUCT_TARGET_VNDK_VERSION := 34
+else
+PRODUCT_SHIPPING_API_LEVEL := 31
+endif
 
 # Vendor Properties
 PRODUCT_VENDOR_PROPERTIES += \
