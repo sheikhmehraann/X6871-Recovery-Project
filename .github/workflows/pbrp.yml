@@ -6,7 +6,7 @@ on:
       manifest_branch:
         description: 'PBRP Manifest Branch'
         required: true
-        default: 'android-14.0'
+        default: 'twrp-16.0'
         type: choice
         options:
           - 'android-14.0'
@@ -99,7 +99,7 @@ jobs:
         run: |
           mkdir -p $HOME/pbrp
           cd $HOME/pbrp
-          BRANCH="${{ github.event.inputs.manifest_branch || 'android-14.0' }}"
+          BRANCH="${{ github.event.inputs.manifest_branch || 'twrp-16.0' }}"
           if [ "$BRANCH" = "twrp-16.0" ]; then
             REPO_URL="https://github.com/TWRP-Test/platform_manifest_twrp_aosp.git"
           else

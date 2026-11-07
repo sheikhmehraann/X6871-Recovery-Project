@@ -7,6 +7,22 @@ on early-init
     symlink /dev/block/platform/soc/112b0000.ufshci/by-name /dev/block/bootdevice/by-name
     symlink /dev/block/platform/soc/112b0000.ufshci/by-name /dev/block/by-name
 
+    # Recovery Touch & Hardware Driver Modules (Early-Init)
+    insmod /lib/modules/tui-common.ko
+    insmod /lib/modules/ts_scp_common.ko
+    insmod /lib/modules/touch_boost.ko
+    insmod /lib/modules/adaptive-ts.ko
+    insmod /lib/modules/gt9916_common.ko
+    insmod /lib/modules/focaltech_ft3683g.ko
+    insmod /lib/modules/gt9896s.ko
+    insmod /vendor/lib/modules/tui-common.ko
+    insmod /vendor/lib/modules/ts_scp_common.ko
+    insmod /vendor/lib/modules/touch_boost.ko
+    insmod /vendor/lib/modules/adaptive-ts.ko
+    insmod /vendor/lib/modules/gt9916_common.ko
+    insmod /vendor/lib/modules/focaltech_ft3683g.ko
+    insmod /vendor/lib/modules/gt9896s.ko
+
 on init
     restorecon /kmsg
     restorecon_recursive /sys/devices/platform/soc/soc:mtk-leds

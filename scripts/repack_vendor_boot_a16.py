@@ -8,6 +8,54 @@ import lz4.block
 def page_align(val, page_size=4096):
     return (val + page_size - 1) & ~(page_size - 1)
 
+def make_cpio_record(name, data, mode=0o100644):
+    name_bytes = name.encode('utf-8') + b'\x00'
+    namesize = len(name_bytes)
+    filesize = len(data)
+    hdr = f"07070100000000{mode:08x}00000000000000000000000100000000{filesize:08x}00000000000000000000000000000000{namesize:08x}00000000"
+    out = bytearray(hdr.encode('ascii'))
+    out += name_bytes
+    if len(out) % 4 != 0:
+        out += b'\x00' * (4 - (len(out) % 4))
+    out += data
+    if len(out) % 4 != 0:
+        out += b'\x00' * (4 - (len(out) % 4))
+    return bytes(out)
+
+def unpack_cpio_records(data):
+    records = []
+    pos = 0
+    data_len = len(data)
+    while pos + 110 <= data_len:
+        magic = data[pos:pos+6]
+        if magic not in (b'070701', b'070702'):
+            break
+        mode = int(data[pos+14:pos+22], 16)
+        filesize = int(data[pos+54:pos+62], 16)
+        namesize = int(data[pos+94:pos+102], 16)
+        pos += 110
+        filename = data[pos:pos+namesize-1].decode('utf-8', errors='ignore')
+        pos += namesize
+        if pos % 4 != 0:
+            pos += 4 - (pos % 4)
+        file_data = data[pos:pos+filesize]
+        pos += filesize
+        if pos % 4 != 0:
+            pos += 4 - (pos % 4)
+        records.append({'mode': mode, 'name': filename, 'data': file_data})
+        if filename == 'TRAILER!!!':
+            break
+    return records
+
+def repack_cpio(records):
+    out = bytearray()
+    for r in records:
+        if r['name'] == 'TRAILER!!!':
+            continue
+        out += make_cpio_record(r['name'], r['data'], r.get('mode', 0o100644))
+    out += make_cpio_record('TRAILER!!!', b'', 0)
+    return bytes(out)
+
 def repack(stock_path, built_path, output_path):
     print(f"Reading stock vendor_boot: {stock_path}")
     if stock_path.endswith('.gz'):
@@ -54,7 +102,6 @@ def repack(stock_path, built_path, output_path):
     print(f"Stock Fragment 0 size: {frag0_size} bytes")
     
     # Decompress Fragment 0 (it is LZ4 legacy in stock) to uncompressed cpio
-    # Then compress with ZSTD level 12 so it fits cleanly
     pos = 4
     blocks = []
     while pos < len(raw_frag0_data):
@@ -77,7 +124,7 @@ def repack(stock_path, built_path, output_path):
     # In Android 16, bootctl and health manifests are typed as 'device' but placed in 'system/etc/vintf/manifest/'.
     # Recovery servicemanager parses /system as framework, failing with:
     # "Cannot add a device manifest to a framework manifest" and "Unrecognized manifest.version 9.0 (libvintf@8.0)".
-    # Rewrite paths to vendor/etc/vintf/manifest/ and version to 8.0 in-place (100% byte length identical).
+    # Rewrite paths to vendor/etc/vintf/manifest/ and version to 8.0 in-place.
     p1 = b'system/etc/vintf/manifest/android.hardware.boot-service.mtk.xml'
     t1 = b'vendor/etc/vintf/manifest/android.hardware.boot-service.mtk.xml'
     p2 = b'system/etc/vintf/manifest/android.hardware.health-service.example.xml'
@@ -90,12 +137,97 @@ def repack(stock_path, built_path, output_path):
         print("Sanitizing VINTF manifest version 9.0 -> 8.0 in Fragment 0 CPIO...")
         uncompressed_frag0 = uncompressed_frag0.replace(b'version="9.0"', b'version="8.0"')
 
-    # Stock mcDrvModule.ko is preserved without in-place opcode patches.
-    # Technical audit verified that stock mcDrvModule.ko (vermagic: 6.12.38-android16-5-gcc51d883045d-4k)
-    # is already paired with stock user-mode Trustonic Kinibi daemons in stock Android 16.
-    # Blind binary replacement of ARM64 'mov wD, #10' instructions can corrupt unrelated driver logic.
-    
-    # Read built recovery ramdisk from built_path
+    # Locate prebuilt modules directory and device fstabs
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.normpath(os.path.join(script_dir, '..', 'device', 'infinix', 'X6871', 'prebuilt', 'modules')),
+        os.path.normpath(os.path.join(os.getcwd(), 'device', 'infinix', 'X6871', 'prebuilt', 'modules')),
+        os.path.normpath(os.path.join(os.getcwd(), '..', 'device', 'infinix', 'X6871', 'prebuilt', 'modules')),
+    ]
+    modules_dir = None
+    for cand in candidates:
+        if os.path.isdir(cand):
+            modules_dir = cand
+            break
+
+    fstab_candidates = [
+        os.path.normpath(os.path.join(script_dir, '..', 'device', 'infinix', 'X6871', 'recovery', 'root', 'first_stage_ramdisk', 'fstab.mt6895')),
+        os.path.normpath(os.path.join(os.getcwd(), 'device', 'infinix', 'X6871', 'recovery', 'root', 'first_stage_ramdisk', 'fstab.mt6895')),
+    ]
+    fstab_path = None
+    for fc in fstab_candidates:
+        if os.path.exists(fc):
+            fstab_path = fc
+            break
+
+    touch_mods = [
+        'tui-common.ko',
+        'ts_scp_common.ko',
+        'touch_boost.ko',
+        'adaptive-ts.ko',
+        'gt9916_common.ko',
+        'focaltech_ft3683g.ko',
+        'gt9896s.ko'
+    ]
+
+    # --- INJECT TOUCH HARDWARE MODULES & FSTABS INTO FRAGMENT 0 ---
+    print("--- Modifying Fragment 0 CPIO (Touch Drivers & Multi-Suffix Fstabs) ---")
+    frag0_recs = unpack_cpio_records(uncompressed_frag0)
+    frag0_map = {r['name']: r for r in frag0_recs if r['name'] != 'TRAILER!!!'}
+
+    # 1. Update modules.load.recovery
+    if 'lib/modules/modules.load.recovery' in frag0_map:
+        rec = frag0_map['lib/modules/modules.load.recovery']
+        text = rec['data'].decode('utf-8', errors='ignore')
+        to_add = [m for m in touch_mods if m not in text]
+        if to_add:
+            new_text = text.rstrip('\n') + '\n' + '\n'.join(to_add) + '\n'
+            rec['data'] = new_text.encode('utf-8')
+            print(f"  Appended to Fragment 0 modules.load.recovery: {to_add}")
+
+    # 2. Update modules.dep
+    dep_additions = """
+/lib/modules/tui-common.ko:
+/lib/modules/ts_scp_common.ko: /lib/modules/scp.ko /lib/modules/mtk_tinysys_ipi.ko
+/lib/modules/touch_boost.ko:
+/lib/modules/adaptive-ts.ko: /lib/modules/mtk_disp_notify.ko /lib/modules/thd.ko /lib/modules/transsion_tranlog.ko
+/lib/modules/gt9916_common.ko: /lib/modules/adaptive-ts.ko
+/lib/modules/focaltech_ft3683g.ko: /lib/modules/adaptive-ts.ko /lib/modules/transsion_tranlog.ko
+/lib/modules/gt9896s.ko: /lib/modules/spi-mt65xx.ko /lib/modules/mtk_panel_ext.ko /lib/modules/tui-common.ko /lib/modules/mtk_disp_notify.ko
+"""
+    if 'lib/modules/modules.dep' in frag0_map:
+        rec = frag0_map['lib/modules/modules.dep']
+        dep_text = rec['data'].decode('utf-8', errors='ignore')
+        if 'gt9896s.ko' not in dep_text:
+            rec['data'] = (dep_text.rstrip('\n') + '\n' + dep_additions.strip() + '\n').encode('utf-8')
+            print("  Updated Fragment 0 lib/modules/modules.dep with touch dependencies")
+
+    # 3. Inject touch module binaries into lib/modules/
+    if modules_dir:
+        print(f"  Using modules directory: {modules_dir}")
+        for m in touch_mods:
+            m_path = os.path.join(modules_dir, m)
+            if os.path.exists(m_path):
+                with open(m_path, 'rb') as mf:
+                    m_data = mf.read()
+                frag0_map[f'lib/modules/{m}'] = {'name': f'lib/modules/{m}', 'data': m_data, 'mode': 0o100644}
+                print(f"  Injected lib/modules/{m} ({len(m_data)} bytes) into Fragment 0")
+    else:
+        print("  Notice: modules directory not found; searching built recovery for touch modules...")
+
+    # 4. Inject multi-suffix fstabs into Fragment 0 first_stage_ramdisk/
+    if fstab_path:
+        with open(fstab_path, 'rb') as ff:
+            fstab_data = ff.read()
+        frag0_map['first_stage_ramdisk/fstab.mt6895'] = {'name': 'first_stage_ramdisk/fstab.mt6895', 'data': fstab_data, 'mode': 0o100644}
+        frag0_map['first_stage_ramdisk/fstab.emmc'] = {'name': 'first_stage_ramdisk/fstab.emmc', 'data': fstab_data, 'mode': 0o100644}
+        frag0_map['first_stage_ramdisk/fstab.default'] = {'name': 'first_stage_ramdisk/fstab.default', 'data': fstab_data, 'mode': 0o100644}
+        print("  Injected multi-suffix fstabs into Fragment 0 first_stage_ramdisk/")
+
+    uncompressed_frag0 = repack_cpio(list(frag0_map.values()))
+    print(f"Repacked Fragment 0 CPIO total size: {len(uncompressed_frag0)} bytes")
+
+    # --- READ BUILT RECOVERY RAMDISK ---
     print(f"Reading built vendor_boot: {built_path}")
     if built_path.endswith('.gz'):
         with gzip.open(built_path, 'rb') as gz_f:
@@ -113,7 +245,6 @@ def repack(stock_path, built_path, output_path):
         
         built_file.seek(b_offset_table)
         b_table_data = built_file.read(b_table_size)
-        # If there are 2 entries, entry 1 is recovery ramdisk
         if b_table_entry_num >= 2:
             rec_entry = b_table_data[b_table_entry_size : 2 * b_table_entry_size]
             rec_size, rec_offset, rec_type = struct.unpack_from('<III', rec_entry, 0)
@@ -129,7 +260,7 @@ def repack(stock_path, built_path, output_path):
         
     print(f"Built recovery raw size: {rec_size} bytes (magic: {raw_rec_data[:4].hex()})")
     
-    # Decompress recovery ramdisk to sanitize VINTF manifests if needed
+    # Decompress recovery ramdisk
     dctx = zstd.ZstdDecompressor()
     if raw_rec_data[:4] == b'\x28\xb5\x2f\xfd':
         reader = dctx.stream_reader(io.BytesIO(raw_rec_data))
@@ -143,14 +274,37 @@ def repack(stock_path, built_path, output_path):
         print(f"Raw uncompressed recovery ramdisk size: {len(uncompressed_rec)} bytes")
 
     # In AOSP Android 16, health and bootctl AIDL manifests carry version="9.0" and type="device".
-    # Recovery servicemanager parses /system as framework, causing parse aborts.
-    # Rewrite paths to vendor and version to 8.0 in-place.
     if p1 in uncompressed_rec or p2 in uncompressed_rec:
         print("Redirecting device manifest fragments from /system to /vendor in Fragment 1 CPIO...")
         uncompressed_rec = uncompressed_rec.replace(p1, t1).replace(p2, t2)
     if b'version="9.0"' in uncompressed_rec:
         print("Sanitizing VINTF manifest version 9.0 -> 8.0 in Fragment 1 CPIO...")
         uncompressed_rec = uncompressed_rec.replace(b'version="9.0"', b'version="8.0"')
+
+    # --- INJECT MULTI-FSTABS AND MODULES INTO FRAGMENT 1 ---
+    rec_recs = unpack_cpio_records(uncompressed_rec)
+    rec_map = {r['name']: r for r in rec_recs if r['name'] != 'TRAILER!!!'}
+    
+    if modules_dir:
+        for m in touch_mods:
+            m_path = os.path.join(modules_dir, m)
+            if os.path.exists(m_path):
+                with open(m_path, 'rb') as mf:
+                    m_data = mf.read()
+                rec_map[f'lib/modules/{m}'] = {'name': f'lib/modules/{m}', 'data': m_data, 'mode': 0o100644}
+                rec_map[f'vendor/lib/modules/{m}'] = {'name': f'vendor/lib/modules/{m}', 'data': m_data, 'mode': 0o100644}
+                rec_map[f'system/lib/modules/{m}'] = {'name': f'system/lib/modules/{m}', 'data': m_data, 'mode': 0o100644}
+
+    if fstab_path:
+        with open(fstab_path, 'rb') as ff:
+            fstab_data = ff.read()
+        rec_map['first_stage_ramdisk/fstab.mt6895'] = {'name': 'first_stage_ramdisk/fstab.mt6895', 'data': fstab_data, 'mode': 0o100644}
+        rec_map['first_stage_ramdisk/fstab.emmc'] = {'name': 'first_stage_ramdisk/fstab.emmc', 'data': fstab_data, 'mode': 0o100644}
+        rec_map['first_stage_ramdisk/fstab.default'] = {'name': 'first_stage_ramdisk/fstab.default', 'data': fstab_data, 'mode': 0o100644}
+        print("  Injected multi-suffix fstabs and touch modules into Fragment 1")
+
+    uncompressed_rec = repack_cpio(list(rec_map.values()))
+    print(f"Repacked Fragment 1 CPIO total size: {len(uncompressed_rec)} bytes")
 
     # Build Header v4 parameters
     cmdline_str = cmdline.decode('utf-8', errors='ignore')
