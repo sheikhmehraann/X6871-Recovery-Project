@@ -15,10 +15,7 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit_only.mk)
 # Configure emulated_storage.mk
 $(call inherit-product, $(SRC_TARGET_DIR)/product/emulated_storage.mk)
 
-# Configure virtual A/B
-$(call inherit-product, $(SRC_TARGET_DIR)/product/virtual_ab_ota/launch_with_vendor_ramdisk.mk)
-$(call inherit-product, $(SRC_TARGET_DIR)/product/virtual_ab_ota/compression.mk)
-
+# Configure virtual A/B (omit launch_with_vendor_ramdisk to prevent pulling snapuserd/libgflags in recovery)
 ENABLE_VIRTUAL_AB := true
 AB_OTA_UPDATER := true
 

@@ -7,7 +7,7 @@ $(call inherit-product, device/infinix/X6871/device.mk)
 $(call inherit-product, device/infinix/X6871/fox.mk)
 
 PRODUCT_NAME := fox_X6871
-PRODUCT_DEVICE := Infinix-X6871
+PRODUCT_DEVICE := X6871
 PRODUCT_BRAND := Infinix
 PRODUCT_MODEL := Infinix GT 20 Pro
 PRODUCT_MANUFACTURER := INFINIX
