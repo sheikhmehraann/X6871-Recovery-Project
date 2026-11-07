@@ -11,17 +11,15 @@ PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/omni_X6871.mk
 
 COMMON_LUNCH_CHOICES := \
-    twrp_X6871-trunk_staging-eng \
-    twrp_X6871-ap2a-eng \
     twrp_X6871-eng \
-    fox_X6871-trunk_staging-eng \
-    fox_X6871-ap2a-eng \
+    twrp_X6871-userdebug \
     fox_X6871-eng \
-    pb_X6871-trunk_staging-eng \
-    pb_X6871-ap2a-eng \
+    fox_X6871-userdebug \
     pb_X6871-eng \
+    pb_X6871-userdebug \
     shrp_X6871-eng \
-    yarp_X6871-trunk_staging-eng \
-    yarp_X6871-ap2a-eng \
+    shrp_X6871-userdebug \
     yarp_X6871-eng \
-    omni_X6871-eng
+    yarp_X6871-userdebug \
+    omni_X6871-eng \
+    omni_X6871-userdebug
