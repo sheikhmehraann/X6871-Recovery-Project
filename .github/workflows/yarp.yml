@@ -19,14 +19,6 @@ on:
         options:
           - 'eng'
           - 'userdebug'
-      tree_mode:
-        description: 'Device Tree Mode'
-        required: true
-        default: 'standalone'
-        type: choice
-        options:
-          - 'standalone'
-          - 'unified'
       clean_build:
         description: 'Clean CCACHE and output'
         required: false
@@ -116,16 +108,9 @@ jobs:
         run: |
           cd $HOME/yarp_workspace
           mkdir -p device/infinix device/transsion
-          TREE_MODE="${{ github.event.inputs.tree_mode || 'standalone' }}"
-          if [ "$TREE_MODE" = "standalone" ] && [ -d "$GITHUB_WORKSPACE/trees/yarp" ]; then
-            echo "Deploying standalone YARP device tree..."
-            cp -r "$GITHUB_WORKSPACE/trees/yarp" device/infinix/X6871
-                        cp -r "$GITHUB_WORKSPACE/trees/common" device/transsion/mt6895-common
-          else
-            echo "Deploying unified device tree..."
-            cp -r "$GITHUB_WORKSPACE/device/infinix/Infinix-X6871" device/infinix/X6871
-                        cp -r "$GITHUB_WORKSPACE/device/transsion/mt6895-common" device/transsion/mt6895-common
-          fi
+          echo "Deploying unified Android 16 device tree..."
+          cp -r "$GITHUB_WORKSPACE/device/infinix/X6871" device/infinix/X6871
+          cp -r "$GITHUB_WORKSPACE/device/transsion/mt6895-common" device/transsion/mt6895-common
 
           if [ -d "system/sepolicy" ]; then
             echo "Purging hal_hwcrypto from sepolicy and file_contexts..."
@@ -229,4 +214,5 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 

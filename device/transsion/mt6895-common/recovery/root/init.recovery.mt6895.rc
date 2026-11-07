@@ -2,7 +2,7 @@ import /init.tee.rc
 import /init.device.rc
 
 on early-init
-    wait /dev/block/platform/soc/112b0000.ufshci
+    wait /dev/block/platform/soc/112b0000.ufshci 1
     symlink /dev/block/platform/soc/112b0000.ufshci /dev/block/bootdevice
     symlink /dev/block/platform/soc/112b0000.ufshci/by-name /dev/block/bootdevice/by-name
     symlink /dev/block/platform/soc/112b0000.ufshci/by-name /dev/block/by-name
@@ -25,23 +25,26 @@ on init
     # Exact Stock Device Identity (Infinix GT 20 Pro - X6871)
     setprop ro.product.model "Infinix X6871"
     setprop ro.product.marketname "Infinix GT 20 Pro"
-    setprop ro.product.device "X6871"
-    setprop ro.product.name "X6871-OP"
+    setprop ro.product.device "Infinix-X6871"
+    setprop ro.product.name "X6871-IN"
     setprop ro.product.brand "Infinix"
     setprop ro.product.manufacturer "INFINIX"
-    setprop ro.product.board "mt6895"
-    setprop ro.board.platform "MediaTek Dimensity 8200 Ultimate (MT6895)"
-    setprop ro.build.product "X6871"
-    setprop ro.twrp.target.devices "X6871,Infinix-X6871,Infinix_X6871,X6871-OP"
+    setprop ro.product.board "Infinix-X6871"
+    setprop ro.board.platform "mt6895"
+    setprop ro.build.product "Infinix-X6871"
+    setprop ro.build.display.id "X6871-16.3.0.155SP22(IN009PF001AZ)"
+    setprop ro.build.fingerprint "Infinix/X6871-IN/Infinix-X6871:16/BP2A.250605.031.A3/301550059:user/release-keys"
+    setprop ro.product.build.fingerprint "Infinix/X6871-IN/Infinix-X6871:16/BP2A.250605.031.A3/301550059:user/release-keys"
+    setprop ro.twrp.target.devices "Infinix-X6871,X6871,X6871-IN,X6871-OP,Infinix_X6871"
 
     # Hardware blockdevice symlinks
-    wait /dev/block/platform/soc/112b0000.ufshci
+    wait /dev/block/platform/soc/112b0000.ufshci 1
     symlink /dev/block/platform/soc/112b0000.ufshci /dev/block/bootdevice
     symlink /dev/block/platform/soc/112b0000.ufshci/by-name /dev/block/bootdevice/by-name
     symlink /dev/block/platform/soc/112b0000.ufshci/by-name /dev/block/by-name
 
     # Mount /metadata for vold metadata encryption key (Android 16 GKI)
-    wait /dev/block/by-name/metadata
+    wait /dev/block/by-name/metadata 1
     mount ext4 /dev/block/by-name/metadata /metadata noatime nosuid nodev discard
     mkdir /metadata/vold 0700 root root
     mkdir /metadata/vold/metadata_encryption 0700 root root
@@ -51,7 +54,7 @@ on init
     symlink /metadata/recovery /cache
 
     # Mount /mnt/vendor/persist for Trustonic TEE (mobicore mcRegistry)
-    wait /dev/block/by-name/persist
+    wait /dev/block/by-name/persist 1
     mkdir /mnt/vendor/persist 0771 system system
     mount ext4 /dev/block/by-name/persist /mnt/vendor/persist noatime nosuid nodev
     chown system system /mnt/vendor/persist
@@ -65,27 +68,6 @@ on init
     # Install session keyring for dm-default-key
     install_keyring
 
-    # Hardware drivers for touch & flashlight
-    insmod /lib/modules/spi-mt65xx.ko
-    insmod /lib/modules/tui-common.ko
-    insmod /lib/modules/adaptive-ts.ko
-    insmod /lib/modules/gt9916_common.ko
-    insmod /lib/modules/focaltech_ft3683g.ko
-    insmod /lib/modules/gt9896s.ko
-    insmod /lib/modules/mtk_mdpm.ko
-    insmod /lib/modules/mtk_dynamic_loading_throttling.ko
-    insmod /lib/modules/mtk_pbm.ko
-    insmod /lib/modules/flashlight.ko
-    insmod /lib/modules/ocp81375_v4l2.ko
-    insmod /lib/modules/sgm37864_v4l2.ko
-
-    # Flashlight bridge for OrangeFox GUI (real rear camera torch)
-    mkdir /flashlight 0777 root root
-    exec_background /system/bin/sh -c "rm -f /flashlight/brightness && mkfifo /flashlight/brightness && chmod 0666 /flashlight/brightness"
-    write /flashlight/max_brightness 1
-    chmod 0777 /flashlight
-    chmod 0666 /flashlight/max_brightness
-
     # Haptics & Vibration (MT6368 regulator-vibrator)
     chmod 0666 /sys/class/leds/vibrator/duration
     chmod 0666 /sys/class/leds/vibrator/activate
@@ -96,33 +78,6 @@ on init
     chmod 0666 /dev/mobicore
     chmod 0666 /dev/mobicore-user
     chmod 0666 /dev/teeperf
-
-on property:persist.vendor.mtk.pl_lnk=1
-    symlink /dev/block/mapper/pl_a /dev/block/by-name/preloader_raw_a
-    symlink /dev/block/mapper/pl_b /dev/block/by-name/preloader_raw_b
-    symlink /dev/block/mapper/pl_a /dev/block/platform/bootdevice/by-name/preloader_raw_a
-    symlink /dev/block/mapper/pl_b /dev/block/platform/bootdevice/by-name/preloader_raw_b
-
-    symlink /dev/block/by-name/lk1 /dev/block/by-name/bootloader1
-    symlink /dev/block/by-name/lk2 /dev/block/by-name/bootloader2
-
-on property:vendor.mtk.boot0_linka=1
-    symlink /dev/block/sda /dev/block/mmcblk0boot0
-
-on property:vendor.mtk.boot0_linkb=1
-    symlink /dev/block/sdb /dev/block/mmcblk0boot0
-
-on property:vendor.mtk.boot0_linkc=1
-    symlink /dev/block/sdc /dev/block/mmcblk0boot0
-
-on property:vendor.mtk.boot1_linka=1
-    symlink /dev/block/sda /dev/block/mmcblk0boot1
-
-on property:vendor.mtk.boot1_linkb=1
-    symlink /dev/block/sdb /dev/block/mmcblk0boot1
-
-on property:vendor.mtk.boot1_linkc=1
-    symlink /dev/block/sdc /dev/block/mmcblk0boot1
 
 # Sequential Trustonic TEE bringup
 on property:ro.crypto.state=encrypted && property:ro.boot.dynamic_partitions=true
@@ -139,7 +94,6 @@ on property:servicemanager.ready=true
     mkdir /tmp/misc/keystore 0777 root root
     start mobicore
     start keystore2
-    start fox_flashlight_bridge
 
 on boot
     setprop sys.usb.config adb
@@ -147,8 +101,8 @@ on boot
     mkdir /tmp/misc/keystore 0777 root root
     start mobicore
     start keystore2
-    start fox_flashlight_bridge
     write /sys/fs/selinux/enforce 0
+    exec u:r:update_engine:s0 root root -- /system/bin/mtk_plpath_utils
 
 # Gatekeeper service (Trustonic)
 service vendor.gatekeeper-default /vendor/bin/hw/android.hardware.gatekeeper-service.trustonic
@@ -169,13 +123,6 @@ service vendor.keymint-trustonic /vendor/bin/hw/android.hardware.security.keymin
     group system
     disabled
     seclabel u:r:recovery:s0
-
-# Flashlight FIFO bridge service
-service fox_flashlight_bridge /system/bin/sh /system/bin/fox_flashlight_bridge.sh
-    user root
-    group root
-    seclabel u:r:recovery:s0
-    oneshot
 
 # MediaTek AIDL BootControl HAL
 service vendor.boot-default /system/bin/hw/android.hardware.boot-service.mtk

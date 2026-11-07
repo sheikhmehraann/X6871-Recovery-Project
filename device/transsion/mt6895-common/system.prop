@@ -1,11 +1,11 @@
 # Device Identity (Stock Infinix GT 20 Pro X6871)
 ro.product.model=Infinix X6871
-ro.product.name=X6871-OP
+ro.product.name=X6871-IN
 ro.product.brand=Infinix
 ro.product.manufacturer=INFINIX
 ro.product.device=Infinix-X6871
-ro.build.product=X6871
-ro.product.board=mt6895
+ro.build.product=Infinix-X6871
+ro.product.board=Infinix-X6871
 ro.product.marketname=Infinix GT 20 Pro
 ro.orangefox.device_model=Infinix GT 20 Pro
 ro.board.platform=mt6895
@@ -13,10 +13,11 @@ ro.hardware=mt6895
 ro.hardware.chipname=MT6895
 ro.soc.manufacturer=MediaTek
 ro.soc.model=Dimensity 8200 Ultimate
-ro.build.fingerprint=Infinix/X6871-OP/Infinix-X6871:16/BP2A.250605.031.A3/301550057:user/release-keys
-ro.product.build.fingerprint=Infinix/X6871-OP/Infinix-X6871:16/BP2A.250605.031.A3/301550057:user/release-keys
-ro.product.tran.version.release=X6871-16.3.0.155SP20(OP008PF001AZ)
-ro.twrp.target.devices=X6871,Infinix-X6871,Infinix_X6871,X6871-OP
+ro.build.display.id=X6871-16.3.0.155SP22(IN009PF001AZ)
+ro.build.fingerprint=Infinix/X6871-IN/Infinix-X6871:16/BP2A.250605.031.A3/301550059:user/release-keys
+ro.product.build.fingerprint=Infinix/X6871-IN/Infinix-X6871:16/BP2A.250605.031.A3/301550059:user/release-keys
+ro.product.tran.version.release=X6871-16.3.0.155SP22(IN009PF001AZ)
+ro.twrp.target.devices=Infinix-X6871,X6871,X6871-IN,X6871-OP,Infinix_X6871
 
 
 # OS & Platform

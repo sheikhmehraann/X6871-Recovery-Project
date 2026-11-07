@@ -2,57 +2,32 @@ on early-init
     mkdir /flashlight 0777 root root
 
 on init
-    # Flashlight hardware bridge for OrangeFox GUI
+    # Flashlight hardware node permissions
     mkdir /flashlight 0777 root root
-    symlink /sys/class/torch/torch/torch_level /flashlight/brightness
     chmod 0777 /flashlight
-    chmod 0666 /flashlight/brightness
     chmod 0666 /sys/class/torch/torch/torch_level
     chmod 0666 /sys/class/sub_torch/sub_torch/sub_torch_level
     chmod 0666 /sys/devices/virtual/torch/torch/torch_level
     chmod 0666 /sys/devices/virtual/flashlight_core/flashlight/flashlight_torch
 
-    # Enforce permissive SELinux
+    # Permissive SELinux
     write /sys/fs/selinux/enforce 0
 
-on post-fs-data
-    mkdir /flashlight 0777 root root
-    rm /flashlight/brightness
-    symlink /sys/class/torch/torch/torch_level /flashlight/brightness
-    chmod 0777 /flashlight
-    chmod 0666 /flashlight/brightness
-    chmod 0666 /sys/class/torch/torch/torch_level
-    chmod 0666 /sys/class/sub_torch/sub_torch/sub_torch_level
-
 on boot
-    # Refresh flashlight bridge once drivers probe
-    mkdir /flashlight 0777 root root
-    rm /flashlight/brightness
-    symlink /sys/class/torch/torch/torch_level /flashlight/brightness
-    chmod 0777 /flashlight
-    chmod 0666 /flashlight/brightness
-    chmod 0666 /sys/class/torch/torch/torch_level
-    chmod 0666 /sys/class/sub_torch/sub_torch/sub_torch_level
-    chmod 0666 /sys/devices/virtual/torch/torch/torch_level
+    # Input event node permissions
+    chmod 0666 /dev/input
+    chmod 0666 /dev/input/event0
+    chmod 0666 /dev/input/event1
+    chmod 0666 /dev/input/event2
+    chmod 0666 /dev/input/event3
+    chmod 0666 /dev/input/event4
+    chmod 0666 /dev/input/event5
 
-    # Infinix GT 20 Pro (X6871) AW8697 Linear Haptics
-    insmod /lib/modules/richtap_haptic_hv.ko
-    rm /sys/class/leds/vibrator
-    symlink /sys/class/leds/vibrator_single /sys/class/leds/vibrator
-    chmod 0666 /sys/class/leds/vibrator_single/activate
-    chmod 0666 /sys/class/leds/vibrator_single/duration
-    chmod 0666 /sys/class/leds/vibrator_single/state
-    chmod 0666 /sys/class/leds/vibrator_single/vibr_level
-    chmod 0666 /sys/class/leds/vibrator_single/brightness
-    chmod 0666 /sys/class/leds/vibrator_single/gain
-    chmod 0666 /sys/class/leds/vibrator_single/index
-    chmod 0666 /sys/class/leds/vibrator_single/vmax
-    chmod 0666 /sys/class/leds/vibrator/activate
-    chmod 0666 /sys/class/leds/vibrator/duration
-    chmod 0666 /sys/class/leds/vibrator/state
+    # Hardware Vibrator (MT6368 Regulator-Vibrator)
     chmod 0666 /sys/class/leds/vibrator/brightness
+    chmod 0666 /sys/devices/platform/soc/soc:regulator-vibrator/leds/vibrator/brightness
 
-    # Thermal zone node permissions (MT6895 soc_max)
+    # Thermal zone node permissions
     chmod 0666 /sys/class/thermal/thermal_zone0/temp
     chmod 0666 /sys/class/thermal/thermal_zone1/temp
     chmod 0666 /sys/class/thermal/thermal_zone46/temp

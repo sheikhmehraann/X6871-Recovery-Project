@@ -1,0 +1,37 @@
+on early-init
+    mkdir /flashlight 0777 root root
+
+on init
+    # Flashlight hardware node permissions
+    mkdir /flashlight 0777 root root
+    chmod 0777 /flashlight
+    chmod 0666 /sys/class/torch/torch/torch_level
+    chmod 0666 /sys/class/sub_torch/sub_torch/sub_torch_level
+    chmod 0666 /sys/devices/virtual/torch/torch/torch_level
+    chmod 0666 /sys/devices/virtual/flashlight_core/flashlight/flashlight_torch
+
+    # Permissive SELinux
+    write /sys/fs/selinux/enforce 0
+
+on boot
+    # Input event node permissions
+    chmod 0666 /dev/input
+    chmod 0666 /dev/input/event0
+    chmod 0666 /dev/input/event1
+    chmod 0666 /dev/input/event2
+    chmod 0666 /dev/input/event3
+    chmod 0666 /dev/input/event4
+    chmod 0666 /dev/input/event5
+
+    # Hardware Vibrator (MT6368 Regulator-Vibrator)
+    chmod 0666 /sys/class/leds/vibrator/brightness
+    chmod 0666 /sys/devices/platform/soc/soc:regulator-vibrator/leds/vibrator/brightness
+
+    # Thermal zone node permissions
+    chmod 0666 /sys/class/thermal/thermal_zone0/temp
+    chmod 0666 /sys/class/thermal/thermal_zone1/temp
+    chmod 0666 /sys/class/thermal/thermal_zone46/temp
+    chmod 0666 /sys/devices/virtual/thermal/thermal_zone0/temp
+
+    # Ensure SELinux remains permissive
+    write /sys/fs/selinux/enforce 0
