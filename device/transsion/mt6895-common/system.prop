@@ -13,9 +13,6 @@ ro.hardware=mt6895
 ro.hardware.chipname=MT6895
 ro.soc.manufacturer=MediaTek
 ro.soc.model=Dimensity 8200 Ultimate
-ro.build.display.id=X6871-16.3.0.155SP22(IN009PF001AZ)
-ro.build.fingerprint=Infinix/X6871-IN/Infinix-X6871:16/BP2A.250605.031.A3/301550059:user/release-keys
-ro.product.build.fingerprint=Infinix/X6871-IN/Infinix-X6871:16/BP2A.250605.031.A3/301550059:user/release-keys
 ro.product.tran.version.release=X6871-16.3.0.155SP22(IN009PF001AZ)
 ro.twrp.target.devices=Infinix-X6871,X6871,X6871-IN,X6871-OP,Infinix_X6871
 
